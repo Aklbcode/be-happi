@@ -18,13 +18,31 @@ const TUILES: { titre: string; sous: string; icone: NomIcone; href?: string; pha
 ];
 
 export function Ecole() {
-  const { ds, demo } = useStore();
+  const { ds, demo, peutVoirValidations } = useStore();
+  const enAttente = ds ? ds.deplacements.filter((d) => d.statut === 'En attente').length : 0;
   return (
     <section className="ecran" aria-label="École">
       <header className="rangee rangee--entre">
         <h1 className="titre-xl">École</h1>
         {demo && <span className="puce puce--demo">Démo</span>}
       </header>
+
+      {peutVoirValidations && (
+        <a className="carte" href={lien('validations')} style={{ flexDirection: 'row', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+          <span className="vignette" style={{ position: 'relative' }}>
+            <Icon nom="echange" />
+            {enAttente > 0 && <span className="pastille">{enAttente}</span>}
+          </span>
+          <span className="pile grandit">
+            <span className="titre-s">Validations</span>
+            <span className="petit">
+              {enAttente ? `${enAttente} déplacement${enAttente > 1 ? 's' : ''} à valider` : 'Rien à valider'}
+              {demo ? ' · essaie le rôle éducateur' : ''}
+            </span>
+          </span>
+          <Icon nom="droite" />
+        </a>
+      )}
 
       <div className="tuiles">
         {TUILES.map((t) =>

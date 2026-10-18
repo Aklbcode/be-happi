@@ -10,6 +10,7 @@ import { etatLocal } from '../logic/occupation';
 import { JOURS, MIDI, RECRES, conge, dateLongue, estJourDeCours, jourSemaineIso, periode, prochainJourDeCours, situation, iso } from '../lib/calendar';
 import { blagueDuJour } from '../data/blagues';
 import { lien } from '../lib/route';
+import { moment, suiviDuProf } from '../logic/suivi';
 
 type Ligne =
   | { type: 'cours'; h: number; c: CoursJour; style: string; droite: string }
@@ -17,7 +18,7 @@ type Ligne =
   | { type: 'pause'; libelle: string };
 
 export function Aujourdhui() {
-  const { ds, demo, maintenant, aujourdhui, minutes, heureFinie, reserver, montrerToast } = useStore();
+  const { ds, demo, maintenant, aujourdhui, minutes, heureFinie, reserver, montrerToast, peutValider } = useStore();
   const [remedOuverte, setRemedOuverte] = useState(false);
   const [suggestionCachee, setSuggestionCachee] = useState(false);
   const [lus, setLus] = useState<Record<number, boolean>>({});
@@ -79,13 +80,14 @@ export function Aujourdhui() {
 
     const prochainJour = prochainJourDeCours(maintenant, false);
     const premierDemain = coursDuProf(ds, moi, iso(prochainJour))[0];
-    const propositions = ds.deplacements.filter((d) => d.prof === moi && d.statut === 'En attente' && d.date >= aujourdhui);
+    const suivi = suiviDuProf(ds, moi, aujourdhui);
+    const aValider = ds.deplacements.filter((d) => d.statut === 'En attente').length;
     const infos = ds.infos.filter((i) => i.date === aujourdhui);
-    return { moi, jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, propositions, infos };
+    return { moi, jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos };
   }, [ds, maintenant, aujourdhui, minutes, heureFinie]);
 
   if (!ds || !calc) return <section className="ecran"><p className="texte">Chargement…</p></section>;
-  const { jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, propositions, infos } = calc;
+  const { jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos } = calc;
   const initiales = `${ds.moi.prenom.charAt(0)}${ds.moi.nom.charAt(0)}`.toUpperCase();
 
   async function prendre(cl: string, localPrevu: string) {
@@ -175,6 +177,20 @@ export function Aujourdhui() {
 
       {carte}
 
+      {peutValider && aValider > 0 && (
+        <a className="carte" href={lien('validations')} style={{ flexDirection: 'row', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+          <span className="vignette" style={{ position: 'relative' }}>
+            <Icon nom="echange" />
+            <span className="pastille">{aValider}</span>
+          </span>
+          <span className="pile grandit">
+            <span className="titre-s">{aValider > 1 ? `${aValider} déplacements à valider` : 'Un déplacement à valider'}</span>
+            <span className="petit">Revérifiés en direct : prof, classes, local</span>
+          </span>
+          <Icon nom="droite" />
+        </a>
+      )}
+
       {meilleure && !suggestionCachee && (
         <section className="carte" aria-label="Suggestion de déplacement">
           <div className="rangee">
@@ -212,15 +228,25 @@ export function Aujourdhui() {
         </section>
       )}
 
-      {propositions.length > 0 && (
-        <section className="carte" aria-label="Mes propositions">
-          <h2 className="titre-s">Tes propositions en attente</h2>
-          {propositions.map((d, i) => (
-            <div key={d.id ?? i} className="rangee">
-              <span className="puce puce--orange">En attente</span>
-              <span className="texte">
-                {d.classe} · {JOURS[jourSemaineIso(d.dateOrigine)]} H{d.hOrigine} → {JOURS[jourSemaineIso(d.date)]} H{d.hVide}
+      {suivi.length > 0 && (
+        <section className="carte" aria-label="Tes propositions">
+          <h2 className="titre-s">Tes propositions</h2>
+          {suivi.map((x, i) => (
+            <div key={i} className="suivi">
+              <div className="rangee rangee--entre">
+                <span className={`puce ${x.statut === 'Validé' ? 'puce--indigo' : x.statut === 'Refusé' ? 'puce--rose' : 'puce--orange'}`}>{x.statut}</span>
+                {x.quand && <span className="petit">{moment(x.quand)}</span>}
+              </div>
+              <span className="texte" style={{ color: 'var(--encre)' }}>
+                <strong className="fort">{x.classe}</strong> · {x.trajet}
+                {x.local ? ` · local ${x.local}` : ''}
               </span>
+              {x.statut === 'En attente' && <span className="petit">L'éducateur la voit dans Be Happi et dans Power Apps.</span>}
+              {x.commentaire && (
+                <span className="texte">
+                  « {x.commentaire} »{x.par ? ` · ${x.par}` : ''}
+                </span>
+              )}
             </div>
           ))}
         </section>
@@ -313,7 +339,7 @@ export function Aujourdhui() {
               <span className="titre-s">Cours prévu : {c.matiere || 'cours'}</span>
               <span className="petit">{nomAffiche(c.prof)} est absent·e · local {c.local}</span>
             </div>
-            <button className="bouton bouton--prim bouton--petit" onClick={() => void prendre(c.classes[0], c.local)}>
+            <button className="bouton bouton--prim bouton--petit" onClick={() => void prendre(c.classe, c.local)}>
               Je la prends
             </button>
           </div>

@@ -74,7 +74,7 @@ export function Connexion() {
           {diag && (
             <div className="pile pile--8">
               {(() => {
-                const aRegler = diag.filter((d) => !d.trouvee || d.manquantes.length > 0).length;
+                const aRegler = diag.filter((d) => (!d.trouvee && !d.facultative) || (d.trouvee && d.manquantes.length > 0)).length;
                 return (
                   <p className="texte fort">
                     {aRegler === 0 ? '✔ Toutes les listes et colonnes attendues sont là.' : `${aRegler} liste(s) à régler.`}
@@ -83,12 +83,14 @@ export function Connexion() {
               })()}
               {diag.map((d) => {
                 const ok = d.trouvee && d.manquantes.length === 0;
+                const facultativeAbsente = !d.trouvee && d.facultative;
                 return (
                   <div key={d.liste} className="carte carte--grise" style={{ padding: 12, gap: 6 }}>
                     <span className="titre-s">
-                      {ok ? '✔' : '✖'} {d.liste}
+                      {ok ? '✔' : facultativeAbsente ? 'ⓘ' : '✖'} {d.liste}
                     </span>
-                    {!d.trouvee && <span className="petit">Liste introuvable sur ce site</span>}
+                    {facultativeAbsente && <span className="petit">Facultative, pas encore créée : elle garde le journal des décisions et le motif des refus (voir README).</span>}
+                    {!d.trouvee && !d.facultative && <span className="petit">Liste introuvable sur ce site</span>}
                     {d.manquantes.map((m) => (
                       <span key={m.attendu} className="petit" style={{ color: 'var(--rose-encre)' }}>
                         Colonne manquante : <span className="mono">{m.attendu}</span>

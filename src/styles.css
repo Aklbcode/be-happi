@@ -27,6 +27,7 @@
   --sarcelle: #0e7490;
   --rose: #e11d48;
   --rose-encre: #be123c;
+  --rose-pale: #ffe4e8;
   --nuit: #0f1630;
   --nuit-texte-2: #c9d0e6;
   --nuit-texte-3: #aeb8d6;
@@ -67,6 +68,7 @@
     --sarcelle: #4fc3dc;
     --rose: #fb7185;
     --rose-encre: #fda4af;
+    --rose-pale: #3b1621;
     --nuit: #1e2647;
     --passe: #1c2338;
     --passe-encre: #9aa5c3;
@@ -102,6 +104,7 @@
   --sarcelle: #4fc3dc;
   --rose: #fb7185;
   --rose-encre: #fda4af;
+  --rose-pale: #3b1621;
   --nuit: #1e2647;
   --passe: #1c2338;
   --passe-encre: #9aa5c3;
@@ -132,6 +135,8 @@
   --orange-encre: #00ffff;
   --orange-pale: #000000;
   --orange-pale-2: #000000;
+  --rose-encre: #ff8fab;
+  --rose-pale: #000000;
   --nuit: #000000;
   --passe: #000000;
   --passe-encre: #ffffff;
@@ -206,6 +211,9 @@ a { color: var(--indigo-encre); }
 .puce--grise { background: var(--trait-2); color: var(--encre-2); }
 .puce--nuit { background: var(--nuit); color: #fff; }
 .puce--demo { background: transparent; border: 1px dashed var(--orange-encre); color: var(--orange-encre); }
+.puce--rose { background: var(--rose-pale); color: var(--rose-encre); }
+.puce--ok { height: 28px; font-size: 12px; background: var(--indigo-pale-2); color: var(--indigo-encre); border: 1px solid var(--indigo-pale); }
+.puce--ko { height: 28px; font-size: 12px; background: var(--rose-pale); color: var(--rose-encre); border: 1px solid var(--rose); }
 .point { width: 8px; height: 8px; border-radius: 4px; background: var(--indigo); flex: none; }
 .point--vivant { background: #8f93ff; animation: pouls 2s infinite; }
 @keyframes pouls { 0% { box-shadow: 0 0 0 0 rgba(143, 147, 255, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(143, 147, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(143, 147, 255, 0); } }
@@ -304,6 +312,7 @@ a { color: var(--indigo-encre); }
 @keyframes apparait { from { opacity: 0; } to { opacity: 1; } }
 .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 100px); transform: translateX(-50%); z-index: 60; background: var(--nuit); color: #fff; padding: 12px 16px; border-radius: 14px; box-shadow: var(--ombre); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); animation: monte 0.2s ease; }
 
+.toast[role='status'] { pointer-events: none; }
 .option { display: flex; gap: 12px; padding: 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--trait); text-align: left; width: 100%; color: inherit; }
 .option[aria-checked='true'] { background: var(--indigo-pale-2); border: 2px solid var(--indigo); padding: 13px; }
 .radio { width: 22px; height: 22px; flex: none; border-radius: 11px; border: 2px solid var(--indigo-moyen); margin-top: 1px; display: flex; align-items: center; justify-content: center; }
@@ -315,6 +324,17 @@ a { color: var(--indigo-encre); }
 .etapes li { display: flex; gap: 12px; align-items: flex-start; }
 .num { width: 28px; height: 28px; flex: none; border-radius: 14px; background: var(--indigo-pale); color: var(--indigo-encre); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .num--fait { background: var(--indigo); color: var(--sur-indigo); }
+
+/* ---------- Validations ---------- */
+.controles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.controles li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.4; color: var(--encre-2); }
+.controles li svg { flex: none; margin-top: 2px; color: var(--indigo); }
+.controles li.controle--ko { color: var(--rose-encre); }
+.controles li.controle--ko svg { color: var(--rose-encre); }
+.champ { width: 100%; min-height: 84px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--trait); background: var(--surface); color: var(--encre); font-size: 15px; line-height: 1.4; resize: vertical; }
+.champ:focus-visible { outline: 3px solid var(--indigo); outline-offset: 1px; }
+.suivi { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--trait-2); }
+.suivi:first-of-type { border-top: none; padding-top: 0; }
 
 /* ---------- Barre d'onglets flottante ---------- */
 .onglets { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); z-index: 30; width: min(560px, calc(100vw - 20px)); height: 70px; background: var(--surface); border: 1px solid var(--trait); border-radius: 24px; box-shadow: var(--ombre); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; padding: 0 4px; }

@@ -37,7 +37,7 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
       const retenue = sel;
       await proposer({ absent: sel.absent, date: sel.date, hVide: sel.h, classe: sel.classe, hOrigine: sel.hO, dateOrigine: sel.dateO });
       setFaite(retenue);
-      montrerToast(demo ? 'Proposé (démo : rien n’est envoyé)' : 'Proposé ! L’éducateur reçoit la demande.');
+      montrerToast(demo ? 'Proposé ! (démo) Va la valider : École → Validations' : 'Proposé ! L’éducateur la voit dans Be Happi et Power Apps.');
     } catch (e) {
       montrerToast(`Impossible d'enregistrer : ${e instanceof Error ? e.message : e}`);
     } finally {
@@ -46,10 +46,14 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
   }
 
   const etapes = [
-    { t: 'Tu proposes', d: 'Maintenant, en un geste.', fait: envoye },
-    { t: 'L’éducateur valide', d: 'Il reçoit la demande dans Teams : valider ou refuser.', fait: false },
-    { t: 'Tout le monde est prévenu', d: `Les élèves de ${sel?.classe ?? 'la classe'} et les collègues concernés reçoivent la mise à jour.`, fait: false },
-    { t: `Le local ${sel?.local ?? ''} est pour toi`, d: 'Ton horaire et celui de la classe se mettent à jour tout seuls.', fait: false },
+    { t: 'Tu proposes', d: 'Maintenant, en un geste. Prof, classes et local sont vérifiés.', fait: envoye },
+    { t: 'L’éducateur valide ou refuse', d: 'Il voit ta demande dans Be Happi et dans Power Apps ; tout est revérifié avant sa décision.', fait: false },
+    { t: 'Tu vois sa réponse', d: 'Sur l’écran Aujourd’hui, avec son mot en cas de refus.', fait: false },
+    {
+      t: `Le local ${sel?.local ?? ''} est pour toi`,
+      d: `Ton horaire et celui de ${sel && sel.classes.length > 1 ? 'tes classes' : 'la classe'} se mettent à jour ; le secrétariat publie le changement pour les élèves.`,
+      fait: false,
+    },
   ];
 
   return (
@@ -104,6 +108,17 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
                   {o.meilleur && <span className="puce puce--indigo">Le plus avantageux</span>}
                   {o.semaineSuivante && <span className="puce" style={{ background: 'var(--sarcelle)', color: '#fff' }}>S+1</span>}
                 </span>
+                <span className="rangee enrouler" style={{ gap: 6 }}>
+                  {o.controles
+                    .filter((c) => c.cle === 'prof' || c.cle === 'classes' || c.cle === 'local')
+                    .map((c) => (
+                      <span key={c.cle} className="puce puce--ok" title={c.detail}>
+                        <Icon nom="coche" taille={14} epaisseur={2.4} />
+                        {c.libelle}
+                        {c.cle === 'local' && o.localChange ? ` (${o.localPrevu} pris)` : ''}
+                      </span>
+                    ))}
+                </span>
                 {o.avantages.map((a) => (
                   <span key={a} className="avantage">
                     <Icon nom={a.startsWith('Attention') ? 'attention' : 'coche'} taille={16} epaisseur={2.2} />
@@ -143,7 +158,7 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
                 </span>
                 <span className="pile grandit">
                   <span className="titre-s">Proposé !</span>
-                  <span className="petit">L’éducateur reçoit la demande dans Teams.</span>
+                  <span className="petit">{demo ? 'Démo : valide-la toi-même dans École → Validations.' : 'L’éducateur la voit dans Be Happi et Power Apps.'}</span>
                 </span>
                 <a className="bouton bouton--pale bouton--petit" href={lien('aujourdhui')}>OK</a>
               </div>

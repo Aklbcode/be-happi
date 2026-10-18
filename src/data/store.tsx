@@ -124,7 +124,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const proposer = useCallback(
     async (d: Omit<Deplacement, 'prof' | 'statut'>) => {
       if (!ds) return;
-      const complet: Deplacement = { ...d, prof: ds.moi.nom, statut: 'En attente', creeLe: new Date().toISOString() };
+      // En démo, l'heure affichée suit le lundi simulé.
+      const complet: Deplacement = { ...d, prof: ds.moi.nom, statut: 'En attente', creeLe: (demo ? maintenant : new Date()).toISOString() };
       if (!demo) {
         const sp = await import('./sharepoint');
         complet.id = await sp.enregistrerDeplacement(complet);
@@ -133,7 +134,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setDs((x) => (x ? { ...x, deplacements: [...x.deplacements, complet] } : x));
     },
-    [demo, ds],
+    [demo, ds, maintenant],
   );
 
   const minutes = minutesDe(maintenant);
@@ -172,7 +173,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         hOrigine: actuel.hOrigine,
         ...(localChange ? { local: localChange } : {}),
         par,
-        le: new Date().toISOString(),
+        le: (demo ? maintenant : new Date()).toISOString(),
       };
       const titulaire = localChange ? titulaireDe(base, localChange, actuel.date, actuel.hVide) : undefined;
       const resa: Reservation | undefined = localChange
@@ -200,7 +201,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await charger();
       return { journalOk, local: localChange };
     },
-    [demo, ds, aujourdhui, heurePassee, charger],
+    [demo, ds, maintenant, aujourdhui, heurePassee, charger],
   );
 
   const peutValider = demo ? roleDemo === 'educateur' : peutValiderAvec(ds?.moi.roles);

@@ -343,6 +343,10 @@ export function Horaire() {
                     {o.meilleur && <span className="puce puce--indigo">Le plus avantageux</span>}
                     {o.semaineSuivante && !o.meilleur && <span className="puce" style={{ background: 'var(--sarcelle)', color: '#fff' }}>S+1</span>}
                   </span>
+                  <span className="petit">
+                    Local {o.local}
+                    {o.localChange ? ` (${o.localPrevu} pris)` : ''} · prof, classes et local vérifiés
+                  </span>
                   {o.avantages.slice(0, 2).map((a) => (
                     <span key={a} className="avantage">
                       <Icon nom={a.startsWith('Attention') ? 'attention' : 'coche'} taille={16} epaisseur={2.2} />

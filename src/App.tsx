@@ -11,6 +11,7 @@ import { Locaux } from './screens/Locaux';
 import { Ecole } from './screens/Ecole';
 import { Happi } from './screens/Happi';
 import { Connexion } from './screens/Connexion';
+import { Validations } from './screens/Validations';
 
 function Coquille() {
   const route = useRoute();
@@ -30,6 +31,7 @@ function Coquille() {
     case 'ecole': ecran = <Ecole />; break;
     case 'happi': ecran = <Happi />; break;
     case 'connexion': ecran = <Connexion />; break;
+    case 'validations': ecran = <Validations />; break;
     default: ecran = <Aujourdhui />;
   }
 

@@ -12,7 +12,7 @@ const ONGLETS: { ecran: Ecran; libelle: string; icone: NomIcone; centre?: boolea
 ];
 
 export function Onglets({ actif }: { actif: Ecran }) {
-  const courant: Ecran = actif === 'deplacer' ? 'horaire' : actif === 'connexion' ? 'ecole' : actif;
+  const courant: Ecran = actif === 'deplacer' ? 'horaire' : actif === 'connexion' || actif === 'validations' ? 'ecole' : actif;
   return (
     <nav className="onglets" aria-label="Navigation principale">
       {ONGLETS.map((o) => (

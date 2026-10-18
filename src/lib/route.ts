@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-export type Ecran = 'aujourdhui' | 'horaire' | 'happi' | 'locaux' | 'ecole' | 'deplacer' | 'connexion';
-const ECRANS: Ecran[] = ['aujourdhui', 'horaire', 'happi', 'locaux', 'ecole', 'deplacer', 'connexion'];
+export type Ecran = 'aujourdhui' | 'horaire' | 'happi' | 'locaux' | 'ecole' | 'deplacer' | 'connexion' | 'validations';
+const ECRANS: Ecran[] = ['aujourdhui', 'horaire', 'happi', 'locaux', 'ecole', 'deplacer', 'connexion', 'validations'];
 
 export interface Route {
   ecran: Ecran;
