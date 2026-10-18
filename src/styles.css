@@ -28,10 +28,6 @@
   --rose: #e11d48;
   --rose-encre: #be123c;
   --rose-pale: #ffe4e8;
-  --herbe: #dcefd8;
-  --herbe-trait: #b5d8ad;
-  --route: #e1e5ee;
-  --sol: #eef1f6;
   --nuit: #0f1630;
   --nuit-texte-2: #c9d0e6;
   --nuit-texte-3: #aeb8d6;
@@ -73,10 +69,6 @@
     --rose: #fb7185;
     --rose-encre: #fda4af;
     --rose-pale: #3b1621;
-    --herbe: #183222;
-    --herbe-trait: #285a3a;
-    --route: #262f49;
-    --sol: #10162a;
     --nuit: #1e2647;
     --passe: #1c2338;
     --passe-encre: #9aa5c3;
@@ -113,10 +105,6 @@
   --rose: #fb7185;
   --rose-encre: #fda4af;
   --rose-pale: #3b1621;
-  --herbe: #183222;
-  --herbe-trait: #285a3a;
-  --route: #262f49;
-  --sol: #10162a;
   --nuit: #1e2647;
   --passe: #1c2338;
   --passe-encre: #9aa5c3;
@@ -149,10 +137,6 @@
   --orange-pale-2: #000000;
   --rose-encre: #ff8fab;
   --rose-pale: #000000;
-  --herbe: #000000;
-  --herbe-trait: #ffffff;
-  --route: #3a3a3a;
-  --sol: #000000;
   --nuit: #000000;
   --passe: #000000;
   --passe-encre: #ffffff;
@@ -319,48 +303,24 @@ a { color: var(--indigo-encre); }
 .salle--attenue { opacity: 0.3; }
 .salle[aria-pressed='true'] { outline: 3px solid var(--encre); outline-offset: 2px; }
 
-/* ---------- Plan du site (Locaux) ---------- */
-.plan { display: block; width: 100%; height: auto; border-radius: 16px; background: var(--sol); touch-action: manipulation; }
-.plan-rue { fill: none; stroke: var(--route); stroke-width: 14; stroke-linecap: round; }
-.plan-rue--large { stroke-width: 20; }
-.plan-nom-rue { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; fill: var(--discret); }
-.plan-herbe { fill: var(--herbe); stroke: var(--herbe-trait); stroke-width: 1; }
-.plan-ligne { stroke: var(--surface); stroke-width: 1.5; fill: none; opacity: 0.9; }
-.plan-legende { font-size: 10px; font-weight: 700; fill: var(--discret); }
-.plan-groupe { cursor: pointer; outline: none; }
-.plan-zone { fill: transparent; }
-.plan-bat { fill: var(--surface); stroke: var(--encre-2); stroke-width: 1.5; stroke-linejoin: round; transition: fill 0.15s ease; }
-.plan-bat--plein { fill: var(--passe); stroke: var(--trait); }
-.plan-bat--choisi { fill: var(--indigo); stroke: var(--indigo); }
-.plan-tour { fill: var(--nuit); stroke: var(--encre-2); stroke-width: 1.5; transition: fill 0.15s ease; }
-.plan-tour--choisi { fill: var(--indigo); stroke: var(--indigo); }
-.plan-fenetres { fill: none; stroke: #ffffff; stroke-width: 3; stroke-dasharray: 1.4 2.4; opacity: 0.55; pointer-events: none; }
-.plan-groupe:focus-visible .plan-tour { stroke: var(--indigo); stroke-width: 3.5; }
-.plan-groupe:focus-visible .plan-bat { stroke: var(--indigo); stroke-width: 3.5; }
-.plan-groupe[aria-pressed='true']:focus-visible .plan-bat { stroke: var(--encre); }
-.plan-sigle { font-family: var(--police-titre); font-weight: 800; font-size: 15px; fill: var(--encre); pointer-events: none; }
-.plan-sigle--choisi { fill: var(--sur-indigo); }
-.plan-groupe:not([aria-pressed='true']) .plan-sigle--choisi { fill: #ffffff; }
-.plan-sigle--petit { font-size: 13px; }
-.plan-pastille { fill: var(--indigo-pale); stroke: var(--indigo-moyen); stroke-width: 1; }
-.plan-pastille--zero { fill: var(--trait-2); stroke: var(--trait); }
-.plan-pastille-txt { font-size: 12px; font-weight: 700; fill: var(--indigo-encre); pointer-events: none; }
-.plan-pastille-txt--zero { fill: var(--discret); }
-.plan-nord { fill: var(--encre-2); }
-.choix-bat { display: flex; flex-wrap: wrap; gap: 6px; }
-
-/* ---------- Façade du bâtiment choisi ---------- */
-.facade { display: flex; flex-direction: column; border: 2px solid var(--encre-2); border-radius: 14px 14px 4px 4px; overflow: hidden; background: var(--surface); }
-.facade--pr { border-style: dashed; border-radius: 10px; }
-.facade--autres { border: none; background: transparent; }
-.facade-toit { height: 8px; background: repeating-linear-gradient(90deg, var(--encre-2) 0 10px, transparent 10px 14px); opacity: 0.25; }
-.niveau { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: stretch; border-top: 1px solid var(--trait); }
-.niveau:first-of-type { border-top: none; }
-.niveau-nom { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--discret); background: var(--surface-2); border-right: 1px solid var(--trait-2); text-align: center; line-height: 1.1; padding: 0 2px; }
-.niveau .bloc-salles { border: none; border-radius: 0; padding: 6px; }
-.facade--autres .niveau { grid-template-columns: minmax(0, 1fr); border: none; }
-.facade--autres .bloc-salles { padding: 0; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
-.sol-ligne { height: 6px; margin: 0 -10px; border-radius: 3px; background: var(--trait); }
+/* ---------- Locaux libres (une seule page, rangée comme le terrain) ---------- */
+.carte--serree { padding: 12px; gap: 10px; }
+.bande { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 14px; background: var(--surface-2); }
+.bande-tete { font-size: 13px; color: var(--discret); }
+.bande-tete b { font-family: var(--police-titre); font-weight: 800; font-size: 16px; color: var(--encre); margin-right: 4px; }
+.campus { display: grid; grid-template-columns: 26px repeat(3, minmax(0, 1fr)); gap: 4px; }
+.campus-tete { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 2px; border-radius: 12px; background: var(--surface-2); text-align: center; line-height: 1.15; }
+.campus-tete b { display: inline-flex; align-items: center; gap: 3px; font-family: var(--police-titre); font-weight: 800; font-size: 18px; }
+.campus-tete small { font-size: 11px; color: var(--discret); }
+.campus-etage { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--discret); }
+.campus-case { display: flex; min-height: 44px; padding: 3px; border-radius: 12px; border: 1px solid var(--trait-2); }
+.salles-libres { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 3px; align-content: start; }
+.bande .salles-libres { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); }
+.bande .salles-libres--large { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+.libre { height: 34px; padding: 0 2px; border-radius: 9px; border: 1px solid var(--indigo-moyen); background: var(--indigo-pale); color: var(--indigo-encre); font-family: var(--police-mono); font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.salles-libres--large .libre { height: auto; min-height: 34px; padding: 6px 8px; font-family: var(--police); font-size: 13px; white-space: normal; line-height: 1.2; }
+.libre:active { transform: scale(0.97); }
+.aucun { margin: auto; color: var(--discret); font-size: 14px; }
 
 /* ---------- Feuille du bas, voile, message ---------- */
 .voile { position: fixed; inset: 0; background: rgba(15, 22, 48, 0.45); z-index: 40; animation: apparait 0.15s ease; }

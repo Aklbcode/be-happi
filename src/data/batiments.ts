@@ -1,5 +1,6 @@
-// Les bâtiments de l'IPES Tubize, tels que les profs les nomment.
-// Seulement des repères de lieu (pas de données personnelles).
+// Les bâtiments de l'IPES Tubize, tels que les profs les nomment, avec un repère pour s'y retrouver :
+// BC côté rue Papleux (ouest), BF au milieu (à côté du BT), BT (la tour) côté chaussée de Mons,
+// PR (préfabriqués) le long des terrains de sport (nord). Pas de données personnelles.
 
 export type CodeBatiment = 'T' | 'F' | 'C' | 'PR' | 'Autres';
 
@@ -14,10 +15,10 @@ export interface Batiment {
 }
 
 export const BATIMENTS: Batiment[] = [
-  { code: 'T', sigle: 'BT', nom: 'La Tour', repere: 'côté chaussée de Mons', etages: [2, 1, 0] },
-  { code: 'F', sigle: 'BF', nom: 'Le grand bâtiment', repere: 'au milieu, à côté du BT', etages: [2, 1, 0] },
-  { code: 'C', sigle: 'BC', nom: 'Côté rue Papleux', repere: 'le long de la rue Papleux', etages: [2, 1, 0] },
-  { code: 'PR', sigle: 'PR', nom: 'Les préfabriqués', repere: 'de plain-pied, le long des terrains de sport', etages: [0] },
+  { code: 'T', sigle: 'BT', nom: 'La Tour', repere: 'la tour, côté chaussée de Mons', etages: [2, 1, 0] },
+  { code: 'F', sigle: 'BF', nom: 'Le grand bâtiment', repere: 'le grand bâtiment du milieu', etages: [2, 1, 0] },
+  { code: 'C', sigle: 'BC', nom: 'Côté rue Papleux', repere: 'côté rue Papleux', etages: [2, 1, 0] },
+  { code: 'PR', sigle: 'PR', nom: 'Les préfabriqués', repere: 'préfabriqués, le long des terrains', etages: [0] },
   { code: 'Autres', sigle: '+', nom: 'Sport, atelier, cuisines', repere: 'hors des quatre bâtiments', etages: [-1] },
 ];
 
