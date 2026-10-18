@@ -12,6 +12,7 @@ import { coursDuProf } from '../logic/horaire';
 import { JOURS_COURTS, PERIODES, deIso, estJourDeCours, iso, jourSemaineIso, periode, prochainJourDeCours, situation } from '../lib/calendar';
 import type { Local } from '../data/types';
 import { batiment, nomEtage, type CodeBatiment } from '../data/batiments';
+import { MiniPlan } from '../ui/MiniPlan';
 
 /** D'ouest en est, comme sur le terrain. */
 const COLONNES: CodeBatiment[] = ['C', 'F', 'T'];
@@ -122,10 +123,14 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
       <section className="carte carte--serree" aria-label="Locaux libres">
         <div className="rangee rangee--entre">
-          <h2 className="titre-m">{libres.length > 1 ? `${libres.length} locaux libres` : libres.length === 1 ? '1 local libre' : 'Aucun local libre'}</h2>
-          <span className="petit fort">
-            H{h} · {periode(h).debut} – {periode(h).fin}
-          </span>
+          <div className="pile">
+            <h2 className="titre-m">{libres.length > 1 ? `${libres.length} locaux libres` : libres.length === 1 ? '1 local libre' : 'Aucun local libre'}</h2>
+            <span className="petit fort">
+              H{h} · {periode(h).debut} – {periode(h).fin}
+            </span>
+            <span className="petit">Comme sur le plan →</span>
+          </div>
+          <MiniPlan />
         </div>
 
         {/* Au nord, le long des terrains de sport. */}

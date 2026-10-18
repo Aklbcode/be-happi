@@ -28,6 +28,7 @@
   --rose: #e11d48;
   --rose-encre: #be123c;
   --rose-pale: #ffe4e8;
+  --herbe: #d6ecd2;
   --nuit: #0f1630;
   --nuit-texte-2: #c9d0e6;
   --nuit-texte-3: #aeb8d6;
@@ -69,6 +70,7 @@
     --rose: #fb7185;
     --rose-encre: #fda4af;
     --rose-pale: #3b1621;
+    --herbe: #1c3a27;
     --nuit: #1e2647;
     --passe: #1c2338;
     --passe-encre: #9aa5c3;
@@ -105,6 +107,7 @@
   --rose: #fb7185;
   --rose-encre: #fda4af;
   --rose-pale: #3b1621;
+  --herbe: #1c3a27;
   --nuit: #1e2647;
   --passe: #1c2338;
   --passe-encre: #9aa5c3;
@@ -137,6 +140,7 @@
   --orange-pale-2: #000000;
   --rose-encre: #ff8fab;
   --rose-pale: #000000;
+  --herbe: #000000;
   --nuit: #000000;
   --passe: #000000;
   --passe-encre: #ffffff;
@@ -321,6 +325,15 @@ a { color: var(--indigo-encre); }
 .salles-libres--large .libre { height: auto; min-height: 34px; padding: 6px 8px; font-family: var(--police); font-size: 13px; white-space: normal; line-height: 1.2; }
 .libre:active { transform: scale(0.97); }
 .aucun { margin: auto; color: var(--discret); font-size: 14px; }
+/* Mini-carte de l'école (en-tête de la carte « locaux libres ») */
+.mini-plan { flex: none; width: 116px; height: auto; display: block; }
+.mp-rue { fill: none; stroke: var(--trait); stroke-width: 16; stroke-linecap: round; }
+.mp-rue--large { stroke-width: 24; }
+.mp-herbe { fill: var(--herbe); stroke: var(--trait); stroke-width: 2; }
+.mp-bat { fill: var(--indigo-pale); stroke: var(--indigo-moyen); stroke-width: 4; stroke-linejoin: round; }
+.mp-tour { fill: var(--nuit); stroke: var(--encre-2); stroke-width: 3; }
+.mp-txt { font-family: var(--police-titre); font-weight: 800; font-size: 30px; fill: var(--indigo-encre); text-anchor: middle; dominant-baseline: central; }
+.mp-txt--tour { fill: #ffffff; font-size: 24px; }
 
 /* ---------- Feuille du bas, voile, message ---------- */
 .voile { position: fixed; inset: 0; background: rgba(15, 22, 48, 0.45); z-index: 40; animation: apparait 0.15s ease; }
