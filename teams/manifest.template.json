@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "{{VERSION}}",
+  "id": "{{ID}}",
+  "developer": {
+    "name": "IPES Tubize – Be Happi",
+    "websiteUrl": "{{URL}}",
+    "privacyUrl": "{{URL}}#/ecole",
+    "termsOfUseUrl": "{{URL}}#/ecole"
+  },
+  "name": {
+    "short": "Be Happi",
+    "full": "Be Happi – horaires, locaux et déplacements"
+  },
+  "description": {
+    "short": "Ton horaire, les locaux libres et les déplacements de cours.",
+    "full": "Be Happi lit les listes SharePoint de l'école (horaires, absences, réservations) et propose aux professeurs les déplacements de cours possibles quand un collègue est absent, les locaux libres en direct et les classes à prendre en remédiation au lieu de l'étude."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#3B3FD8",
+  "staticTabs": [
+    {
+      "entityId": "behappi-accueil",
+      "name": "Be Happi",
+      "contentUrl": "{{URL}}?inTeams=1",
+      "websiteUrl": "{{URL}}",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": ["identity"],
+  "validDomains": ["{{DOMAINE}}"]
+}

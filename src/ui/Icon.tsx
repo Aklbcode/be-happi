@@ -1,0 +1,42 @@
+// Icônes au trait (24 × 24), couleur héritée du texte.
+
+const P: Record<string, string[]> = {
+  soleil: ['M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z', 'M12 2v2', 'M12 20v2', 'M4.9 4.9l1.4 1.4', 'M17.7 17.7l1.4 1.4', 'M2 12h2', 'M20 12h2', 'M4.9 19.1l1.4-1.4', 'M17.7 6.3l1.4-1.4'],
+  calendrier: ['M6 4.5h12a3 3 0 0 1 3 3V18a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3z', 'M3 9.5h18', 'M8 2.5v4', 'M16 2.5v4', 'M7.5 13.5h2', 'M11 13.5h2', 'M14.5 13.5h2', 'M7.5 17h2', 'M11 17h2'],
+  etincelle: ['M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z', 'M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z'],
+  porte: ['M5 21V4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5V21', 'M3 21h18', 'M15 12h.01'],
+  grille: ['M5.5 3.5h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2z', 'M15.5 3.5h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2z', 'M5.5 13.5h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2z', 'M15.5 13.5h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2z'],
+  cloche: ['M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z', 'M10 20.5a2 2 0 0 0 4 0'],
+  echange: ['M7 7h11l-3-3', 'M17 17H6l3 3'],
+  coche: ['M5 12.5l4.5 4.5L19 7'],
+  gauche: ['M15 5l-7 7 7 7'],
+  droite: ['M9 5l7 7-7 7'],
+  horloge: ['M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z', 'M12 7v5l3 2'],
+  livre: ['M3 5.5c3-1 6-1 9 1 3-2 6-2 9-1v13c-3-1-6-1-9 1-3-2-6-2-9-1z', 'M12 6.5v13'],
+  outil: ['M15 4.5a4.5 4.5 0 0 0-4.3 5.8L4.5 16.5a2.1 2.1 0 0 0 3 3l6.2-6.2A4.5 4.5 0 0 0 19.5 9l-2.7 2.7-2.6-.9-.9-2.6z'],
+  note: ['M14 3H7.5A1.5 1.5 0 0 0 6 4.5v15A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5V7z', 'M14 3v4h4', 'M9 12h6', 'M9 16h6'],
+  haut_parleur: ['M4 10v4h3l7 4V6L7 10z', 'M17.5 9.5a3.5 3.5 0 0 1 0 5'],
+  gens: ['M9 4.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 1 0 0-6.4z', 'M3.5 19a5.5 5.5 0 0 1 11 0', 'M16 5.2a3 3 0 0 1 0 5.6', 'M17.5 14.2a5 5 0 0 1 3 4.8'],
+  loupe: ['M11 4.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z', 'M20 20l-4.2-4.2'],
+  tablette: ['M7.5 2.5h9A2.5 2.5 0 0 1 19 5v14a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 19V5a2.5 2.5 0 0 1 2.5-2.5z', 'M11 18.5h2'],
+  projecteur: ['M5 8h14a2.5 2.5 0 0 1 2.5 2.5v4A2.5 2.5 0 0 1 19 17H5a2.5 2.5 0 0 1-2.5-2.5v-4A2.5 2.5 0 0 1 5 8z', 'M16 10.2a2.3 2.3 0 1 0 0 4.6a2.3 2.3 0 1 0 0-4.6z', 'M6 12.5h4'],
+  fermer: ['M6 6l12 12', 'M18 6L6 18'],
+  fleche: ['M5 12h14', 'M13 6l6 6-6 6'],
+  attention: ['M12 3.5L2.5 20h19z', 'M12 10v4.5', 'M12 17.5v.01'],
+  recharger: ['M20 12a8 8 0 1 1-2.3-5.6', 'M20 4v5h-5'],
+  lien: ['M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1', 'M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'],
+  message: ['M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-5 4z'],
+  oeil: ['M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z', 'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z'],
+};
+
+export type NomIcone = keyof typeof P;
+
+export function Icon({ nom, taille = 20, epaisseur = 1.8, className }: { nom: NomIcone; taille?: number; epaisseur?: number; className?: string }) {
+  return (
+    <svg aria-hidden="true" width={taille} height={taille} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={epaisseur} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {P[nom].map((d, i) => (
+        <path key={i} d={d} />
+      ))}
+    </svg>
+  );
+}
