@@ -17,7 +17,7 @@ En démo, l'écran **École → Validations** permet de jouer l'éducateur : pro
 
 ### Règles des déplacements
 
-- Seul un prof qui a la même classe et qui est libre peut avancer un de ses cours dans l'heure libérée. Un **cours groupé** (« 5GA, 5GD ») ne peut venir que si **toutes** ses classes sont libérées par le même collègue absent.
+- Seul un prof qui a la même classe et qui est libre peut avancer un de ses cours dans l'heure libérée. Comme dans Power Apps, les classes doivent être **exactement** celles du cours libéré : un cours groupé « 5GA, 5GD » va dans une heure libérée « 5GA, 5GD », pas dans une heure de la 5GA seule, et inversement (sinon « Publier pour les élèves » annoncerait le cours à une classe qui reste à l'étude).
 - Classement : l'avantage du prof d'abord (arriver plus tard, partir plus tôt), puis la classe ; pénalité si sa journée s'allonge (ou s'il n'avait pas cours ce jour-là).
 - D'abord la semaine ; la semaine suivante seulement s'il n'y a rien dans la semaine. H5 (temps de midi) n'est jamais une cible.
 - Les mêmes contrôles servent aux suggestions et à la validation : heure à venir, hors H5, collègue toujours absent, prof libre (cours, absence, réservation), classes libres, cours de départ toujours là, local disponible. Si le local de l'heure libérée est pris (réservation, panne, autre déplacement), un autre local libre est choisi et réservé à la validation.

@@ -1,7 +1,8 @@
 // Déplacements de cours quand un collègue est absent.
 // Règle : seul un prof qui a la MÊME classe et qui est LIBRE à ce moment-là peut avancer (ou reculer)
-// un de ses cours dans l'heure libérée. Pour un cours groupé (« 5GA, 5GD »), TOUTES ses classes
-// doivent être libérées par le même collègue absent. Priorité : l'avantage pour le prof (arriver plus
+// un de ses cours dans l'heure libérée. Comme dans Power Apps, les classes doivent être exactement
+// celles du cours libéré (« 5GA, 5GD » ↔ « 5GA, 5GD ») : sinon « Publier pour les élèves » (Power Apps)
+// annoncerait le cours à une classe qui reste à l'étude. Priorité : l'avantage pour le prof (arriver plus
 // tard, partir plus tôt), puis pour la classe ; pénalité si sa journée s'allonge. On cherche d'abord
 // dans la semaine ; la semaine suivante n'est proposée que s'il n'y a rien dans la semaine.
 // H5 (temps de midi) n'est jamais une cible.
@@ -12,7 +13,7 @@
 
 import type { Dataset, Deplacement } from '../data/types';
 import { JOURS, MIDI, deIso, dureeTxt, jourSemaineIso, periode, plusJoursIso } from '../lib/calendar';
-import { absentA, classeOccupee, classesDe, coursDuProf, coursSansProf, heuresDeLaClasse, nomAffiche, seCroisent, type CoursJour } from './horaire';
+import { absentA, classeOccupee, classesDe, coursDuProf, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent, type CoursJour } from './horaire';
 import { etatLocal } from './occupation';
 
 export interface Controle {
@@ -108,7 +109,7 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
   const midi = d.hVide === MIDI;
   controles.push({ cle: 'midi', ok: !midi, libelle: 'Hors temps de midi', detail: midi ? 'H5 est le temps de midi : jamais une cible.' : undefined });
 
-  const libere = ds.cours.find((c) => c.prof === d.absent && c.jour === jour && c.h === d.hVide && classes.every((cl) => c.classes.includes(cl)));
+  const libere = ds.cours.find((c) => c.prof === d.absent && c.jour === jour && c.h === d.hVide && memesClasses(classes, c.classes));
   const toujoursAbsent = absentA(ds, d.absent, d.date, d.hVide);
   controles.push({
     cle: 'absent',
@@ -117,7 +118,7 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
     detail: !toujoursAbsent
       ? `${absent} n’est plus noté·e absent·e en H${d.hVide}.`
       : !libere
-        ? `${absent} n’a pas ${liste(classes)} en H${d.hVide}.`
+        ? `En H${d.hVide}, ${absent} n’a pas exactement ${liste(classes)}.`
         : undefined,
   });
 
@@ -227,8 +228,9 @@ export function optionsPour(ds: Dataset, moi: string, date: string, h: number, a
 
   const vacants = coursSansProf(ds, date, h).filter((c) => c.prof !== moi);
   if (!vacants.length) return [];
-  // Le cours libéré qui peut accueillir le mien : toutes mes classes y sont libérées, par le même collègue.
-  const accueil = (c: CoursJour) => vacants.find((v) => c.classes.length > 0 && c.classes.every((cl) => v.classes.includes(cl)));
+  // Le cours libéré qui peut accueillir le mien : exactement les mêmes classes, aucune déjà récupérée.
+  const complet = (v: { id: string; classes: string[] }) => ds.cours.find((x) => x.id === v.id)?.classes.length === v.classes.length;
+  const accueil = (c: CoursJour) => vacants.find((v) => complet(v) && memesClasses(c.classes, v.classes));
 
   const dejaPropose = (d: string, hh: number) =>
     ds.deplacements.some((x) => x.prof === moi && x.statut !== 'Refusé' && x.dateOrigine === d && x.hOrigine === hh);

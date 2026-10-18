@@ -24,6 +24,10 @@ export const classesReservation = (r: Reservation): string[] => classesDe(r.clas
 
 export const seCroisent = (a: string[], b: string[]): boolean => a.some((x) => b.includes(x));
 
+/** Mêmes classes, dans n'importe quel ordre (« 5GA, 5GD » = « 5GD,5GA »). */
+export const memesClasses = (a: string[], b: string[]): boolean =>
+  a.length > 0 && a.length === b.length && a.every((x) => b.includes(x));
+
 /** Même déplacement (même cours de départ, même heure libérée, même prof). */
 export const memeDeplacement = (a: Deplacement, b: Deplacement): boolean =>
   (!!a.id && a.id === b.id) ||

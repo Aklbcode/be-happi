@@ -100,7 +100,7 @@ test('avancer son dernier cours le jour même raccourcit la journée : pas de p�
   assert.ok(!o.avantages.some((a) => a.startsWith('Attention')));
 });
 
-test('cours groupé : proposé seulement si toutes ses classes sont libérées, et le déplacement les emporte toutes', () => {
+test('cours groupé : mêmes classes que le cours libéré (comme Power Apps), et le déplacement les emporte toutes', () => {
   const groupe = c('MOI', 3, 4, '5A, 5B', 'BF202');
   const seulement5A = donnees({ cours: [...BASE, groupe, c('Y', 1, 7, '5A', 'BC106'), c('Z', 1, 7, '5B', 'BC107')], absences: [{ prof: 'Y', date: LUNDI, deH: 7, aH: 7 }] });
   assert.equal(optionsPour(seulement5A, 'MOI', LUNDI, 7, LUNDI, 0).length, 0, '5B a cours avec Z : pas de place');
@@ -110,6 +110,14 @@ test('cours groupé : proposé seulement si toutes ses classes sont libérées, 
   assert.ok(o);
   assert.equal(o.classe, '5A, 5B');
   assert.deepEqual(o.classes, ['5A', '5B']);
+
+  // Comme Power Apps : un cours d'une seule classe ne prend pas l'heure d'un cours groupé
+  // (« Publier pour les élèves » l'annoncerait aussi à l'autre classe, qui reste à l'étude).
+  const seul5A = donnees({ cours: [...BASE, c('MOI', 3, 5, '5A', 'BF202'), c('Y', 1, 7, '5A, 5B', 'BC106')], absences: [{ prof: 'Y', date: LUNDI, deH: 7, aH: 7 }] });
+  assert.equal(optionsPour(seul5A, 'MOI', LUNDI, 7, LUNDI, 0).length, 0);
+  // L'ordre des classes ne compte pas.
+  const ordre = donnees({ cours: [...BASE, groupe, c('Y', 1, 7, '5B,5A', 'BC106')], absences: [{ prof: 'Y', date: LUNDI, deH: 7, aH: 7 }] });
+  assert.equal(optionsPour(ordre, 'MOI', LUNDI, 7, LUNDI, 0).length, 1);
 
   const dep: Deplacement = { absent: 'Y', date: LUNDI, hVide: 7, classe: o.classe, prof: 'MOI', hOrigine: 4, dateOrigine: j(2), statut: 'Validé' };
   const apres = { ...lesDeux, deplacements: [dep] };
