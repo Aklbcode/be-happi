@@ -5,8 +5,9 @@ import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { config, sharepointConfigure } from '../config';
 import { lien } from '../lib/route';
+import type { DiagListe } from '../data/sharepoint';
 
-type Diag = { liste: string; trouvee: boolean; nb: number; colonnes: string[] }[];
+type Diag = DiagListe[];
 
 export function Connexion() {
   const { ds, demo, chargement, erreur, recharger } = useStore();
@@ -72,15 +73,35 @@ export function Connexion() {
           {diagErreur && <p className="texte" style={{ color: 'var(--rose-encre)' }}>{diagErreur}</p>}
           {diag && (
             <div className="pile pile--8">
-              {diag.map((d) => (
-                <div key={d.liste} className="carte carte--grise" style={{ padding: 12, gap: 6 }}>
-                  <span className="titre-s">
-                    {d.trouvee ? '✔' : '✖'} {d.liste}
-                  </span>
-                  <span className="petit mono" style={{ wordBreak: 'break-word' }}>{d.trouvee ? d.colonnes.join(' · ') : 'Liste introuvable'}</span>
-                </div>
-              ))}
-              <p className="petit">Fais une capture de cet écran et envoie-la : les noms de colonnes servent à régler l'app.</p>
+              {(() => {
+                const aRegler = diag.filter((d) => !d.trouvee || d.manquantes.length > 0).length;
+                return (
+                  <p className="texte fort">
+                    {aRegler === 0 ? '✔ Toutes les listes et colonnes attendues sont là.' : `${aRegler} liste(s) à régler.`}
+                  </p>
+                );
+              })()}
+              {diag.map((d) => {
+                const ok = d.trouvee && d.manquantes.length === 0;
+                return (
+                  <div key={d.liste} className="carte carte--grise" style={{ padding: 12, gap: 6 }}>
+                    <span className="titre-s">
+                      {ok ? '✔' : '✖'} {d.liste}
+                    </span>
+                    {!d.trouvee && <span className="petit">Liste introuvable sur ce site</span>}
+                    {d.manquantes.map((m) => (
+                      <span key={m.attendu} className="petit" style={{ color: 'var(--rose-encre)' }}>
+                        Colonne manquante : <span className="mono">{m.attendu}</span>
+                        {m.piste ? <> · nom interne trouvé : <span className="mono">{m.piste}</span></> : null}
+                      </span>
+                    ))}
+                    {d.trouvee && (
+                      <span className="petit mono" style={{ wordBreak: 'break-word' }}>{d.colonnes.join(' · ')}</span>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="petit">S'il y a des ✖, fais une capture de cet écran et envoie-la : l'app sera réglée en quelques minutes.</p>
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Dataset, Deplacement, Reservation } from './types';
 import { datasetDemo, momentDemo } from './demo';
 import { sharepointConfigure } from '../config';
-import { dernierePeriodeFinie, iso, minutesDe } from '../lib/calendar';
+import { dernierePeriodeFinie, iso, jourSemaineIso, minutesDe } from '../lib/calendar';
 
 declare const __DEMO_FORCEE__: boolean;
 
@@ -91,7 +91,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const reserver = useCallback(
     async (r: Omit<Reservation, 'prof'>) => {
       if (!ds) return;
-      const complete: Reservation = { ...r, prof: ds.moi.nom };
+      const j = jourSemaineIso(r.date);
+      const titulaire = ds.cours.find((c) => c.jour === j && c.h === r.h && c.local === r.local)?.prof;
+      const complete: Reservation = { ...r, prof: ds.moi.nom, ...(titulaire ? { absent: titulaire } : {}) };
       if (!demo) {
         const sp = await import('./sharepoint');
         complete.id = await sp.enregistrerReservation(complete);

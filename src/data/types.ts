@@ -28,6 +28,7 @@ export interface Reservation {
   local: string;
   classe: string;
   note?: string;
+  absent?: string;     // prof qui a normalement ce local à cette heure (colonne Absent)
 }
 
 /** Un déplacement : un prof avance (ou recule) un de ses cours dans l'heure libérée par un collègue absent. */

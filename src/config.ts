@@ -11,7 +11,7 @@ export const config = {
   /** Chemin du site, ex. "/sites/BeHappi". */
   sitePath: '',
 
-  /** Noms affichés des listes SharePoint. */
+  /** Noms affichés des listes SharePoint (les mêmes que l'app Power Apps). */
   listes: {
     horaires: 'Horaires',
     profs: 'Profs',
@@ -20,20 +20,34 @@ export const config = {
     deplacements: 'Deplacements',
     infos: 'Infos',
     signalements: 'Signalements',
+    // Pas encore utilisées par Be Happi, mais vérifiées par l'écran Connexion.
+    roles: 'Roles',
+    materiel: 'Materiel',
+    changements: 'Changements',
   },
 
-  /** Noms internes des colonnes (à ajuster grâce à l'écran Connexion si besoin). */
+  /**
+   * Noms INTERNES des colonnes, ceux que voit Microsoft Graph.
+   * Attention : la colonne que Power Apps appelle « Titre » (SharePoint en français)
+   * s'appelle toujours « Title » pour Graph.
+   * Repris des formules Power Apps v3 ; l'écran École → Connexion → « Vérifier les listes »
+   * signale toute colonne manquante.
+   */
   champs: {
     horaires: { prof: 'Title', jour: 'JourNum', heure: 'Heure', classes: 'Classes', local: 'Local', matiere: 'Matiere' },
-    profs: { nom: 'Title', mail: 'Mail', prenom: 'Prenom' },
-    absences: { prof: 'Titre', date: 'DateAbs', deH: 'DeH', aH: 'AH' },
-    reservations: { prof: 'Titre', date: 'DateRes', heure: 'Heure', local: 'Local', classe: 'Classe' },
+    profs: { nom: 'Title', mail: 'Email' },
+    absences: { prof: 'Title', date: 'DateAbs', deH: 'DeH', aH: 'AH' },
+    reservations: { prof: 'Title', date: 'DateRes', heure: 'Heure', local: 'Local', classe: 'Classe', absent: 'Absent' },
     deplacements: {
-      absent: 'Titre', date: 'DateDep', hVide: 'HeureVide', classe: 'Classe', prof: 'Collegue',
+      absent: 'Title', date: 'DateDep', hVide: 'HeureVide', classe: 'Classe', prof: 'Collegue',
       hOrigine: 'HeureOrigine', dateOrigine: 'DateOrigine', statut: 'Statut',
     },
-    infos: { date: 'DateInfo', categorie: 'Categorie', titre: 'Titre' },
-    signalements: { local: 'Local', titre: 'Title', date: 'Created', statut: 'Statut' },
+    infos: { date: 'DateInfo', categorie: 'Categorie', titre: 'Title' },
+    /** Pas de colonne Local : le local est écrit dans le texte du signalement (formulaire Power Apps). */
+    signalements: { titre: 'Title', date: 'Created', statut: 'Statut', urgence: 'Urgence' },
+    roles: { mail: 'Title', role: 'Role' },
+    materiel: { prof: 'Title', date: 'DateRes', heure: 'Heure', rack: 'Rack', classe: 'Classe' },
+    changements: { prof: 'Title', date: 'DateChg', heure: 'Heure', classe: 'Classe', type: 'TypeChg' },
   },
 };
 

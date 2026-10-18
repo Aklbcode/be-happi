@@ -68,7 +68,33 @@ async function itemsDe(nomListe: string): Promise<Item[]> {
   return tout(`/sites/${s}/lists/${id}/items?$expand=fields&$top=999`);
 }
 
-const txt = (v: unknown): string => (v == null ? '' : String(v)).trim();
+/**
+ * Noms qui désignent la même colonne selon la langue du site ou l'outil qui l'a créée.
+ * Ex. Power Apps affiche « Titre » mais Graph renvoie « Title ».
+ */
+const ALIAS: Record<string, string[]> = {
+  Title: ['Titre'],
+  Titre: ['Title'],
+  Email: ['Mail', 'E_x002d_mail', 'Courriel'],
+  Mail: ['Email', 'E_x002d_mail', 'Courriel'],
+};
+
+/** Lit une colonne, en essayant ses autres noms connus si elle est absente. */
+function val(f: Champs, nom: string): unknown {
+  if (f[nom] != null) return f[nom];
+  for (const a of ALIAS[nom] ?? []) if (f[a] != null) return f[a];
+  return undefined;
+}
+
+const txt = (v: unknown): string => {
+  if (v == null) return '';
+  // Colonne Choix ou Personne renvoyée comme objet.
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    return String(o.Value ?? o.LookupValue ?? o.displayName ?? '').trim();
+  }
+  return String(v).trim();
+};
 const num = (v: unknown): number => Number(v ?? 0) || 0;
 /** Les dates SharePoint arrivent en UTC : on les ramène au jour local. */
 const jour = (v: unknown): string => (v ? iso(new Date(String(v))) : '');
@@ -90,66 +116,107 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
 
   const cours: Cours[] = hor.map((it) => {
     const f = it.fields;
-    const classe = txt(f[C.horaires.classes]);
+    const classe = txt(val(f, C.horaires.classes));
     return {
       id: it.id,
-      prof: txt(f[C.horaires.prof]),
-      jour: num(f[C.horaires.jour]),
-      h: num(f[C.horaires.heure]),
+      prof: txt(val(f, C.horaires.prof)),
+      jour: num(val(f, C.horaires.jour)),
+      h: num(val(f, C.horaires.heure)),
       classes: classe.split(',').map((x) => x.trim()).filter(Boolean),
       classe,
-      local: txt(f[C.horaires.local]),
-      matiere: txt(f[C.horaires.matiere]),
+      local: txt(val(f, C.horaires.local)),
+      matiere: txt(val(f, C.horaires.matiere)),
     };
   });
 
-  const fiche = profs.find((p) => txt(p.fields[C.profs.mail]).toLowerCase() === email.toLowerCase());
-  const nom = fiche ? txt(fiche.fields[C.profs.nom]) : '';
+  const nom = reconnaitre(profs.map((p) => p.fields), email);
 
   const absences: Absence[] = abs.map((it) => ({
-    prof: txt(it.fields[C.absences.prof]),
-    date: jour(it.fields[C.absences.date]),
-    deH: num(it.fields[C.absences.deH]) || 1,
-    aH: num(it.fields[C.absences.aH]) || 9,
+    prof: txt(val(it.fields, C.absences.prof)),
+    date: jour(val(it.fields, C.absences.date)),
+    deH: num(val(it.fields, C.absences.deH)) || 1,
+    aH: num(val(it.fields, C.absences.aH)) || 9,
   }));
 
   const reservations: Reservation[] = res.map((it) => ({
     id: it.id,
-    prof: txt(it.fields[C.reservations.prof]),
-    date: jour(it.fields[C.reservations.date]),
-    h: num(it.fields[C.reservations.heure]),
-    local: txt(it.fields[C.reservations.local]),
-    classe: txt(it.fields[C.reservations.classe]),
+    prof: txt(val(it.fields, C.reservations.prof)),
+    date: jour(val(it.fields, C.reservations.date)),
+    h: num(val(it.fields, C.reservations.heure)),
+    local: txt(val(it.fields, C.reservations.local)),
+    classe: txt(val(it.fields, C.reservations.classe)),
   }));
 
   const deplacements: Deplacement[] = dep.map((it) => ({
     id: it.id,
-    absent: txt(it.fields[C.deplacements.absent]),
-    date: jour(it.fields[C.deplacements.date]),
-    hVide: num(it.fields[C.deplacements.hVide]),
-    classe: txt(it.fields[C.deplacements.classe]),
-    prof: txt(it.fields[C.deplacements.prof]),
-    hOrigine: num(it.fields[C.deplacements.hOrigine]),
-    dateOrigine: jour(it.fields[C.deplacements.dateOrigine]) || jour(it.fields[C.deplacements.date]),
-    statut: txt(it.fields[C.deplacements.statut]) || 'En attente',
+    absent: txt(val(it.fields, C.deplacements.absent)),
+    date: jour(val(it.fields, C.deplacements.date)),
+    hVide: num(val(it.fields, C.deplacements.hVide)),
+    classe: txt(val(it.fields, C.deplacements.classe)),
+    prof: txt(val(it.fields, C.deplacements.prof)),
+    hOrigine: num(val(it.fields, C.deplacements.hOrigine)),
+    dateOrigine: jour(val(it.fields, C.deplacements.dateOrigine)) || jour(val(it.fields, C.deplacements.date)),
+    statut: txt(val(it.fields, C.deplacements.statut)) || 'En attente',
   }));
 
   const infos: Info[] = inf.map((it) => ({
-    date: jour(it.fields[C.infos.date]),
-    categorie: txt(it.fields[C.infos.categorie]),
-    titre: txt(it.fields[C.infos.titre]),
+    date: jour(val(it.fields, C.infos.date)),
+    categorie: txt(val(it.fields, C.infos.categorie)),
+    titre: txt(val(it.fields, C.infos.titre)),
   }));
 
   const signalements: Signalement[] = sig
-    .filter((it) => !/fait|résolu|resolu/i.test(txt(it.fields[C.signalements.statut])))
-    .map((it) => ({
-      local: txt(it.fields[C.signalements.local]),
-      titre: txt(it.fields[C.signalements.titre]) || 'Signalement',
-      depuis: jour(it.fields[C.signalements.date]),
-      bloquant: /bloqu|urgent|indispo/i.test(txt(it.fields[C.signalements.statut])),
-    }));
+    .filter((it) => !/fait|résolu|resolu/i.test(txt(val(it.fields, C.signalements.statut))))
+    .map((it) => {
+      const titre = txt(val(it.fields, C.signalements.titre)) || 'Signalement';
+      const urgence = txt(val(it.fields, C.signalements.urgence));
+      return {
+        local: localDans(titre),
+        titre,
+        depuis: jour(val(it.fields, C.signalements.date)),
+        bloquant: /urgent|bloqu|indispo/i.test(`${urgence} ${txt(val(it.fields, C.signalements.statut))}`),
+      };
+    });
 
   return { moi: { nom, prenom, email }, cours, absences, reservations, deplacements, infos, locaux: LOCAUX, signalements };
+}
+
+const sansAccents = (s: string): string =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Retrouve le nom du prof (tel qu'il est écrit dans Horaires) à partir de son adresse e-mail.
+ * 1. La colonne e-mail de la liste Profs.
+ * 2. Sinon, comme l'app Power Apps : la partie après le premier point de l'adresse
+ *    (prenom.nom@… → nom) comparée au nom de la liste Profs, sans accents ni espaces,
+ *    et seulement si un seul prof correspond.
+ */
+export function reconnaitre(profs: Champs[], email: string): string {
+  const C = config.champs.profs;
+  const mail = email.toLowerCase();
+  const fiche = profs.find((p) => txt(val(p, C.mail)).toLowerCase() === mail);
+  if (fiche) return txt(val(fiche, C.nom));
+
+  const local = mail.split('@')[0] ?? '';
+  const point = local.indexOf('.');
+  if (point < 0) return '';
+  const cle = sansAccents(local.slice(point + 1));
+  if (!cle) return '';
+  const nomSeul = (t: string): string => (t.includes(' (') ? t.slice(0, t.indexOf(' (')) : t);
+  const trouves = profs.filter((p) => sansAccents(nomSeul(txt(val(p, C.nom)))) === cle);
+  return trouves.length === 1 ? txt(val(trouves[0], C.nom)) : '';
+}
+
+/** Le formulaire de signalement n'a pas de colonne Local : on cherche un code de local dans le texte. */
+export function localDans(texte: string): string {
+  const t = sansAccents(texte);
+  let meilleur = '';
+  for (const l of LOCAUX) {
+    const code = sansAccents(l.code);
+    // Le plus long code trouvé gagne (BF005A avant BF005).
+    if (code.length > meilleur.length && t.includes(code)) meilleur = l.code;
+  }
+  return meilleur;
 }
 
 async function creer(nomListe: string, fields: Champs): Promise<string> {
@@ -165,6 +232,8 @@ export async function enregistrerReservation(r: Reservation): Promise<string> {
   const C = config.champs.reservations;
   return creer(config.listes.reservations, {
     [C.prof]: r.prof, [C.date]: versUtcMidi(r.date), [C.heure]: r.h, [C.local]: r.local, [C.classe]: r.classe,
+    // Comme Power Apps : le prof qui a normalement ce local à cette heure.
+    ...(r.absent ? { [C.absent]: r.absent } : {}),
   });
 }
 
@@ -176,21 +245,42 @@ export async function enregistrerDeplacement(d: Deplacement): Promise<string> {
   });
 }
 
-/** Pour l'écran Connexion : les listes trouvées, leur nombre d'éléments et les colonnes du premier élément. */
-export async function diagnostic(): Promise<{ liste: string; trouvee: boolean; nb: number; colonnes: string[] }[]> {
+export interface DiagListe {
+  liste: string;
+  trouvee: boolean;
+  /** Colonnes de la liste (nom interne), sans les colonnes système. */
+  colonnes: string[];
+  /** Colonnes attendues par Be Happi mais absentes, avec une piste quand une colonne porte ce nom affiché. */
+  manquantes: { attendu: string; piste?: string }[];
+}
+
+const SYSTEME = new Set(['Created', 'Modified', 'Author', 'Editor', 'ID', 'Title']);
+
+/** Pour l'écran Connexion : chaque liste, ses colonnes et celles qui manquent à Be Happi. */
+export async function diagnostic(): Promise<DiagListe[]> {
   const ids = await listes();
   const s = await site();
-  const sortie = [];
-  for (const nom of Object.values(config.listes)) {
+  const sortie: DiagListe[] = [];
+  const champs = config.champs as Record<string, Record<string, string>>;
+  for (const [cle, nom] of Object.entries(config.listes)) {
     const id = ids[nom];
     if (!id) {
-      sortie.push({ liste: nom, trouvee: false, nb: 0, colonnes: [] });
+      sortie.push({ liste: nom, trouvee: false, colonnes: [], manquantes: [] });
       continue;
     }
-    const page = await appel(`/sites/${s}/lists/${id}/items?$expand=fields&$top=1`);
-    const premier = page.value?.[0]?.fields ?? {};
-    const colonnes = Object.keys(premier).filter((k) => !k.startsWith('@') && !/^(_|Edit|Link|Content|Attachments|Folder|Item|App|Compliance|odata)/.test(k));
-    sortie.push({ liste: nom, trouvee: true, nb: (page.value ?? []).length, colonnes });
+    const cols: { name: string; displayName: string; hidden?: boolean; readOnly?: boolean }[] =
+      await tout(`/sites/${s}/lists/${id}/columns?$select=name,displayName,hidden,readOnly`);
+    const noms = new Set(cols.map((c) => c.name));
+    const visibles = cols
+      .filter((c) => !c.hidden && (!c.readOnly || SYSTEME.has(c.name)) && !c.name.startsWith('_'))
+      .map((c) => c.name);
+    const manquantes: DiagListe['manquantes'] = [];
+    for (const attendu of Object.values(champs[cle] ?? {})) {
+      if (noms.has(attendu) || (ALIAS[attendu] ?? []).some((a) => noms.has(a))) continue;
+      const piste = cols.find((c) => sansAccents(c.displayName) === sansAccents(attendu));
+      manquantes.push({ attendu, piste: piste?.name });
+    }
+    sortie.push({ liste: nom, trouvee: true, colonnes: visibles, manquantes });
   }
   return sortie;
 }
