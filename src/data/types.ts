@@ -31,17 +31,43 @@ export interface Reservation {
   absent?: string;     // prof qui a normalement ce local à cette heure (colonne Absent)
 }
 
-/** Un déplacement : un prof avance (ou recule) un de ses cours dans l'heure libérée par un collègue absent. */
+/**
+ * Un déplacement : un prof avance un de ses cours dans l'heure libérée par un collègue absent.
+ * Statuts partagés avec Power Apps : « En attente » puis « Validé ». Power Apps ne connaît pas
+ * « Refusé » (tout ce qui n'est pas « En attente » y compte comme confirmé) : un refus supprime donc
+ * la ligne, comme le bouton « Annuler » de Power Apps, et la décision va dans le journal.
+ */
 export interface Deplacement {
   id?: string;
   absent: string;      // prof absent dont l'heure est libérée
   date: string;        // jour de l'heure libérée
   hVide: number;       // heure libérée
-  classe: string;
+  classe: string;      // une classe ou plusieurs (« 5GA, 5GD ») pour un cours groupé
   prof: string;        // prof qui déplace son cours
   hOrigine: number;
   dateOrigine: string;
-  statut: string;      // En attente · Accepté · Validé · Refusé
+  statut: string;      // En attente · Validé
+  creeLe?: string;     // date et heure de la proposition (ISO)
+  modifieLe?: string;  // dernière modification (ISO) : la validation, pour un déplacement validé
+  modifiePar?: string; // qui a fait la dernière modification
+  etag?: string;       // version SharePoint, pour ne pas écraser une décision prise ailleurs
+}
+
+/** Une décision de l'éducateur, gardée dans le journal (liste « Decisions », facultative). */
+export interface Decision {
+  id?: string;
+  statut: 'Validé' | 'Refusé';
+  commentaire: string;
+  classe: string;
+  prof: string;        // prof qui avait proposé
+  absent: string;
+  date: string;        // heure libérée : jour…
+  hVide: number;       // … et heure
+  dateOrigine: string;
+  hOrigine: number;
+  local?: string;      // local finalement attribué, s'il a changé
+  par: string;         // qui a décidé
+  le: string;          // quand (ISO)
 }
 
 export interface Info {
@@ -72,6 +98,7 @@ export interface Moi {
   nom: string;         // nom dans Horaires
   prenom: string;
   email?: string;
+  roles?: string[];    // liste Roles : Secrétariat, Éducateur, Direction…
 }
 
 export interface Dataset {
@@ -83,4 +110,7 @@ export interface Dataset {
   infos: Info[];
   locaux: Local[];
   signalements: Signalement[];
+  decisions: Decision[];
+  /** La liste « Decisions » existe : les refus et leurs motifs sont gardés. */
+  journal: boolean;
 }

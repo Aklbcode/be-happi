@@ -1,0 +1,24 @@
+name: Vérification
+
+# Sur toute branche autre que main (et sur les demandes de fusion) : tests + construction,
+# sans mise en ligne. Permet de vérifier une modification avant de la publier.
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

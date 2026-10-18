@@ -3,14 +3,32 @@
 
 import { config } from '../config';
 import { jeton } from '../lib/auth';
-import { iso } from '../lib/calendar';
 import { LOCAUX } from './locaux';
-import type { Absence, Cours, Dataset, Deplacement, Info, Reservation, Signalement } from './types';
+import { jour, localDans, num, reconnaitre, rolesDe, sansAccents, txt, val, versUtcMidi, ALIAS, type Champs } from './champs';
+import type { Absence, Cours, Dataset, Decision, Deplacement, Info, Reservation, Signalement } from './types';
+
+export { localDans, reconnaitre } from './champs';
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 
-type Champs = Record<string, unknown>;
-interface Item { id: string; fields: Champs }
+interface Item {
+  id: string;
+  eTag?: string;
+  createdDateTime?: string;
+  lastModifiedDateTime?: string;
+  createdBy?: { user?: { displayName?: string } };
+  lastModifiedBy?: { user?: { displayName?: string } };
+  fields: Champs;
+}
+
+/** Erreur Graph avec son code HTTP (404 : n'existe plus, 412 : modifié entre-temps). */
+export class ErreurGraph extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function appel(url: string, init: RequestInit = {}): Promise<any> {
   const t = await jeton();
@@ -25,7 +43,7 @@ async function appel(url: string, init: RequestInit = {}): Promise<any> {
   });
   if (!r.ok) {
     const corps = await r.text();
-    throw new Error(`Microsoft Graph ${r.status} : ${corps.slice(0, 300)}`);
+    throw new ErreurGraph(r.status, `Microsoft Graph ${r.status} : ${corps.slice(0, 300)}`);
   }
   return r.status === 204 ? null : r.json();
 }
@@ -68,50 +86,39 @@ async function itemsDe(nomListe: string): Promise<Item[]> {
   return tout(`/sites/${s}/lists/${id}/items?$expand=fields&$top=999`);
 }
 
-/**
- * Noms qui désignent la même colonne selon la langue du site ou l'outil qui l'a créée.
- * Ex. Power Apps affiche « Titre » mais Graph renvoie « Title ».
- */
-const ALIAS: Record<string, string[]> = {
-  Title: ['Titre'],
-  Titre: ['Title'],
-  Email: ['Mail', 'E_x002d_mail', 'Courriel'],
-  Mail: ['Email', 'E_x002d_mail', 'Courriel'],
-};
-
-/** Lit une colonne, en essayant ses autres noms connus si elle est absente. */
-function val(f: Champs, nom: string): unknown {
-  if (f[nom] != null) return f[nom];
-  for (const a of ALIAS[nom] ?? []) if (f[a] != null) return f[a];
-  return undefined;
-}
-
-const txt = (v: unknown): string => {
-  if (v == null) return '';
-  // Colonne Choix ou Personne renvoyée comme objet.
-  if (typeof v === 'object') {
-    const o = v as Record<string, unknown>;
-    return String(o.Value ?? o.LookupValue ?? o.displayName ?? '').trim();
-  }
-  return String(v).trim();
-};
-const num = (v: unknown): number => Number(v ?? 0) || 0;
-/** Les dates SharePoint arrivent en UTC : on les ramène au jour local. */
-const jour = (v: unknown): string => (v ? iso(new Date(String(v))) : '');
-const versUtcMidi = (date: string): string => `${date}T12:00:00Z`;
-
 /** Le compte connecté (prénom et adresse e-mail). */
 export async function profil(): Promise<{ prenom: string; email: string }> {
   const me = await appel('/me?$select=givenName,mail,userPrincipalName');
   return { prenom: txt(me.givenName), email: txt(me.mail) || txt(me.userPrincipalName) };
 }
 
+const versDeplacement = (it: Item): Deplacement => {
+  const C = config.champs.deplacements;
+  return {
+    id: it.id,
+    absent: txt(val(it.fields, C.absent)),
+    date: jour(val(it.fields, C.date)),
+    hVide: num(val(it.fields, C.hVide)),
+    classe: txt(val(it.fields, C.classe)),
+    prof: txt(val(it.fields, C.prof)),
+    hOrigine: num(val(it.fields, C.hOrigine)),
+    dateOrigine: jour(val(it.fields, C.dateOrigine)) || jour(val(it.fields, C.date)),
+    // Comme Power Apps : un statut vide compte comme validé ; seul « En attente » attend.
+    statut: txt(val(it.fields, C.statut)) || 'Validé',
+    creeLe: it.createdDateTime,
+    modifieLe: it.lastModifiedDateTime,
+    modifiePar: it.lastModifiedBy?.user?.displayName,
+    etag: it.eTag,
+  };
+};
+
 export async function chargerSharePoint(email: string, prenom: string): Promise<Dataset> {
   const C = config.champs;
   const L = config.listes;
-  const [hor, profs, abs, res, dep, inf, sig] = await Promise.all([
+  const ids = await listes();
+  const [hor, profs, abs, res, dep, inf, sig, rol, dec] = await Promise.all([
     itemsDe(L.horaires), itemsDe(L.profs), itemsDe(L.absences), itemsDe(L.reservations),
-    itemsDe(L.deplacements), itemsDe(L.infos), itemsDe(L.signalements),
+    itemsDe(L.deplacements), itemsDe(L.infos), itemsDe(L.signalements), itemsDe(L.roles), itemsDe(L.decisions),
   ]);
 
   const cours: Cours[] = hor.map((it) => {
@@ -130,6 +137,7 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
   });
 
   const nom = reconnaitre(profs.map((p) => p.fields), email);
+  const roles = rolesDe(rol.map((r) => r.fields), email);
 
   const absences: Absence[] = abs.map((it) => ({
     prof: txt(val(it.fields, C.absences.prof)),
@@ -138,26 +146,20 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
     aH: num(val(it.fields, C.absences.aH)) || 9,
   }));
 
-  const reservations: Reservation[] = res.map((it) => ({
-    id: it.id,
-    prof: txt(val(it.fields, C.reservations.prof)),
-    date: jour(val(it.fields, C.reservations.date)),
-    h: num(val(it.fields, C.reservations.heure)),
-    local: txt(val(it.fields, C.reservations.local)),
-    classe: txt(val(it.fields, C.reservations.classe)),
-  }));
+  const reservations: Reservation[] = res.map((it) => {
+    const classe = txt(val(it.fields, C.reservations.classe));
+    return {
+      id: it.id,
+      prof: txt(val(it.fields, C.reservations.prof)),
+      date: jour(val(it.fields, C.reservations.date)),
+      h: num(val(it.fields, C.reservations.heure)),
+      local: txt(val(it.fields, C.reservations.local)),
+      classe,
+      ...(/remédiation/i.test(classe) ? { note: 'remédiation' } : {}),
+    };
+  });
 
-  const deplacements: Deplacement[] = dep.map((it) => ({
-    id: it.id,
-    absent: txt(val(it.fields, C.deplacements.absent)),
-    date: jour(val(it.fields, C.deplacements.date)),
-    hVide: num(val(it.fields, C.deplacements.hVide)),
-    classe: txt(val(it.fields, C.deplacements.classe)),
-    prof: txt(val(it.fields, C.deplacements.prof)),
-    hOrigine: num(val(it.fields, C.deplacements.hOrigine)),
-    dateOrigine: jour(val(it.fields, C.deplacements.dateOrigine)) || jour(val(it.fields, C.deplacements.date)),
-    statut: txt(val(it.fields, C.deplacements.statut)) || 'En attente',
-  }));
+  const deplacements: Deplacement[] = dep.map(versDeplacement);
 
   const infos: Info[] = inf.map((it) => ({
     date: jour(val(it.fields, C.infos.date)),
@@ -178,45 +180,35 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
       };
     });
 
-  return { moi: { nom, prenom, email }, cours, absences, reservations, deplacements, infos, locaux: LOCAUX, signalements };
-}
+  const D = C.decisions;
+  const decisions: Decision[] = dec.map((it) => ({
+    id: it.id,
+    statut: /refus/i.test(txt(val(it.fields, D.statut))) ? 'Refusé' : 'Validé',
+    commentaire: txt(val(it.fields, D.commentaire)),
+    classe: txt(val(it.fields, D.classe)),
+    prof: txt(val(it.fields, D.prof)),
+    absent: txt(val(it.fields, D.absent)),
+    date: jour(val(it.fields, D.date)),
+    hVide: num(val(it.fields, D.hVide)),
+    dateOrigine: jour(val(it.fields, D.dateOrigine)),
+    hOrigine: num(val(it.fields, D.hOrigine)),
+    local: txt(val(it.fields, D.local)) || undefined,
+    par: it.createdBy?.user?.displayName ?? '',
+    le: it.createdDateTime ?? '',
+  }));
 
-const sansAccents = (s: string): string =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-
-/**
- * Retrouve le nom du prof (tel qu'il est écrit dans Horaires) à partir de son adresse e-mail.
- * 1. La colonne e-mail de la liste Profs.
- * 2. Sinon, comme l'app Power Apps : la partie après le premier point de l'adresse
- *    (prenom.nom@… → nom) comparée au nom de la liste Profs, sans accents ni espaces,
- *    et seulement si un seul prof correspond.
- */
-export function reconnaitre(profs: Champs[], email: string): string {
-  const C = config.champs.profs;
-  const mail = email.toLowerCase();
-  const fiche = profs.find((p) => txt(val(p, C.mail)).toLowerCase() === mail);
-  if (fiche) return txt(val(fiche, C.nom));
-
-  const local = mail.split('@')[0] ?? '';
-  const point = local.indexOf('.');
-  if (point < 0) return '';
-  const cle = sansAccents(local.slice(point + 1));
-  if (!cle) return '';
-  const nomSeul = (t: string): string => (t.includes(' (') ? t.slice(0, t.indexOf(' (')) : t);
-  const trouves = profs.filter((p) => sansAccents(nomSeul(txt(val(p, C.nom)))) === cle);
-  return trouves.length === 1 ? txt(val(trouves[0], C.nom)) : '';
-}
-
-/** Le formulaire de signalement n'a pas de colonne Local : on cherche un code de local dans le texte. */
-export function localDans(texte: string): string {
-  const t = sansAccents(texte);
-  let meilleur = '';
-  for (const l of LOCAUX) {
-    const code = sansAccents(l.code);
-    // Le plus long code trouvé gagne (BF005A avant BF005).
-    if (code.length > meilleur.length && t.includes(code)) meilleur = l.code;
-  }
-  return meilleur;
+  return {
+    moi: { nom, prenom, email, roles },
+    cours,
+    absences,
+    reservations,
+    deplacements,
+    infos,
+    locaux: LOCAUX,
+    signalements,
+    decisions,
+    journal: !!ids[L.decisions],
+  };
 }
 
 async function creer(nomListe: string, fields: Champs): Promise<string> {
@@ -245,9 +237,84 @@ export async function enregistrerDeplacement(d: Deplacement): Promise<string> {
   });
 }
 
+/** Relit une proposition juste avant de décider : elle doit exister et être encore « En attente ». */
+async function relireProposition(idListe: string, idItem: string): Promise<Item> {
+  const s = await site();
+  try {
+    const it: Item = await appel(`/sites/${s}/lists/${idListe}/items/${idItem}?$expand=fields`);
+    const statut = txt(val(it.fields, config.champs.deplacements.statut)) || 'Validé';
+    if (statut !== 'En attente') throw new Error(`Cette proposition a déjà été traitée ailleurs (statut : ${statut}).`);
+    return it;
+  } catch (e) {
+    if (e instanceof ErreurGraph && e.status === 404) throw new Error('Cette proposition a été retirée entre-temps.');
+    throw e;
+  }
+}
+
+/**
+ * Valide ou refuse une proposition, sans écraser une décision prise ailleurs (Power Apps,
+ * autre éducateur) : la ligne est relue, puis modifiée seulement si elle n'a pas bougé.
+ * - Validé : Statut = « Validé » (comme Power Apps), et réservation du local s'il a changé.
+ * - Refusé : la ligne est supprimée (comme le bouton « Annuler » de Power Apps, qui ne connaît
+ *   pas de statut « Refusé » et compterait la ligne comme confirmée).
+ * Renvoie false si la décision est appliquée mais n'a pas pu être notée au journal.
+ */
+export async function deciderDeplacement(d: Deplacement, decision: Decision, nouveauLocal?: Reservation): Promise<boolean> {
+  const ids = await listes();
+  const idListe = ids[config.listes.deplacements];
+  if (!idListe) throw new Error(`Liste introuvable : ${config.listes.deplacements}`);
+  if (!d.id) throw new Error('Proposition sans identifiant.');
+  const s = await site();
+
+  const agir = async (etag?: string) => {
+    const entete: Record<string, string> = etag ? { 'If-Match': etag } : {};
+    if (decision.statut === 'Validé') {
+      await appel(`/sites/${s}/lists/${idListe}/items/${d.id}/fields`, {
+        method: 'PATCH',
+        headers: entete,
+        body: JSON.stringify({ [config.champs.deplacements.statut]: 'Validé' }),
+      });
+    } else {
+      await appel(`/sites/${s}/lists/${idListe}/items/${d.id}`, { method: 'DELETE', headers: entete });
+    }
+  };
+
+  const item = await relireProposition(idListe, d.id);
+  try {
+    await agir(item.eTag);
+  } catch (e) {
+    if (!(e instanceof ErreurGraph && e.status === 412)) throw e;
+    // Modifiée entre-temps : on relit ; si elle attend toujours, on applique la décision.
+    await relireProposition(idListe, d.id);
+    await agir();
+  }
+
+  if (decision.statut === 'Validé' && nouveauLocal) await enregistrerReservation(nouveauLocal);
+  return enregistrerDecision(decision);
+}
+
+/** Note la décision dans la liste facultative « Decisions ». Ne bloque jamais la décision elle-même. */
+export async function enregistrerDecision(dec: Decision): Promise<boolean> {
+  const ids = await listes();
+  if (!ids[config.listes.decisions]) return true;
+  const D = config.champs.decisions;
+  try {
+    await creer(config.listes.decisions, {
+      [D.classe]: dec.classe, [D.statut]: dec.statut, [D.commentaire]: dec.commentaire, [D.prof]: dec.prof, [D.absent]: dec.absent,
+      [D.date]: versUtcMidi(dec.date), [D.hVide]: dec.hVide, [D.dateOrigine]: versUtcMidi(dec.dateOrigine), [D.hOrigine]: dec.hOrigine,
+      ...(dec.local ? { [D.local]: dec.local } : {}),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface DiagListe {
   liste: string;
   trouvee: boolean;
+  /** Liste facultative : son absence n'est pas une erreur. */
+  facultative: boolean;
   /** Colonnes de la liste (nom interne), sans les colonnes système. */
   colonnes: string[];
   /** Colonnes attendues par Be Happi mais absentes, avec une piste quand une colonne porte ce nom affiché. */
@@ -263,9 +330,10 @@ export async function diagnostic(): Promise<DiagListe[]> {
   const sortie: DiagListe[] = [];
   const champs = config.champs as Record<string, Record<string, string>>;
   for (const [cle, nom] of Object.entries(config.listes)) {
+    const facultative = config.listesFacultatives.includes(cle);
     const id = ids[nom];
     if (!id) {
-      sortie.push({ liste: nom, trouvee: false, colonnes: [], manquantes: [] });
+      sortie.push({ liste: nom, trouvee: false, facultative, colonnes: [], manquantes: [] });
       continue;
     }
     const cols: { name: string; displayName: string; hidden?: boolean; readOnly?: boolean }[] =
@@ -280,7 +348,7 @@ export async function diagnostic(): Promise<DiagListe[]> {
       const piste = cols.find((c) => sansAccents(c.displayName) === sansAccents(attendu));
       manquantes.push({ attendu, piste: piste?.name });
     }
-    sortie.push({ liste: nom, trouvee: true, colonnes: visibles, manquantes });
+    sortie.push({ liste: nom, trouvee: true, facultative, colonnes: visibles, manquantes });
   }
   return sortie;
 }

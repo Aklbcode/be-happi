@@ -19,8 +19,11 @@ export function etatLocal(ds: Dataset, moi: string, code: string, date: string, 
   const res = ds.reservations.find((r) => r.local === code && r.date === date && r.h === h);
   if (res) return { etat: res.prof === moi ? 'moi' : 'occupe', detail: res.prof === moi ? `Réservé par toi · ${res.classe}` : `Réservé · ${res.classe}` };
 
-  // Cours qui arrivent par un déplacement : ils prennent le local de l'heure libérée.
+  // Cours qui arrivent par un déplacement : ils prennent le local de l'heure libérée,
+  // sauf si un autre local a été réservé pour eux à la validation.
   for (const d of ds.deplacements.filter((x) => x.statut !== 'Refusé' && x.date === date && x.hVide === h)) {
+    const ailleurs = ds.reservations.some((r) => r.prof === d.prof && r.date === date && r.h === h && r.note !== 'remédiation' && r.local !== code);
+    if (ailleurs) continue;
     const libere = ds.cours.find((c) => c.prof === d.absent && c.jour === jour && c.h === h && c.local === code);
     if (libere) return { etat: d.prof === moi ? 'moi' : 'occupe', detail: `${d.classe} · ${nomAffiche(d.prof)} (déplacé)` };
   }

@@ -1,7 +1,7 @@
 {
   "name": "be-happi",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Be Happi : horaires, locaux et déplacements de cours de l'IPES Tubize, dans Teams et sur téléphone.",
   "scripts": {
@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "build:demo": "tsc --noEmit && vite build --mode demo",
+    "test": "node --experimental-strip-types --no-warnings=ExperimentalWarning --import ./scripts/test-hooks.mjs --test tests/*.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
