@@ -62,3 +62,15 @@ test('démo : des propositions à valider, dont une bloquée et une avec changem
     assert.ok(!opts.some((o) => o.dateO === refus.dateOrigine && o.hO === refus.hOrigine));
   }
 });
+
+test('bâtiments : chaque local de la liste appartient à un bâtiment du plan', async () => {
+  const { LOCAUX } = await import('../src/data/locaux');
+  const { BATIMENTS, nomEtage } = await import('../src/data/batiments');
+  for (const l of LOCAUX) {
+    const b = BATIMENTS.find((x) => x.code === l.batiment);
+    assert.ok(b, `${l.code} : bâtiment ${l.batiment} inconnu`);
+    assert.ok(b.etages.includes(l.etage) || b.code === 'Autres', `${l.code} : étage ${l.etage} absent de la façade ${b.sigle}`);
+  }
+  assert.equal(nomEtage(2, 'T'), '2e');
+  assert.equal(nomEtage(0, 'PR'), 'Rez');
+});

@@ -10,7 +10,7 @@ L'app de l'IPES Tubize pour les profs : ton horaire, les locaux libres en direct
 - **Horaire** : la semaine, avec les heures libérées et les flèches des cours qui peuvent y venir. Vues « une classe » et « un local ».
 - **Déplacer un cours** : les options classées (avantage pour le prof d'abord), avec les contrôles visibles (prof libre, classes libres, local), puis la proposition.
 - **Validations** (éducateur, secrétariat ; lecture pour la direction) : le point du jour (absents, heures récupérées ou à l'étude), les propositions **revérifiées en direct**, Valider / Refuser (un mot obligatoire pour refuser), le journal des décisions et qui prévenir ensuite.
-- **Locaux** : le plan par étage, l'état en direct, la réservation.
+- **Locaux** : le plan de l'école, orienté comme une carte (BC côté rue Papleux, BF au milieu, BT et sa tour côté chaussée de Mons, PR le long des terrains de sport) avec le nombre de locaux libres par bâtiment ; puis la façade du bâtiment choisi, étage par étage, et la réservation.
 - **Remédiation au lieu de l'étude** : les classes sans prof pendant ta fourche.
 
 En démo, l'écran **École → Validations** permet de jouer l'éducateur : propose un déplacement en « Prof », puis valide-le en « Éducateur ».

@@ -1,4 +1,5 @@
-// Écran « Locaux » : plan par étage, état en direct, réservation.
+// Écran « Locaux » : plan du site (BC, BF, BT et sa tour, PR), façade du bâtiment choisi étage
+// par étage, état en direct, réservation.
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../data/store';
@@ -8,14 +9,9 @@ import { etatLocal, libreJusque, type EtatLocal } from '../logic/occupation';
 import { coursDuProf } from '../logic/horaire';
 import { JOURS_COURTS, PERIODES, deIso, estJourDeCours, iso, jourSemaineIso, periode, prochainJourDeCours, situation } from '../lib/calendar';
 import type { Local } from '../data/types';
+import { BATIMENTS, batiment, nomEtage, type CodeBatiment } from '../data/batiments';
+import { PlanSite } from '../ui/PlanSite';
 
-const ETAGES = [
-  { v: 0, l: 'Rez' },
-  { v: 1, l: '1er' },
-  { v: 2, l: '2e' },
-  { v: -1, l: 'Autres' },
-];
-const ORDRE_BAT = ['T', 'F', 'C', 'PR', 'Autres'];
 const NOM_ETAT: Record<EtatLocal, string> = { libre: 'libre', occupe: 'occupé', moi: 'à toi', indispo: 'indisponible' };
 
 export function Locaux({ params }: { params: URLSearchParams }) {
@@ -25,7 +21,7 @@ export function Locaux({ params }: { params: URLSearchParams }) {
   const sit = situation(minutes);
   const hDefaut = Number(params.get('h')) || (date === aujourdhui ? Math.min(Math.max(sit.h, 1), 9) : 1);
   const [h, setH] = useState(hDefaut);
-  const [etage, setEtage] = useState(0);
+  const [batChoisi, setBatChoisi] = useState<CodeBatiment | null>(null);
   const [filtres, setFiltres] = useState({ vp: false, tbi: false, tv: false, pratique: false });
   const [choisi, setChoisi] = useState<string | null>(null);
   const [classeChoisie, setClasseChoisie] = useState('');
@@ -41,9 +37,18 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
   const garde = (l: Local) =>
     (!filtres.vp || l.vp) && (!filtres.tbi || l.tbi) && (!filtres.tv || l.tv) && (!filtres.pratique || /labo|informatique|atelier|cuisine/i.test(l.type));
-  const locauxEtage = ds.locaux.filter((l) => l.etage === etage);
-  const blocs = ORDRE_BAT.map((b) => ({ b, salles: locauxEtage.filter((l) => l.batiment === b) })).filter((x) => x.salles.length);
-  const nbLibres = locauxEtage.filter((l) => garde(l) && etatLocal(ds, moi, l.code, date, h).etat === 'libre').length;
+  const libresParBat: Record<string, number> = {};
+  for (const l of ds.locaux) {
+    if (garde(l) && etatLocal(ds, moi, l.code, date, h).etat === 'libre') libresParBat[l.batiment] = (libresParBat[l.batiment] ?? 0) + 1;
+  }
+  // Par défaut : le bâtiment de mon cours à cette heure, sinon celui qui a le plus de locaux libres.
+  const monCoursIci = coursDuProf(ds, moi, date).find((c) => c.h === h);
+  const batDuCours = ds.locaux.find((l) => l.code === monCoursIci?.local)?.batiment as CodeBatiment | undefined;
+  const batLePlusLibre = (['T', 'F', 'C', 'PR'] as CodeBatiment[]).reduce((a, b) => ((libresParBat[b] ?? 0) > (libresParBat[a] ?? 0) ? b : a), 'T' as CodeBatiment);
+  const bat = batiment(batChoisi ?? batDuCours ?? batLePlusLibre);
+  const sallesBat = ds.locaux.filter((l) => l.batiment === bat.code);
+  const nbLibres = libresParBat[bat.code] ?? 0;
+  const nbGardes = sallesBat.filter(garde).length;
 
   const local = choisi ? ds.locaux.find((l) => l.code === choisi) ?? null : null;
   const info = local ? etatLocal(ds, moi, local.code, date, h) : null;
@@ -107,43 +112,65 @@ export function Locaux({ params }: { params: URLSearchParams }) {
         ))}
       </div>
 
-      <section className="carte" aria-label="Plan de l'école">
-        <div className="rangee rangee--entre enrouler">
-          <div className="seg" role="group" aria-label="Étage" style={{ minWidth: 260 }}>
-            {ETAGES.map((e) => (
-              <button key={e.v} aria-pressed={etage === e.v} onClick={() => setEtage(e.v)}>
-                {e.l}
-              </button>
-            ))}
-          </div>
-          <span className="petit">
-            <strong className="fort">{nbLibres}</strong> libre{nbLibres > 1 ? 's' : ''} en H{h}
-          </span>
+      <section className="carte" aria-label="Plan de l'école" style={{ gap: 10 }}>
+        <div className="rangee rangee--entre">
+          <h2 className="titre-s">Plan de l'école</h2>
+          <span className="petit">chiffre = locaux libres en H{h}</span>
         </div>
-        {blocs.map(({ b, salles }) => (
-          <div key={b} className="bloc">
-            <span className="bloc-nom" aria-hidden="true">{b === 'Autres' ? '·' : b}</span>
-            <div className="bloc-salles" role="group" aria-label={b === 'Autres' ? 'Autres locaux' : `Bâtiment ${b}`}>
-              {salles.map((l) => {
-                const e = etatLocal(ds, moi, l.code, date, h);
-                const court = l.code.replace(/^B[TFC]/, '').replace(/^PR/, '');
-                return (
-                  <button
-                    key={l.code}
-                    className={`salle salle--${e.etat}${garde(l) ? '' : ' salle--attenue'}`}
-                    aria-pressed={choisi === l.code}
-                    aria-label={`${l.code}, ${NOM_ETAT[e.etat]} en H${h}`}
-                    title={`${l.code} · ${e.detail}`}
-                    onClick={() => setChoisi(l.code)}
-                    style={b === 'Autres' ? { fontSize: 11, fontFamily: 'var(--police)', padding: '0 4px', height: 'auto', minHeight: 46 } : undefined}
-                  >
-                    {b === 'Autres' ? l.code : court}
-                  </button>
-                );
-              })}
-            </div>
+        <PlanSite libres={libresParBat} choisi={bat.code} heure={h} onChoisir={(b) => setBatChoisi(b)} />
+        <div className="choix-bat" role="group" aria-label="Autres locaux">
+          <button className="filtre" aria-pressed={bat.code === 'Autres'} onClick={() => setBatChoisi('Autres')}>
+            {BATIMENTS[4].nom} · {libresParBat.Autres ?? 0} libre{(libresParBat.Autres ?? 0) > 1 ? 's' : ''}
+          </button>
+        </div>
+      </section>
+
+      <section className="carte" aria-label={bat.code === 'Autres' ? 'Autres locaux' : `Bâtiment ${bat.sigle}`}>
+        <div className="rangee">
+          <span className="vignette" aria-hidden="true" style={bat.code === 'T' ? { background: 'var(--nuit)', color: '#fff' } : undefined}>
+            {bat.code === 'T' ? <Icon nom="tour" taille={24} /> : <span style={{ fontFamily: 'var(--police-titre)', fontWeight: 800 }}>{bat.sigle}</span>}
+          </span>
+          <div className="pile grandit">
+            <h2 className="titre-m">{bat.code === 'Autres' ? bat.nom : `${bat.sigle} · ${bat.nom}`}</h2>
+            <span className="petit">
+              {bat.repere} · <strong className="fort">{nbLibres}</strong> libre{nbLibres > 1 ? 's' : ''} sur {nbGardes} en H{h}
+            </span>
           </div>
-        ))}
+        </div>
+
+        <div className={`facade${bat.code === 'PR' ? ' facade--pr' : bat.code === 'Autres' ? ' facade--autres' : ''}`}>
+          {bat.code !== 'PR' && bat.code !== 'Autres' && <div className="facade-toit" aria-hidden="true" />}
+          {bat.etages.map((et) => {
+            const salles = sallesBat.filter((l) => (bat.code === 'Autres' ? true : l.etage === et));
+            if (!salles.length) return null;
+            return (
+              <div key={et} className="niveau">
+                {bat.code !== 'Autres' && <span className="niveau-nom">{nomEtage(et, bat.code)}</span>}
+                <div className="bloc-salles" role="group" aria-label={bat.code === 'Autres' ? 'Autres locaux' : `${bat.sigle}, ${nomEtage(et, bat.code)}`}>
+                  {salles.map((l) => {
+                    const e = etatLocal(ds, moi, l.code, date, h);
+                    const court = l.code.replace(/^B[TFC]/, '').replace(/^PR/, '');
+                    return (
+                      <button
+                        key={l.code}
+                        className={`salle salle--${e.etat}${garde(l) ? '' : ' salle--attenue'}`}
+                        aria-pressed={choisi === l.code}
+                        aria-label={`${l.code}, ${NOM_ETAT[e.etat]} en H${h}`}
+                        title={`${l.code} · ${e.detail}`}
+                        onClick={() => setChoisi(l.code)}
+                        style={bat.code === 'Autres' ? { fontSize: 12, fontFamily: 'var(--police)', padding: '0 6px', height: 'auto', minHeight: 46 } : undefined}
+                      >
+                        {bat.code === 'Autres' ? l.code : court}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {bat.code !== 'Autres' && <div className="sol-ligne" aria-hidden="true" />}
+
         <div className="legende">
           <span><i className="carre" style={{ background: 'var(--indigo-pale)', border: '1px solid var(--indigo-moyen)' }} />Libre</span>
           <span><i className="carre" style={{ background: 'var(--passe)' }} />Occupé</span>
@@ -160,8 +187,8 @@ export function Locaux({ params }: { params: URLSearchParams }) {
                 <h2 className="titre-l">{local.code}</h2>
                 <span className="petit">
                   {local.type}
-                  {local.etage >= 0 ? ` · ${local.etage === 0 ? 'rez' : `${local.etage}${local.etage === 1 ? 'er' : 'e'} étage`}` : ''}
-                  {local.batiment.length === 1 ? ` · bât. ${local.batiment}` : ''}
+                  {local.etage >= 0 && local.batiment !== 'PR' ? ` · ${local.etage === 0 ? 'rez' : `${local.etage}${local.etage === 1 ? 'er' : 'e'} étage`}` : ''}
+                  {local.batiment !== 'Autres' ? ` · ${batiment(local.batiment).sigle} (${batiment(local.batiment).nom.toLowerCase()})` : ''}
                 </span>
               </div>
               <span className={`puce ${info.etat === 'libre' ? 'puce--indigo' : info.etat === 'moi' ? 'puce--orange' : 'puce--grise'}`}>

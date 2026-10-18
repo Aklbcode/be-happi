@@ -27,6 +27,8 @@ const P: Record<string, string[]> = {
   lien: ['M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1', 'M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'],
   message: ['M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-5 4z'],
   oeil: ['M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z', 'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z'],
+  // La tour de l'IPES : toit conique, couronne de fenêtres, fût en briques et l'enseigne.
+  tour: ['M5.5 8.5L12 3.5l6.5 5', 'M12 3.5V2', 'M6 8.5h12v3H6z', 'M9 8.5v3', 'M12 8.5v3', 'M15 8.5v3', 'M6.5 11.5V21h11v-9.5', 'M9.5 15.5h5'],
 };
 
 export type NomIcone = keyof typeof P;
