@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { StoreProvider, useStore } from './data/store';
 import { useRoute, type Ecran } from './lib/route';
-import { dansTeams, suivreThemeTeams } from './lib/teams';
-import { adopterReglages, indiceTeams, preparerReglages, refuserLien, type Depart } from './lib/reglages';
+import { suivreThemeTeams } from './lib/teams';
+import { useDepart } from './lib/depart';
 import { profil as descProfil, peutOuvrir } from './data/profils';
 import { Onglets } from './ui/Onglets';
 import { Icon } from './ui/Icon';
@@ -31,8 +31,6 @@ import { Materiel } from './screens/Materiel';
 import { Eleve } from './screens/Eleve';
 import { EcranHall } from './screens/EcranHall';
 import { QrPortes } from './screens/QrPortes';
-
-declare const __DEMO_FORCEE__: boolean;
 
 function Coquille() {
   const route = useRoute();
@@ -127,24 +125,11 @@ function NonAutorise() {
 
 export default function App() {
   // D'abord les réglages de l'école (onglet Teams, lien d'installation, appareil), puis les données.
-  const [depart, setDepart] = useState<Depart | null>(() =>
-    __DEMO_FORCEE__ ? { etat: 'pret' } : indiceTeams() ? null : preparerReglages(false),
-  );
+  const { depart, oui, non } = useDepart();
 
   useEffect(() => {
     appliquerTheme(themeEnregistre());
   }, []);
-
-  useEffect(() => {
-    if (depart) return;
-    let actif = true;
-    void dansTeams().then((teams) => {
-      if (actif) setDepart(preparerReglages(teams));
-    });
-    return () => {
-      actif = false;
-    };
-  }, [depart]);
 
   if (!depart)
     return (
@@ -155,21 +140,7 @@ export default function App() {
       </section>
     );
 
-  if (depart.etat === 'confirmer')
-    return (
-      <ConfirmerEcole
-        propose={depart.propose}
-        actuels={depart.actuels}
-        onOui={() => {
-          adopterReglages(depart.propose);
-          setDepart({ etat: 'pret' });
-        }}
-        onNon={() => {
-          refuserLien(depart.actuels);
-          setDepart({ etat: 'pret' });
-        }}
-      />
-    );
+  if (depart.etat === 'confirmer') return <ConfirmerEcole propose={depart.propose} actuels={depart.actuels} onOui={oui} onNon={non} />;
 
   return (
     <StoreProvider>

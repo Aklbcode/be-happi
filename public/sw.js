@@ -1,7 +1,7 @@
 // Be Happi hors ligne : la page d'abord depuis le réseau (pour avoir la dernière version), sinon
 // depuis le cache ; les fichiers de l'app (noms avec empreinte) depuis le cache. Seulement ce qui
 // vient du même site : jamais les appels à Microsoft Graph ni à SharePoint.
-const CACHE = 'behappi-v1';
+const CACHE = 'behappi-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './favicon.svg'])).then(() => self.skipWaiting()));
@@ -23,14 +23,23 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate') {
+    // Chaque page garde sa copie (Be Happi et Pulse), sans les paramètres de l'adresse.
+    const cle = url.origin + url.pathname;
     e.respondWith(
       fetch(req)
         .then((r) => {
-          const copie = r.clone();
-          caches.open(CACHE).then((c) => c.put('./', copie));
+          if (r.ok) {
+            const copie = r.clone();
+            caches.open(CACHE).then((c) => c.put(cle, copie));
+          }
           return r;
         })
-        .catch(() => caches.match('./').then((r) => r || Response.error())),
+        .catch(() =>
+          caches
+            .match(cle)
+            .then((r) => r || caches.match(new URL('./', self.location.href).href))
+            .then((r) => r || Response.error()),
+        ),
     );
     return;
   }

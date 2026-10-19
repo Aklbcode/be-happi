@@ -83,6 +83,19 @@ export function Ecole() {
         {profils.length > 1 && <span className="puce puce--indigo">Changer</span>}
       </button>
 
+      <a className="carte carte--lien carte--pulse" href="./pulse/">
+        <span className="vignette vignette--nuit" aria-hidden="true">
+          <svg viewBox="0 0 100 60" width="30" height="18">
+            <path d="M4 34h22l8-22 12 40 10-30 7 12h33" fill="none" stroke="#F2CF63" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+        <span className="pile grandit">
+          <span className="titre-s">Pulse</span>
+          <span className="petit">Toute l’école sur un plan : fais glisser le temps, tout se met à jour</span>
+        </span>
+        <Icon nom="droite" />
+      </a>
+
       {GROUPES.map((g) => {
         const services = g.services.filter((s) => peutOuvrir(s.ecran, profils) && !(profil === 'eleve' && s.ecran !== 'eleve' && s.ecran !== 'ecran' && s.ecran !== 'signaler'));
         if (!services.length) return null;

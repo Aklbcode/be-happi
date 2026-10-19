@@ -2,7 +2,7 @@
 
 L'app de l'IPES Tubize pour toute l'école : profs, éducateurs, secrétariat, direction, service technique et élèves. Elle tourne dans Teams (onglet personnel) et sur téléphone (à installer depuis le navigateur), et travaille sur les mêmes listes SharePoint que l'app Power Apps.
 
-**En ligne : https://aklbcode.github.io/be-happi/** (mode démo tant que l'appareil n'est pas relié à l'école : voir « Mise en service »).
+**En ligne : https://aklbcode.github.io/be-happi/** (mode démo tant que l'appareil n'est pas relié à l'école : voir « Mise en service »). **Pulse**, l'école sur un seul écran : https://aklbcode.github.io/be-happi/pulse/
 
 ## Version 1.0 : six espaces
 
@@ -86,6 +86,20 @@ L'écran **École → Connexion → Vérifier les listes** contrôle toutes les 
 Sans réglages, l'app démarre en **mode démo** (données fictives, noms inventés, adresses en `@ecole.example`) ; les messages et réunions Teams y sont montrés en aperçu au lieu d'ouvrir Teams.
 
 Ce dépôt est public et ne contient ni donnée personnelle ni réglage de l'école : la démo utilise un horaire et des noms inventés, et les seules données de l'école présentes sont la liste des locaux et leur équipement. L'adresse du site SharePoint et les identifiants Microsoft de l'école n'y sont jamais écrits (voir « Mise en service »).
+
+## Pulse : l'école sur un seul écran
+
+**https://aklbcode.github.io/be-happi/pulse/** : une deuxième façon de voir l'école, sur le même moteur que Be Happi (mêmes données : démo, simulation ou SharePoint ; mêmes règles ; mêmes écritures).
+
+- **Le temps est l'interface** : la ligne de pouls, en bas, va de 8h25 à 16h25. Chaque heure bat ; un pic jaune = des classes sans prof. On la fait glisser (doigt, souris, flèches du clavier), ou on appuie sur lecture pour voir la journée défiler en accéléré. « Revenir à maintenant » ramène au direct.
+- **Le plan** : les 67 locaux là où ils sont (PR au nord, BC à l'ouest, BF au milieu, BT et sa tour à l'est), étages alignés. Quatre couleurs de craie : bleu libre, jaune classe sans prof, lilas réservé ou déplacé, rose fermé ; ton propre cours est entouré.
+- **Lentilles** : Locaux, Classes, Profs, Mon trajet (la journée d'un prof tracée de local en local). Un élève ne voit que le trajet de sa classe, rien du personnel.
+- **Le fil de l'heure** : classes à l'étude et « Qui peut aider ? » (message Teams prêt), absents, cours déplacés, locaux fermés, locaux libres ; pour un prof, l'heure libérée où avancer un cours, proposée en un geste.
+- **Fiches** : toucher un local (réserver, signaler), un prof ou une classe (sa journée et son trajet).
+- **Chercher ou demander** (⌘K ou /) : un local, un prof, une classe, ou une question à Happi.
+- Tableau noir ou tableau blanc, plein écran pour la télé du hall ou une réunion, installable comme app.
+
+Code : `pulse/index.html`, `src/pulse/` (moteur `etat.ts` testé, interface), styles propres (`pulse.css`). Be Happi reste la version complète (formulaires, validations, publication…) ; Pulse y renvoie pour ces écrans.
 
 ## Simulation : les vraies données sans connexion
 
