@@ -34,22 +34,18 @@ export function remarquesProf(ds: Dataset, moi: string, maintenant: Date, heureP
 
   // 1. Du temps à gagner en avançant des cours cette semaine.
   let gain = 0;
-  let nb = 0;
   for (const o of opportunitesSemaine(ds, moi, lundi, auj, heurePassee).values()) {
     if (o.passe || !o.etoile) continue;
     const meilleure = optionsPour(ds, moi, o.date, o.h, auj, heurePassee)[0];
-    if (meilleure?.avantageProf && !meilleure.allonge) {
-      gain += meilleure.gainMinutes;
-      nb++;
-    }
+    if (meilleure) gain = Math.max(gain, meilleure.gainNetMinutes);
   }
-  if (nb > 0 && gain >= 50) {
+  if (gain >= 50) {
     sortie.push({
       id: 'gain',
       icone: 'echange',
       ton: 'orange',
-      titre: `${dureeTxt(gain)} à gagner cette semaine`,
-      texte: `En avançant ${pluriel(nb, 'cours', 'cours')} dans des heures libérées par des collègues absents. Tu proposes, l'éducateur valide.`,
+      titre: `Jusqu’à ${dureeTxt(gain)} de présence en moins`,
+      texte: "Avec un déplacement compatible avec tes préférences. Le gain tient compte des deux journées concernées. Tu proposes, l’éducateur valide.",
       action: { libelle: 'Voir ma semaine', href: '#/horaire' },
     });
   }

@@ -9,6 +9,7 @@ import { Feuille } from './Feuille';
 import { Icon } from './Icon';
 import { aller, lien } from '../lib/route';
 import { nomAffiche } from '../logic/horaire';
+import { PreferencesDeplacements } from './PreferencesDeplacements';
 import { indiceTeams } from '../lib/reglages';
 
 const Ctx = createContext<{ ouvrir: () => void }>({ ouvrir: () => {} });
@@ -118,6 +119,8 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
           {demo && <p className="petit">En vrai, chacun ne voit que ses espaces : ils viennent de la liste Roles et de l’horaire.</p>}
         </section>
       )}
+
+      {profil === 'prof' && <PreferencesDeplacements />}
 
       <section className="pile pile--8" aria-label="Thème">
         <h3 className="titre-s">Thème</h3>

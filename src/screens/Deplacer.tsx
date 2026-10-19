@@ -7,8 +7,10 @@ import { optionsPour, type OptionDeplacement } from '../logic/deplacements';
 import { coursSansProf, nomAffiche } from '../logic/horaire';
 import { JOURS, deIso, jourSemaineIso, periode, situation } from '../lib/calendar';
 import { lien } from '../lib/route';
+import { useMoi } from '../ui/Moi';
 
 export function Deplacer({ params }: { params: URLSearchParams }) {
+  const { ouvrir: ouvrirPreferences } = useMoi();
   const { ds, aujourdhui, minutes, heureFinie, proposer, montrerToast, demo } = useStore();
   const date = params.get('date') ?? aujourdhui;
   const h = Number(params.get('h') ?? 0);
@@ -66,6 +68,8 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
         <span style={{ width: 44 }} />
       </div>
 
+      <button className="bouton bouton--sec" onClick={ouvrirPreferences}>Mes préférences de déplacement</button>
+
       <div className="pile pile--8">
         <span className="surtitre mono">
           {jour} {d.getDate()} · H{h} · {periode(h).debut} – {periode(h).fin}
@@ -89,7 +93,7 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
       {options.length === 0 ? (
         <div className="carte">
           <h2 className="titre-m">Plus de déplacement possible ici</h2>
-          <p className="texte">L'heure est passée, déjà prise, ou tu n'as pas cette classe plus tard.</p>
+          <p className="texte">L’heure est passée, déjà prise, sans cours compatible, ou tes préférences filtrent les possibilités. Tu peux les ajuster ci-dessus.</p>
         </div>
       ) : (
         <div role="radiogroup" aria-label="Options de déplacement" className="pile pile--12">
@@ -125,6 +129,8 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
                     {a}
                   </span>
                 ))}
+                <span className="titre-s">{o.gainNetMinutes > 0 ? `${o.gainNetMinutes} min de présence en moins` : o.gainNetMinutes < 0 ? `${-o.gainNetMinutes} min de présence en plus` : 'Temps de présence inchangé'} · total des journées concernées</span>
+                {o.raisonsPersonnelles.map((raison) => <span className="petit" key={raison}>{raison}</span>)}
               </span>
             </button>
           ))}

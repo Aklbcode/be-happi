@@ -28,7 +28,7 @@ Chacun voit d'abord ce qui le concerne. Les espaces viennent de la liste **Roles
 - **Publication élèves** : mêmes textes que le bouton « Publier pour les élèves » de Power Apps ; Be Happi dit quand elle n'est plus à jour, et annonce la remédiation au lieu de « étude ».
 - **Infos du jour**, **Signaler** (avec QR code sur chaque porte), **Matériel** (racks de tablettes, PC portables, projecteurs…), **Locaux libres** rangés comme sur le terrain.
 - **Écran du hall** (`#/ecran`) : pour la télé de l'accueil, les changements du jour classe par classe, sans nom de prof (`?noms=1` pour les afficher en salle des profs), les locaux fermés et un QR code vers la vue élève.
-- **Agenda** : l'horaire des prochaines semaines en fichier .ics (Outlook, Google Agenda, téléphone).
+- **Agenda** : l'horaire des prochaines semaines en fichier .ics (Outlook, Google Agenda, téléphone). L'export du prof tient compte des absences, des déplacements validés, des locaux réservés et des remédiations. Les heures de l'agenda et des réunions Collab sont celles de Bruxelles, même si l'appareil est réglé sur un autre fuseau. Le fichier est une copie au moment du téléchargement : les changements ultérieurs demandent un nouvel export.
 - **Hors ligne** : l'app s'ouvre même sans réseau (dernière version chargée), les données se mettent à jour dès que la connexion revient.
 
 ### Règles des déplacements
@@ -161,3 +161,25 @@ python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/   # paquet Tea
 Organisation du code : `src/logic/` (règles et calculs, testés : horaire, déplacements, occupation, suivi, Où est, Collab, impact d'une absence, publication élèves, statistiques, matériel, Happi, constats), `src/data/` (types, démo, lecture et écriture SharePoint, état de l'app, espaces), `src/screens/` (un fichier par écran), `src/ui/` (éléments communs), `src/lib/` (calendrier, connexion, réglages de l'école et lien d'installation, Teams et paquet Teams, agenda .ics, QR codes, zip).
 
 La mise en ligne est automatique : chaque modification envoyée sur la branche `main` est testée puis publiée sur GitHub Pages (voir `.github/workflows/deploy.yml`). Si un test échoue, rien n'est publié. Sur les autres branches, `.github/workflows/verif.yml` teste et construit sans publier.
+
+
+### Déplacements adaptés au professeur
+
+Dans **Moi → Mes préférences de déplacement**, le professeur peut préférer ou éviter
+H1/H9, déclarer ces heures indisponibles, préserver ses journées sans engagement,
+privilégier les journées compactes ou les déplacements dans la même journée, et
+inclure ou masquer les échanges sans réduction du temps de présence.
+
+Les préférences souples modifient le classement ; les indisponibilités filtrent les
+nouvelles propositions. Elles ne modifient jamais les cours ni les demandes déjà
+envoyées et ne remplacent pas les contrôles de disponibilité ou la validation.
+Les choix habituels et les exceptions jusqu'au lundi suivant sont conservés
+localement par compte et par mode (école, démo, simulation), sans synchronisation
+entre appareils. Aucun apprentissage automatique n'est activé.
+
+Le temps de présence est estimé entre le premier et le dernier engagement connu,
+cours et réservations compris. Le gain net compare les deux journées concernées ;
+les trajets et engagements non renseignés ne sont pas connus. L'accueil présente
+le gain d'un seul déplacement réalisable, sans additionner des possibilités
+potentiellement incompatibles. Les échanges impliquant deux professeurs restent
+hors du moteur actuel, qui cible les heures libérées par une absence.

@@ -15,6 +15,7 @@ import type { Dataset, Deplacement } from '../data/types';
 import { JOURS, MIDI, deIso, dureeTxt, jourSemaineIso, periode, plusJoursIso } from '../lib/calendar';
 import { absentA, classeOccupee, classesDe, coursDuProf, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent, type CoursJour } from './horaire';
 import { etatLocal } from './occupation';
+import { personnaliserDeplacement } from './preferences';
 
 export interface Controle {
   cle: 'heure' | 'midi' | 'absent' | 'prof' | 'classes' | 'origine' | 'local';
@@ -55,6 +56,8 @@ export interface OptionDeplacement {
   semaineSuivante: boolean;
   score: number;
   meilleur: boolean;
+  gainNetMinutes: number;
+  raisonsPersonnelles: string[];
   avantageProf: boolean;
   allonge: boolean;
   gainMinutes: number;
@@ -251,6 +254,9 @@ export function optionsPour(ds: Dataset, moi: string, date: string, h: number, a
           const dep: Deplacement = { absent: v.prof, date, hVide: h, classe: c.classe, prof: moi, hOrigine: c.h, dateOrigine: d, statut: 'En attente' };
           const verif = verifierDeplacement(ds, dep, aujourdhui, heureFinie);
           if (!verif.ok) return [];
+          const personnel = personnaliserDeplacement(ds, moi, d, c.h, date, h, moi === ds.moi.nom ? ds.preferencesDeplacements : undefined);
+          if (!personnel.autorise) return [];
+          const evaluation = evaluer(ds, moi, c, d, date, h, semaineSuivante);
           return [
             {
               cle: `${d}-${c.h}-${date}-${h}`,
@@ -268,7 +274,11 @@ export function optionsPour(ds: Dataset, moi: string, date: string, h: number, a
               h,
               semaineSuivante,
               meilleur: false,
-              ...evaluer(ds, moi, c, d, date, h, semaineSuivante),
+              ...evaluation,
+              score: evaluation.score + personnel.bonus,
+              resume: personnel.gainNetMinutes > 0 ? `${dureeTxt(personnel.gainNetMinutes)} de présence en moins` : personnel.gainNetMinutes < 0 ? `${dureeTxt(-personnel.gainNetMinutes)} de présence en plus` : 'Temps de présence inchangé',
+              gainNetMinutes: personnel.gainNetMinutes,
+              raisonsPersonnelles: personnel.raisons,
             },
           ];
         }),

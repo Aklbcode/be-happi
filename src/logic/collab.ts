@@ -2,7 +2,7 @@
 // Les groupes sont déduits de l'horaire (équipe d'une classe, profs d'une même matière) : rien à tenir à jour.
 
 import type { Dataset } from '../data/types';
-import { MIDI, deIso, estJourDeCours, iso, periode, plusJours } from '../lib/calendar';
+import { MIDI, bornesPeriodes, estJourDeCours, iso, periode, plusJours } from '../lib/calendar';
 import { absentA, coursDuProf, nomAffiche } from './horaire';
 import { triClasse } from './ouest';
 
@@ -119,13 +119,7 @@ export function plage(c: Pick<Creneau, 'hDebut' | 'hFin'>): string {
 
 /** Début et fin réels (pour une invitation Teams ou un agenda). */
 export function bornes(c: Pick<Creneau, 'date' | 'hDebut' | 'hFin'>): { debut: Date; fin: Date } {
-  const d = deIso(c.date);
-  const a = periode(c.hDebut);
-  const b = periode(c.hFin);
-  return {
-    debut: new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(a.dm / 60), a.dm % 60),
-    fin: new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(b.fm / 60), b.fm % 60),
-  };
+  return bornesPeriodes(c.date, c.hDebut, c.hFin);
 }
 
 export const noms = (profs: string[]): string => {

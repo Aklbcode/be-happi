@@ -7,7 +7,8 @@ import { peutValiderAvec, peutVoirAvec } from './champs';
 import { RACKS } from './materiel';
 import { sharepointConfigure } from '../config';
 import { simulationActive } from './simulation';
-import { dernierePeriodeFinie, deIso, estJourDeCours, iso, jourSemaineIso, minutesDe, plusJoursIso, situation } from '../lib/calendar';
+import { usePreferences } from './preferences';
+import { dernierePeriodeFinie, deIso, estJourDeCours, iso, jourSemaineIso, lundiDe, minutesDe, plusJoursIso, situation } from '../lib/calendar';
 import { memeDeplacement, nomAffiche } from '../logic/horaire';
 import { verifierDeplacement } from '../logic/deplacements';
 import { changementsDuJour } from '../logic/publication';
@@ -104,6 +105,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const demo = __DEMO_FORCEE__ || (!sharepointConfigure() && !simulation);
   const [maintenant, setMaintenant] = useState<Date>(() => (demo ? momentDemo(new Date()) : new Date()));
   const [ds, setDs] = useState<Dataset | null>(() => (demo ? datasetDemo(momentDemo(new Date())) : lireCache()));
+  const preferences = usePreferences(ds?.moi.email || ds?.moi.nom || '', demo ? 'demo' : simulation ? 'simulation' : 'ecole', iso(lundiDe(maintenant)));
   const [chargement, setChargement] = useState(!demo);
   const [erreur, setErreur] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -402,7 +404,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const valeur = useMemo<Store>(
     () => ({
-      ds,
+      ds: ds ? { ...ds, preferencesDeplacements: preferences.choix } : null,
       demo,
       simulation,
       maintenant,
@@ -440,7 +442,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast,
       montrerToast,
     }),
-    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, reserver, annulerReservation, proposer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
+    [ds, preferences, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, reserver, annulerReservation, proposer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
   );
 
   return <Ctx.Provider value={valeur}>{children}</Ctx.Provider>;

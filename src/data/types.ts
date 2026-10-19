@@ -155,6 +155,8 @@ export interface Moi {
 }
 
 export interface Dataset {
+  /** Préférences locales du titulaire de « moi », jamais envoyées aux listes scolaires. */
+  preferencesDeplacements?: import('../logic/preferences').PreferencesDeplacements;
   moi: Moi;
   cours: Cours[];
   /** Horaire des classes sans nom de prof (vue élève). */

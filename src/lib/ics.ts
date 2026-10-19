@@ -1,7 +1,7 @@
 // Export agenda (.ics) : l'horaire des prochaines semaines dans Outlook, Google Agenda ou le téléphone.
-// Heures en UTC (calculées depuis l'heure locale), congés exclus, déplacements validés appliqués.
+// Heures en UTC (calculées depuis l'heure de Bruxelles), congés exclus, déplacements validés appliqués.
 
-import { deIso, estJourDeCours, iso, periode, plusJours } from './calendar';
+import { bornesPeriodes, estJourDeCours, iso, plusJours } from './calendar';
 
 export interface Evenement {
   uid: string;
@@ -20,7 +20,7 @@ function utc(d: Date): string {
 }
 
 /** Échappe le texte selon la RFC 5545 et coupe les lignes trop longues. */
-const echappe = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const echappe = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n');
 
 /** Lignes de 75 octets au plus (les lettres accentuées comptent double en UTF-8). */
 function plier(ligne: string): string {
@@ -44,11 +44,7 @@ function plier(ligne: string): string {
 export function calendrierIcs(nom: string, evenements: Evenement[], maintenant = new Date()): string {
   const lignes = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Be Happi//IPES Tubize//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${echappe(nom)}`];
   for (const e of evenements) {
-    const d = deIso(e.date);
-    const a = periode(e.hDebut);
-    const b = periode(e.hFin);
-    const debut = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(a.dm / 60), a.dm % 60);
-    const fin = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(b.fm / 60), b.fm % 60);
+    const { debut, fin } = bornesPeriodes(e.date, e.hDebut, e.hFin);
     lignes.push(
       'BEGIN:VEVENT',
       `UID:${echappe(e.uid)}@be-happi`,
