@@ -1,10 +1,13 @@
 // Modèle de données de Be Happi.
 // Il suit les listes SharePoint déjà utilisées par l'app Power Apps (Horaires, Absences, Réservations, Deplacements, Infos…).
 
+/** Les espaces de l'app : chacun voit d'abord ce qui le concerne. */
+export type Profil = 'prof' | 'educateur' | 'secretariat' | 'direction' | 'technique' | 'eleve';
+
 /** Une ligne de la liste Horaires : un prof, un jour, une heure. */
 export interface Cours {
   id: string;
-  prof: string;        // nom tel qu'il apparaît dans Horaires (ex. DUPONT)
+  prof: string;        // nom tel qu'il apparaît dans Horaires (ex. DURANT)
   jour: number;        // 1 = lundi … 5 = vendredi
   h: number;           // 1 à 9
   classes: string[];   // une ou plusieurs classes (groupes)
@@ -13,7 +16,9 @@ export interface Cours {
   matiere: string;
 }
 
+/** Une absence (liste Absences) : une ligne par jour, sans motif affiché. */
 export interface Absence {
+  id?: string;
   prof: string;
   date: string;        // AAAA-MM-JJ
   deH: number;         // première heure d'absence
@@ -70,9 +75,11 @@ export interface Decision {
   le: string;          // quand (ISO)
 }
 
+/** Une info du jour (liste Infos), visible par tous les profs. */
 export interface Info {
+  id?: string;
   date: string;
-  categorie: string;
+  categorie: string;   // Retard · Éducateur absent · Changement de local · Info (comme Power Apps)
   titre: string;
 }
 
@@ -87,23 +94,71 @@ export interface Local {
   autre: string;
 }
 
+/** Un signalement (liste Signalements) : le local est écrit dans le texte, comme dans Power Apps. */
 export interface Signalement {
+  id?: string;
   local: string;
   titre: string;
   depuis: string;      // AAAA-MM-JJ
-  bloquant: boolean;   // le local ne peut plus être utilisé
+  bloquant: boolean;   // urgent : le local ne peut plus être utilisé
+  statut: string;      // Nouveau · En cours · Résolu (comme Power Apps)
+  resolu: boolean;
+  auteur?: string;     // qui a signalé (nom affiché)
+  auteurMail?: string;
+  le?: string;         // quand (ISO)
+  reponse?: string;    // mot du service technique (colonne facultative)
+  etag?: string;
+}
+
+/** Ce qui est publié pour les élèves (liste Changements, comme « Publier pour les élèves » de Power Apps). */
+export interface Changement {
+  id?: string;
+  date: string;
+  h: number;
+  classe: string;
+  type: string;        // Étude · Déplacé · Local
+  titre: string;
+}
+
+/** Réservation de matériel (liste Materiel) : racks de tablettes, PC, projecteurs mobiles… */
+export interface ResaMateriel {
+  id?: string;
+  prof: string;
+  date: string;
+  h: number;
+  rack: string;
+  classe: string;
+}
+
+/** Fiche d'un membre du personnel (liste Profs) : nom comme dans Horaires, adresse pour Teams. */
+export interface FicheProf {
+  nom: string;
+  email?: string;
+}
+
+/** Horaire vu par les élèves (liste HorairesEleves) : sans nom de prof. */
+export interface CoursEleve {
+  jour: number;
+  h: number;
+  classes: string[];
+  matiere: string;
+  local: string;
 }
 
 export interface Moi {
-  nom: string;         // nom dans Horaires
+  nom: string;         // nom dans Horaires (vide pour un élève)
   prenom: string;
   email?: string;
   roles?: string[];    // liste Roles : Secrétariat, Éducateur, Direction…
+  /** Les espaces ouverts à cette personne (calculés au chargement). */
+  profils?: Profil[];
 }
 
 export interface Dataset {
   moi: Moi;
   cours: Cours[];
+  /** Horaire des classes sans nom de prof (vue élève). */
+  coursEleves: CoursEleve[];
   absences: Absence[];
   reservations: Reservation[];
   deplacements: Deplacement[];
@@ -113,4 +168,9 @@ export interface Dataset {
   decisions: Decision[];
   /** La liste « Decisions » existe : les refus et leurs motifs sont gardés. */
   journal: boolean;
+  profs: FicheProf[];
+  changements: Changement[];
+  materiel: ResaMateriel[];
+  /** Listes absentes du site (clés de config.listes) : leurs écrans l'expliquent au lieu d'échouer. */
+  absentes: string[];
 }

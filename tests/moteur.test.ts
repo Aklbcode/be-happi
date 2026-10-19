@@ -35,6 +35,11 @@ function donnees(partiel: Partial<Dataset> & { cours: Cours[] }): Dataset {
     signalements: [],
     decisions: [],
     journal: true,
+    coursEleves: [],
+    profs: [],
+    changements: [],
+    materiel: [],
+    absentes: [],
     ...partiel,
   };
 }

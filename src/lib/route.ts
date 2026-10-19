@@ -1,19 +1,25 @@
-// Navigation simple par l'adresse (#/horaire, #/locaux…), utile aussi pour les liens profonds depuis Teams.
+// Navigation simple par l'adresse (#/horaire, #/locaux…), utile aussi pour les liens profonds depuis Teams
+// et pour les QR codes collés sur les portes (#/signaler?local=BF110).
 
 import { useEffect, useState } from 'react';
 
-export type Ecran = 'aujourdhui' | 'horaire' | 'happi' | 'locaux' | 'ecole' | 'deplacer' | 'connexion' | 'validations';
-const ECRANS: Ecran[] = ['aujourdhui', 'horaire', 'happi', 'locaux', 'ecole', 'deplacer', 'connexion', 'validations'];
+export const ECRANS = [
+  'aujourdhui', 'horaire', 'happi', 'locaux', 'ecole', 'deplacer', 'connexion', 'validations',
+  'pilotage', 'ouest', 'collab', 'absences', 'publier', 'infos', 'direction', 'technique', 'signaler',
+  'materiel', 'eleve', 'semaine', 'ecran', 'qr',
+] as const;
+
+export type Ecran = (typeof ECRANS)[number];
 
 export interface Route {
-  ecran: Ecran;
+  ecran: Ecran | null;
   params: URLSearchParams;
 }
 
 export function lireRoute(): Route {
   const brut = window.location.hash.replace(/^#\/?/, '');
   const [chemin, qs] = brut.split('?');
-  const ecran = (ECRANS as string[]).includes(chemin) ? (chemin as Ecran) : 'aujourdhui';
+  const ecran = (ECRANS as readonly string[]).includes(chemin) ? (chemin as Ecran) : null;
   return { ecran, params: new URLSearchParams(qs ?? '') };
 }
 

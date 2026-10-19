@@ -12,7 +12,7 @@ export interface InfoLocal {
 }
 
 export function etatLocal(ds: Dataset, moi: string, code: string, date: string, h: number): InfoLocal {
-  const sig = ds.signalements.find((s) => s.local === code && s.bloquant && s.depuis <= date);
+  const sig = ds.signalements.find((s) => s.local === code && s.bloquant && !s.resolu && s.depuis <= date);
   if (sig) return { etat: 'indispo', detail: `Indisponible · ${sig.titre.toLowerCase()}` };
 
   const jour = jourSemaineIso(date);

@@ -5,6 +5,8 @@ import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { config, sharepointConfigure } from '../config';
 import { lien } from '../lib/route';
+import { Entete } from '../ui/Entete';
+import { PROFILS } from '../data/profils';
 import type { DiagListe } from '../data/sharepoint';
 
 type Diag = DiagListe[];
@@ -30,12 +32,7 @@ export function Connexion() {
 
   return (
     <section className="ecran" aria-label="Connexion">
-      <div className="rangee">
-        <a className="rond" href={lien('ecole')} aria-label="Retour">
-          <Icon nom="gauche" />
-        </a>
-        <h1 className="titre-l">Connexion</h1>
-      </div>
+      <Entete titre="Connexion" sous="SharePoint de l’école" retour={lien('ecole')} />
 
       {demo ? (
         <div className="carte">
@@ -58,9 +55,18 @@ export function Connexion() {
           <h2 className="titre-m">{chargement ? 'Chargement…' : erreur ? 'Problème de connexion' : 'Connecté'}</h2>
           {erreur && <p className="texte" style={{ color: 'var(--rose-encre)' }}>{erreur}</p>}
           {ds && !erreur && (
-            <p className="texte">
-              {ds.moi.email} · reconnu comme <strong className="fort">{ds.moi.nom || '(nom introuvable dans la liste Profs)'}</strong> · {ds.cours.length} lignes d'horaire, {ds.absences.length} absences
-            </p>
+            <>
+              <p className="texte">
+                {ds.moi.email} · reconnu comme <strong className="fort">{ds.moi.nom || '(nom introuvable dans la liste Profs)'}</strong> · {ds.cours.length} lignes d'horaire, {ds.absences.length} absences
+              </p>
+              <p className="texte">
+                Espaces ouverts : <strong className="fort">{(ds.moi.profils ?? []).map((p) => PROFILS.find((x) => x.id === p)?.nom ?? p).join(', ') || 'aucun'}</strong>
+                {(ds.moi.roles ?? []).length ? ` (liste Roles : ${(ds.moi.roles ?? []).join(', ')})` : ' (aucun rôle dans la liste Roles)'}
+              </p>
+              {ds.absentes.length > 0 && (
+                <p className="petit">Listes pas encore créées sur le site : {ds.absentes.map((k) => (config.listes as Record<string, string>)[k] ?? k).join(', ')}. Les écrans qui en dépendent restent vides.</p>
+              )}
+            </>
           )}
           <div className="rangee enrouler">
             <button className="bouton bouton--sec bouton--petit" onClick={recharger}>

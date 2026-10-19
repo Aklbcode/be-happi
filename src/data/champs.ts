@@ -3,6 +3,7 @@
 import { config } from '../config';
 import { iso } from '../lib/calendar';
 import { LOCAUX } from './locaux';
+import type { Profil } from './types';
 
 export type Champs = Record<string, unknown>;
 
@@ -92,8 +93,20 @@ const aUnRole = (roles: string[] | undefined, attendus: string[]): boolean => {
   return (roles ?? []).some((r) => voulus.includes(sansAccents(r)));
 };
 
-/** Peut valider ou refuser les déplacements (rôles réglés dans config.roles.validation). */
-export const peutValiderAvec = (roles: string[] | undefined): boolean => aUnRole(roles, config.roles.validation);
+/** Les espaces auxquels donnent droit les rôles de la liste Roles (et le fait d'être prof). */
+export function profilsAvec(roles: string[] | undefined, estProf: boolean): Profil[] {
+  const R = config.roles;
+  const p: Profil[] = [];
+  if (estProf) p.push('prof');
+  if (aUnRole(roles, R.educateur)) p.push('educateur');
+  if (aUnRole(roles, R.secretariat)) p.push('secretariat');
+  if (aUnRole(roles, R.direction)) p.push('direction');
+  if (aUnRole(roles, R.technique)) p.push('technique');
+  return p;
+}
 
-/** Peut consulter l'écran Validations sans décider (config.roles.lecture). */
-export const peutVoirAvec = (roles: string[] | undefined): boolean => peutValiderAvec(roles) || aUnRole(roles, config.roles.lecture);
+/** Peut valider ou refuser les déplacements : éducateurs et secrétariat. */
+export const peutValiderAvec = (roles: string[] | undefined): boolean => aUnRole(roles, [...config.roles.educateur, ...config.roles.secretariat]);
+
+/** Peut consulter l'écran Validations : en plus, la direction (lecture). */
+export const peutVoirAvec = (roles: string[] | undefined): boolean => peutValiderAvec(roles) || aUnRole(roles, config.roles.direction);

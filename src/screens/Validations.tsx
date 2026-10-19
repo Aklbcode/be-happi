@@ -6,17 +6,17 @@ import { useStore } from '../data/store';
 import type { Deplacement } from '../data/types';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
+import { Entete } from '../ui/Entete';
 import { analyserProposition, type Analyse, type Controle } from '../logic/deplacements';
 import { memeDeplacement, nomAffiche } from '../logic/horaire';
 import { aPrevenir, bilanDuJour, journal, moment, trajet } from '../logic/suivi';
 import { dateLongue, periode } from '../lib/calendar';
-import { lien } from '../lib/route';
 
 /** Les contrôles montrés en pastilles (les autres n'apparaissent que s'ils bloquent). */
 const PRINCIPAUX: Controle['cle'][] = ['absent', 'prof', 'classes', 'local'];
 
 export function Validations() {
-  const { ds, demo, maintenant, aujourdhui, heurePassee, decider, peutValider, peutVoirValidations, roleDemo, changerRoleDemo } = useStore();
+  const { ds, demo, maintenant, aujourdhui, heurePassee, decider, peutValider, peutVoirValidations, changerProfil, ouvrirTeams } = useStore();
   // Instantané de la proposition ouverte : après la décision, elle quitte la liste mais la feuille reste.
   const [ouverte, setOuverte] = useState<{ d: Deplacement; a: Analyse } | null>(null);
   const [commentaire, setCommentaire] = useState('');
@@ -38,7 +38,7 @@ export function Validations() {
   if (!peutVoirValidations) {
     return (
       <section className="ecran" aria-label="Validations">
-        <Entete demo={demo} />
+        <Entete titre="Validations" sous="Déplacements de cours proposés" />
         <div className="carte">
           <h2 className="titre-m">Réservé aux éducateurs</h2>
           <p className="texte">
@@ -83,20 +83,14 @@ export function Validations() {
 
   return (
     <section className="ecran" aria-label="Validations">
-      <Entete demo={demo} />
+      <Entete titre="Validations" sous="Déplacements de cours proposés" />
 
-      {demo && (
+      {demo && !peutValider && (
         <div className="carte carte--grise" style={{ gap: 10 }}>
-          <span className="petit fort">Démo : qui es-tu ?</span>
-          <div className="seg" role="group" aria-label="Rôle pour la démo">
-            <button aria-pressed={roleDemo === 'prof'} onClick={() => changerRoleDemo('prof')}>Prof</button>
-            <button aria-pressed={roleDemo === 'educateur'} onClick={() => changerRoleDemo('educateur')}>Éducateur</button>
-          </div>
-          <span className="petit">
-            {roleDemo === 'educateur'
-              ? 'Tu peux valider ou refuser. Propose aussi un déplacement en « Prof », puis reviens le valider ici.'
-              : 'En « Prof », tu vois l’écran sans pouvoir décider. Passe en « Éducateur » pour valider.'}
-          </span>
+          <span className="petit">Dans cet espace, tu vois les propositions sans pouvoir décider.</span>
+          <button className="bouton bouton--prim bouton--petit" onClick={() => changerProfil('educateur')}>
+            Passer dans l’espace Éducateur pour décider
+          </button>
         </div>
       )}
 
@@ -240,6 +234,38 @@ export function Validations() {
                   </span>
                 ))}
                 {!fait.journalOk && <span className="petit">Décision appliquée, mais pas notée au journal (liste « Decisions » : colonne manquante ?).</span>}
+                <div className="rangee enrouler">
+                  {(() => {
+                    const qui = fait.statut === 'Validé' ? [fait.d.prof, fait.d.absent] : [fait.d.prof];
+                    const avec = qui.filter((p) => ds.profs.some((x) => x.nom === p && x.email));
+                    if (!avec.length) return null;
+                    const message =
+                      fait.statut === 'Validé'
+                        ? `Bonjour, le déplacement de la ${fait.d.classe} est validé : ${trajet(fait.d)} (${periode(fait.d.hVide).debut})${fait.local ? `, local ${fait.local}` : ''}.${commentaire.trim() ? ` ${commentaire.trim()}` : ''}`
+                        : `Bonjour ${nomAffiche(fait.d.prof)}, ta proposition pour la ${fait.d.classe} (${trajet(fait.d)}) n'est pas retenue : ${commentaire.trim()}`;
+                    return (
+                      <button
+                        className="bouton bouton--sec bouton--petit"
+                        onClick={() =>
+                          ouvrirTeams({
+                            type: 'teams-chat',
+                            emails: avec.map((p) => ds.profs.find((x) => x.nom === p)!.email!),
+                            noms: avec.map(nomAffiche),
+                            message,
+                            sujet: `Déplacement ${fait.d.classe}`,
+                          })
+                        }
+                      >
+                        <Icon nom="message" taille={16} /> Prévenir sur Teams
+                      </button>
+                    );
+                  })()}
+                  {fait.statut === 'Validé' && (
+                    <a className="bouton bouton--sec bouton--petit" href="#/publier" onClick={fermer}>
+                      <Icon nom="haut_parleur" taille={16} /> Publier pour les élèves
+                    </a>
+                  )}
+                </div>
                 <button className="bouton bouton--prim" onClick={fermer}>OK</button>
               </div>
             ) : peutValider ? (
@@ -278,7 +304,7 @@ export function Validations() {
                 </span>
               </>
             ) : (
-              <p className="petit">{demo ? 'Passe en « Éducateur » (en haut de l’écran) pour décider.' : 'Lecture seule : la décision revient à l’éducateur ou au secrétariat.'}</p>
+              <p className="petit">{demo ? 'Passe dans l’espace Éducateur (bouton en haut de l’écran) pour décider.' : 'Lecture seule : la décision revient à l’éducateur ou au secrétariat.'}</p>
             )}
           </>
         )}
@@ -287,17 +313,6 @@ export function Validations() {
   );
 }
 
-function Entete({ demo }: { demo: boolean }) {
-  return (
-    <div className="rangee rangee--entre">
-      <a className="rond" href={lien('ecole')} aria-label="Retour à l'école">
-        <Icon nom="gauche" />
-      </a>
-      <h1 className="titre-xl grandit">Validations</h1>
-      {demo && <span className="puce puce--demo">Démo</span>}
-    </div>
-  );
-}
 
 function Pastilles({ controles }: { controles: Controle[] }) {
   const visibles = controles.filter((c) => PRINCIPAUX.includes(c.cle) || !c.ok);

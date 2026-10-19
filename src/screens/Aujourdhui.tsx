@@ -11,6 +11,11 @@ import { JOURS, MIDI, RECRES, conge, dateLongue, estJourDeCours, jourSemaineIso,
 import { blagueDuJour } from '../data/blagues';
 import { lien } from '../lib/route';
 import { moment, suiviDuProf } from '../logic/suivi';
+import { remarquesProf } from '../logic/remarques';
+import { Remarques } from '../ui/Remarques';
+import { useMoi } from '../ui/Moi';
+
+const ICONES_INFO: Record<string, string> = { Info: 'note', Retard: 'horloge', 'Éducateur absent': 'gens', 'Changement de local': 'porte' };
 
 type Ligne =
   | { type: 'cours'; h: number; c: CoursJour; style: string; droite: string }
@@ -18,10 +23,10 @@ type Ligne =
   | { type: 'pause'; libelle: string };
 
 export function Aujourdhui() {
-  const { ds, demo, maintenant, aujourdhui, minutes, heureFinie, reserver, montrerToast, peutValider } = useStore();
+  const { ds, demo, maintenant, aujourdhui, minutes, heureFinie, heurePassee, reserver, montrerToast, peutValider } = useStore();
+  const { ouvrir: ouvrirMoi } = useMoi();
   const [remedOuverte, setRemedOuverte] = useState(false);
   const [suggestionCachee, setSuggestionCachee] = useState(false);
-  const [lus, setLus] = useState<Record<number, boolean>>({});
   const [infoDemo, setInfoDemo] = useState(false);
 
   const calc = useMemo(() => {
@@ -83,11 +88,12 @@ export function Aujourdhui() {
     const suivi = suiviDuProf(ds, moi, aujourdhui);
     const aValider = ds.deplacements.filter((d) => d.statut === 'En attente').length;
     const infos = ds.infos.filter((i) => i.date === aujourdhui);
-    return { moi, jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos };
-  }, [ds, maintenant, aujourdhui, minutes, heureFinie]);
+    const remarques = remarquesProf(ds, moi, maintenant, heurePassee);
+    return { moi, jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos, remarques };
+  }, [ds, maintenant, aujourdhui, minutes, heureFinie, heurePassee]);
 
   if (!ds || !calc) return <section className="ecran"><p className="texte">Chargement…</p></section>;
-  const { jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos } = calc;
+  const { jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos, remarques } = calc;
   const initiales = `${ds.moi.prenom.charAt(0)}${ds.moi.nom.charAt(0)}`.toUpperCase();
 
   async function prendre(cl: string, localPrevu: string) {
@@ -158,9 +164,9 @@ export function Aujourdhui() {
 
   return (
     <section className="ecran" aria-label="Aujourd'hui">
-      <header className="rangee rangee--haut rangee--entre">
-        <div className="pile">
-          <p className="surtitre">{dateLongue(maintenant)}</p>
+      <header className="entete">
+        <div className="pile grandit">
+          <p className="sous-titre">{dateLongue(maintenant).replace(/^./, (x) => x.toUpperCase())}</p>
           <h1 className="titre-xl">Bonjour {ds.moi.prenom || 'à toi'}</h1>
         </div>
         <div className="rangee">
@@ -169,9 +175,9 @@ export function Aujourdhui() {
               Démo
             </button>
           )}
-          <a href={lien('ecole')} className="rond rond--nuit" aria-label="Mon profil et les réglages">
+          <button onClick={ouvrirMoi} className="rond rond--nuit" aria-label="Moi et mes espaces">
             {initiales}
-          </a>
+          </button>
         </div>
       </header>
 
@@ -252,6 +258,8 @@ export function Aujourdhui() {
         </section>
       )}
 
+      <Remarques remarques={remarques} />
+
       {lignes.length > 0 && (
         <section aria-label="Ta journée" className="pile pile--12">
           <div className="rangee rangee--entre">
@@ -298,31 +306,27 @@ export function Aujourdhui() {
         </section>
       )}
 
-      <section className="pile pile--12" aria-label="Pour toi aujourd'hui">
-        <h2 className="titre-m">Pour toi aujourd'hui</h2>
+      <section className="pile pile--12" aria-label="Infos du jour">
+        <div className="rangee rangee--entre">
+          <h2 className="titre-m">Infos du jour</h2>
+          <a href={lien('infos')} className="petit fort" style={{ color: 'var(--indigo-encre)', textDecoration: 'none' }}>
+            Toutes les infos
+          </a>
+        </div>
+        {!infos.length && <p className="petit">Aucune info publiée aujourd’hui.</p>}
         {infos.map((info, i) => (
-          <div key={i} className="carte" style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <div key={info.id ?? i} className="carte carte--info">
             <span className="vignette">
-              <Icon nom={info.categorie.toLowerCase().includes('note') ? 'note' : 'haut_parleur'} />
+              <Icon nom={ICONES_INFO[info.categorie] ?? 'note'} />
             </span>
             <div className="pile grandit">
               <span className="petit">{info.categorie}</span>
               <span className="titre-s">{info.titre}</span>
             </div>
-            {info.categorie.toLowerCase().includes('note') &&
-              (lus[i] ? (
-                <span className="puce puce--indigo">
-                  <Icon nom="coche" taille={15} epaisseur={2.2} /> Lu
-                </span>
-              ) : (
-                <button className="bouton bouton--prim bouton--petit" onClick={() => setLus({ ...lus, [i]: true })}>
-                  J'ai lu
-                </button>
-              ))}
           </div>
         ))}
         <div className="carte carte--grise">
-          <span className="surtitre">Blague du jour</span>
+          <span className="petit fort">Blague du jour</span>
           <p className="texte" style={{ color: 'var(--encre)' }}>{blagueDuJour(maintenant)}</p>
         </div>
       </section>
@@ -352,10 +356,24 @@ export function Aujourdhui() {
         <p className="texte">
           Tu regardes la vraie app avec des données fictives : un lundi type, avec des collègues absents, des heures libérées et un local en panne. Les noms des collègues sont inventés.
         </p>
+        <p className="texte">
+          Six espaces à essayer : prof, éducateur, secrétariat, direction, service technique et élève. Chacun voit d’abord ce qui le concerne.
+        </p>
         <p className="texte">Dès que l'école aura activé la connexion, l'app lira directement les listes SharePoint (horaires, absences, réservations…).</p>
-        <button className="bouton bouton--prim" onClick={() => setInfoDemo(false)}>
-          Compris
-        </button>
+        <div className="rangee">
+          <button
+            className="bouton bouton--prim grandit"
+            onClick={() => {
+              setInfoDemo(false);
+              ouvrirMoi();
+            }}
+          >
+            Essayer un autre espace
+          </button>
+          <button className="bouton bouton--sec" onClick={() => setInfoDemo(false)}>
+            Compris
+          </button>
+        </div>
       </Feuille>
     </section>
   );

@@ -4,6 +4,8 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
+import { Entete } from '../ui/Entete';
+import { calendrierIcs, joursDeCours, telecharger, type Evenement } from '../lib/ics';
 import { absentA, coursDuProf, nomAffiche, type CoursJour } from '../logic/horaire';
 import { opportunitesSemaine, optionsPour } from '../logic/deplacements';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
@@ -32,7 +34,7 @@ interface Fleche {
 }
 
 export function Horaire() {
-  const { ds, maintenant, aujourdhui, minutes, heureFinie } = useStore();
+  const { ds, maintenant, aujourdhui, minutes, heureFinie, montrerToast } = useStore();
   const [decalage, setDecalage] = useState(0);
   const [vue, setVue] = useState<Vue>('moi');
   const [classe, setClasse] = useState('');
@@ -179,16 +181,31 @@ export function Horaire() {
 
   const colStyle = (i: number) => ({ left: `calc(46px + ${i} * ((100% - 62px) / 5 + 4px))`, width: 'calc((100% - 62px) / 5)' });
 
+  function exporterAgenda() {
+    if (!ds) return;
+    const evenements: Evenement[] = [];
+    for (const d of joursDeCours(maintenant, 4)) {
+      for (const c of coursDuProf(ds, moi, d)) {
+        evenements.push({ uid: `${moi}-${d}-${c.h}`, date: d, hDebut: c.h, hFin: c.h, titre: `${c.classe}${c.matiere ? ` · ${c.matiere}` : ''}`, lieu: c.local, description: c.deplace ? 'Cours déplacé (validé)' : `H${c.h}` });
+      }
+    }
+    telecharger('mon-horaire.ics', calendrierIcs(`Horaire · ${ds.moi.prenom} ${nomAffiche(moi)}`, evenements));
+    montrerToast('Agenda téléchargé : ouvre le fichier pour l’ajouter à Outlook');
+  }
+
   return (
     <section className="ecran ecran--large" aria-label="Horaire">
-      <header className="rangee rangee--entre">
-        <h1 className="titre-xl">Horaire</h1>
-        {decalage !== 0 && (
-          <button className="bouton bouton--sec bouton--petit" onClick={() => { setDecalage(0); setSel(null); }}>
-            Cette semaine
-          </button>
-        )}
-      </header>
+      <Entete
+        titre="Horaire"
+        sous="Ta semaine et les heures libérées"
+        droite={
+          decalage !== 0 ? (
+            <button className="bouton bouton--sec bouton--petit" onClick={() => { setDecalage(0); setSel(null); }}>
+              Cette semaine
+            </button>
+          ) : undefined
+        }
+      />
 
       <div className="seg" role="group" aria-label="Afficher l'horaire de">
         {(['moi', 'classe', 'local'] as Vue[]).map((v) => (
@@ -311,6 +328,9 @@ export function Horaire() {
         </svg>
       </div>
 
+      <button className="bouton bouton--sec" onClick={exporterAgenda}>
+        <Icon nom="agenda" taille={18} /> Mettre mon horaire dans mon agenda (4 semaines)
+      </button>
       <div className="legende">
         {vue === 'moi' ? (
           <>

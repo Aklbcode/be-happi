@@ -11,7 +11,7 @@ const LUNDI = '2026-11-16';
 const c = (prof: string, jour: number, h: number, classe: string, local: string): Cours => ({ id: `${prof}-${jour}-${h}`, prof, jour, h, classe, classes: classesDe(classe), local, matiere: 'Cours' });
 
 function donnees(partiel: Partial<Dataset>): Dataset {
-  return { moi: { nom: 'MOI', prenom: 'Test' }, cours: [], absences: [], reservations: [], deplacements: [], infos: [], locaux: LOCAUX, signalements: [], decisions: [], journal: true, ...partiel };
+  return { moi: { nom: 'MOI', prenom: 'Test' }, cours: [], absences: [], reservations: [], deplacements: [], infos: [], locaux: LOCAUX, signalements: [], decisions: [], journal: true, coursEleves: [], profs: [], changements: [], materiel: [], absentes: [], ...partiel };
 }
 
 test('le prof voit ses propositions : en attente, validées à venir, refusées récemment avec le motif', () => {
@@ -67,8 +67,8 @@ test('bilan du jour : heures sans prof, récupérées ou à l’étude (sans mot
 });
 
 test('qui prévenir : le prof seul en cas de refus ; élèves et collègues en cas de validation', () => {
-  assert.equal(aPrevenir({ prof: 'DUPONT', absent: 'X', classe: '3A' }, 'Refusé').length, 1);
-  const v = aPrevenir({ prof: 'DUPONT', absent: 'X', classe: '5A, 5B' }, 'Validé');
+  assert.equal(aPrevenir({ prof: 'DURANT', absent: 'X', classe: '3A' }, 'Refusé').length, 1);
+  const v = aPrevenir({ prof: 'DURANT', absent: 'X', classe: '5A, 5B' }, 'Validé');
   assert.equal(v.length, 3);
   assert.equal(v[0].auto, true);
   assert.match(v[1].qui, /5A, 5B/);

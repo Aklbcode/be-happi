@@ -27,20 +27,29 @@ export const config = {
      * (colonnes : voir champs.decisions). Sans elle, valider et refuser fonctionnent quand même.
      */
     decisions: 'Decisions',
-    // Pas encore utilisées par Be Happi, mais vérifiées par l'écran Connexion.
+    /** Réservations de matériel (racks de tablettes, PC portables…), comme Power Apps. */
     materiel: 'Materiel',
+    /** Ce qui est publié pour les élèves (« Publier pour les élèves »). */
     changements: 'Changements',
+    /** Horaire des élèves, sans nom de prof (lu seulement en vue élève). */
+    horairesEleves: 'HorairesEleves',
   },
 
   /** Listes dont l'absence n'est pas une erreur. */
   listesFacultatives: ['decisions'] as string[],
+  /** Colonnes dont l'absence n'est pas une erreur (liste → champs de config.champs). */
+  colonnesFacultatives: { signalements: ['reponse', 'urgence'], absences: ['motif'], reservations: ['absent'] } as Record<string, string[]>,
 
-  /** Rôles de la liste Roles qui ouvrent l'écran Validations (accents et majuscules ignorés). */
+  /**
+   * Rôles de la liste Roles (accents et majuscules ignorés) et les espaces qu'ils ouvrent.
+   * Éducateurs et secrétariat valident les déplacements (dans Power Apps : écran Secrétariat) ;
+   * la direction consulte ; le service technique traite les signalements.
+   */
   roles: {
-    /** Peuvent valider ou refuser (dans Power Apps, la validation se fait à l'écran Secrétariat). */
-    validation: ['Secrétariat', 'Éducateur', 'Éducatrice', 'Éducateurs'],
-    /** Peuvent consulter sans décider. */
-    lecture: ['Direction'],
+    educateur: ['Éducateur', 'Éducatrice', 'Éducateurs', 'Éducatrices'],
+    secretariat: ['Secrétariat', 'Administratif', 'Service administratif'],
+    direction: ['Direction', 'Directeur', 'Directrice', 'Sous-directeur', 'Sous-directrice'],
+    technique: ['Technique', 'Service technique', 'Entretien'],
   },
 
   /**
@@ -61,7 +70,8 @@ export const config = {
   champs: {
     horaires: { prof: 'Title', jour: 'JourNum', heure: 'Heure', classes: 'Classes', local: 'Local', matiere: 'Matiere' },
     profs: { nom: 'Title', mail: 'Email' },
-    absences: { prof: 'Title', date: 'DateAbs', deH: 'DeH', aH: 'AH' },
+    /** Motif : toujours « Non précisé » depuis Be Happi (jamais de motif médical). */
+    absences: { prof: 'Title', date: 'DateAbs', deH: 'DeH', aH: 'AH', motif: 'Motif' },
     reservations: { prof: 'Title', date: 'DateRes', heure: 'Heure', local: 'Local', classe: 'Classe', absent: 'Absent' },
     deplacements: {
       absent: 'Title', date: 'DateDep', hVide: 'HeureVide', classe: 'Classe', prof: 'Collegue',
@@ -69,7 +79,7 @@ export const config = {
     },
     infos: { date: 'DateInfo', categorie: 'Categorie', titre: 'Title' },
     /** Pas de colonne Local : le local est écrit dans le texte du signalement (formulaire Power Apps). */
-    signalements: { titre: 'Title', date: 'Created', statut: 'Statut', urgence: 'Urgence' },
+    signalements: { titre: 'Title', date: 'Created', statut: 'Statut', urgence: 'Urgence', reponse: 'Reponse' },
     roles: { mail: 'Title', role: 'Role' },
     /** Liste facultative « Decisions » : une ligne par validation ou refus. */
     decisions: {
@@ -77,7 +87,8 @@ export const config = {
       date: 'DateDep', hVide: 'HeureVide', dateOrigine: 'DateOrigine', hOrigine: 'HeureOrigine', local: 'Local',
     },
     materiel: { prof: 'Title', date: 'DateRes', heure: 'Heure', rack: 'Rack', classe: 'Classe' },
-    changements: { prof: 'Title', date: 'DateChg', heure: 'Heure', classe: 'Classe', type: 'TypeChg' },
+    changements: { titre: 'Title', date: 'DateChg', heure: 'Heure', classe: 'Classe', type: 'TypeChg' },
+    horairesEleves: { jour: 'JourNum', heure: 'Heure', classes: 'Classes', matiere: 'Matiere', local: 'Local' },
   },
 };
 

@@ -84,6 +84,8 @@ export interface HeureSansProf {
   classe: string;
   absent: string;
   recuperee: boolean;
+  /** Récupérée seulement par une proposition encore à valider. */
+  enAttente: boolean;
 }
 
 /** Bilan du jour pour l'éducateur : qui est absent, quelles heures sont sans prof, lesquelles sont récupérées. */
@@ -96,9 +98,10 @@ export function bilanDuJour(ds: Dataset, date: string): { absents: string[]; heu
     const abs = ds.absences.find((a) => a.prof === c.prof && a.date === date && c.h >= a.deH && c.h <= a.aH);
     if (!abs) continue;
     for (const cl of c.classes) {
-      const parDeplacement = ds.deplacements.some((d) => d.statut !== 'Refusé' && d.date === date && d.hVide === c.h && classesDe(d.classe).includes(cl));
+      const deps = ds.deplacements.filter((d) => d.statut !== 'Refusé' && d.date === date && d.hVide === c.h && classesDe(d.classe).includes(cl));
       const parReservation = ds.reservations.some((r) => r.date === date && r.h === c.h && classesReservation(r).includes(cl));
-      heures.push({ h: c.h, classe: cl, absent: c.prof, recuperee: parDeplacement || parReservation });
+      const confirme = parReservation || deps.some((d) => d.statut !== 'En attente');
+      heures.push({ h: c.h, classe: cl, absent: c.prof, recuperee: confirme || deps.length > 0, enAttente: !confirme && deps.length > 0 });
     }
   }
   heures.sort((a, b) => a.h - b.h || a.classe.localeCompare(b.classe));
@@ -114,7 +117,7 @@ export function aPrevenir(d: { prof: string; absent: string; classe: string }, s
   }
   return [
     { qui: nomAffiche(d.prof), comment: 'voit la validation dans Be Happi ; son horaire est à jour.', auto: true },
-    { qui: `Élèves de ${classes.join(', ')}`, comment: 'à prévenir avec « Publier pour les élèves » dans Power Apps (Secrétariat).', auto: false },
-    { qui: `${nomAffiche(d.absent)} et les collègues concernés`, comment: 'seront prévenus par Teams en phase 2 ; d’ici là, un petit message suffit.', auto: false },
+    { qui: `Élèves de ${classes.join(', ')}`, comment: 'à prévenir avec « Publier pour les élèves » (Be Happi ou Power Apps).', auto: false },
+    { qui: `${nomAffiche(d.absent)} et les collègues concernés`, comment: 'un message Teams est prêt ci-dessous, il suffit de l’envoyer.', auto: false },
   ];
 }

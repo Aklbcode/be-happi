@@ -49,3 +49,16 @@ export async function indiceConnexion(): Promise<string | undefined> {
     return undefined;
   }
 }
+
+/** Ouvre un lien (Teams, page web) : dans Teams, par Teams lui-même ; sinon dans un nouvel onglet. */
+export async function ouvrirLien(url: string): Promise<void> {
+  if (await dansTeams()) {
+    try {
+      await app.openLink(url);
+      return;
+    } catch {
+      /* repli : nouvel onglet */
+    }
+  }
+  window.open(url, '_blank', 'noopener');
+}

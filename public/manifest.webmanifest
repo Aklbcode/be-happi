@@ -1,7 +1,7 @@
 {
   "name": "Be Happi – IPES Tubize",
   "short_name": "Be Happi",
-  "description": "Ton horaire, les locaux libres et les déplacements de cours.",
+  "description": "L'école en direct : horaires, locaux, absences, élèves, et Happi, l'assistant.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",
@@ -9,7 +9,42 @@
   "background_color": "#F2F4F8",
   "theme_color": "#0F1630",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Happi",
+      "short_name": "Happi",
+      "description": "Poser une question à l'assistant",
+      "url": "./#/happi"
+    },
+    {
+      "name": "Où est ?",
+      "short_name": "Où est ?",
+      "description": "Un collègue, une classe, un local",
+      "url": "./#/ouest"
+    },
+    {
+      "name": "Locaux libres",
+      "short_name": "Locaux",
+      "description": "Les locaux libres maintenant",
+      "url": "./#/locaux"
+    },
+    {
+      "name": "Signaler un problème",
+      "short_name": "Signaler",
+      "description": "Un problème dans un local",
+      "url": "./#/signaler"
+    }
   ]
 }

@@ -13,6 +13,7 @@ import { JOURS_COURTS, PERIODES, deIso, estJourDeCours, iso, jourSemaineIso, per
 import type { Local } from '../data/types';
 import { batiment, nomEtage, type CodeBatiment } from '../data/batiments';
 import { MiniPlan } from '../ui/MiniPlan';
+import { Entete } from '../ui/Entete';
 
 /** D'ouest en est, comme sur le terrain. */
 const COLONNES: CodeBatiment[] = ['C', 'F', 'T'];
@@ -27,7 +28,7 @@ const garde = (f: Filtres) => (l: Local) =>
 const court = (l: Local) => (l.batiment === 'Autres' ? l.code : l.code.replace(/^B[TFC]/, '').replace(/^PR/, ''));
 
 export function Locaux({ params }: { params: URLSearchParams }) {
-  const { ds, maintenant, aujourdhui, minutes, reserver, montrerToast } = useStore();
+  const { ds, maintenant, aujourdhui, minutes, reserver, montrerToast, profil } = useStore();
   const dateDefaut = estJourDeCours(maintenant) ? aujourdhui : iso(prochainJourDeCours(maintenant, false));
   const date = params.get('date') ?? dateDefaut;
   const sit = situation(minutes);
@@ -88,13 +89,16 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
   return (
     <section className="ecran ecran--large" aria-label="Locaux">
-      <header className="rangee rangee--entre">
-        <h1 className="titre-xl">Locaux</h1>
-        <span className="puce puce--grise">
-          <Icon nom="calendrier" taille={16} />
-          {JOURS_COURTS[jourSemaineIso(date)]}. {d.getDate()}/{d.getMonth() + 1}
-        </span>
-      </header>
+      <Entete
+        titre="Locaux"
+        sous="Les locaux libres, rangés comme sur le terrain"
+        droite={
+          <span className="puce puce--grise">
+            <Icon nom="calendrier" taille={16} />
+            {JOURS_COURTS[jourSemaineIso(date)]}. {d.getDate()}/{d.getMonth() + 1}
+          </span>
+        }
+      />
 
       <div className="defile-x" role="group" aria-label="Choisir l'heure">
         {PERIODES.map((p, i) => (
@@ -172,7 +176,7 @@ export function Locaux({ params }: { params: URLSearchParams }) {
           {salles(dans('Autres'), true)}
         </div>
 
-        <p className="petit">{libres.length ? 'Touche un local pour le réserver.' : 'Aucun local libre à cette heure avec ces filtres.'}</p>
+        <p className="petit">{libres.length ? (profil === 'prof' ? 'Touche un local pour le réserver.' : 'Touche un local pour voir son équipement.') : 'Aucun local libre à cette heure avec ces filtres.'}</p>
       </section>
 
       <Feuille ouverte={!!local} onFermer={() => setChoisi(null)} titre={local ? `Local ${local.code}` : 'Local'}>
@@ -198,7 +202,7 @@ export function Locaux({ params }: { params: URLSearchParams }) {
               {local.autre && <span className="puce puce--grise">{local.autre}</span>}
               {!local.vp && !local.tbi && !local.tv && !local.autre && <span className="petit">Équipement non renseigné</span>}
             </div>
-            {info.etat === 'libre' && (
+            {info.etat === 'libre' && profil === 'prof' && (
               <>
                 <label className="pile">
                   <span className="petit">Pour quelle classe ?</span>

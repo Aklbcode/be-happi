@@ -1,9 +1,9 @@
 {
   "name": "be-happi",
   "private": true,
-  "version": "0.2.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "Be Happi : horaires, locaux et déplacements de cours de l'IPES Tubize, dans Teams et sur téléphone.",
+  "description": "Be Happi : l'app de l'IPES Tubize pour les profs, éducateurs, secrétariat, direction, service technique et élèves, dans Teams et sur téléphone.",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",

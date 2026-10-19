@@ -11,11 +11,11 @@
   },
   "name": {
     "short": "Be Happi",
-    "full": "Be Happi – horaires, locaux et déplacements"
+    "full": "Be Happi – l'école en direct"
   },
   "description": {
-    "short": "Ton horaire, les locaux libres et les déplacements de cours.",
-    "full": "Be Happi lit les listes SharePoint de l'école (horaires, absences, réservations) et propose aux professeurs les déplacements de cours possibles quand un collègue est absent, les locaux libres en direct et les classes à prendre en remédiation au lieu de l'étude."
+    "short": "Horaires, locaux, absences, élèves : l'école en direct.",
+    "full": "Be Happi lit les listes SharePoint de l'école et donne à chacun ce qui le concerne. Profs : la journée en direct, les déplacements de cours quand un collègue est absent, la remédiation au lieu de l'étude, les locaux libres. Éducateurs : les classes à l'étude heure par heure, qui peut aider, les validations. Secrétariat : les absences et leur impact, la publication pour les élèves, les infos du jour. Direction : le tableau de bord. Service technique : les signalements. Élèves : leur classe et les changements du jour. Avec Happi, l'assistant de l'école."
   },
   "icons": {
     "color": "color.png",
