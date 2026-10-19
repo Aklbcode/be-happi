@@ -6,7 +6,7 @@ import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { Entete } from '../ui/Entete';
 import { calendrierIcs, joursDeCours, telecharger, type Evenement } from '../lib/ics';
-import { absentA, coursDuProf, nomAffiche, type CoursJour } from '../logic/horaire';
+import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour } from '../logic/horaire';
 import { opportunitesSemaine, optionsPour } from '../logic/deplacements';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
 import { aller, lien } from '../lib/route';
@@ -58,6 +58,7 @@ export function Horaire() {
   const [salle, setSalle] = useState('');
   const [sel, setSel] = useState<{ date: string; h: number } | null>(null);
   const [detail, setDetail] = useState<CoursJour | null>(null);
+  const [passee, setPassee] = useState<Case | null>(null);
   const grilleRef = useRef<HTMLDivElement>(null);
   const [fleches, setFleches] = useState<Fleche[]>([]);
 
@@ -198,6 +199,11 @@ export function Horaire() {
 
   function toucher(c: Case) {
     if (vue !== 'moi') return;
+    if (c.type === 'perdue') {
+      setSel(null);
+      setPassee(c);
+      return;
+    }
     if (c.cours) {
       setSel(null);
       setDetail(c.cours);
@@ -316,6 +322,7 @@ export function Horaire() {
                   cible={!!sel && sel.date === c.date && sel.h === c.h}
                   origine={origines.has(c.cle)}
                   onClick={() => toucher(c)}
+                  cliquable={vue === 'moi'}
                 />
               ))}
             </div>
@@ -436,6 +443,49 @@ export function Horaire() {
         )}
       </Feuille>
 
+      <Feuille ouverte={!!passee} onFermer={() => setPassee(null)} titre="Heure passée">
+        {passee && (() => {
+          const part = ds.deplacements.find((d) => d.prof === moi && d.statut !== 'Refusé' && d.dateOrigine === passee.date && d.hOrigine === passee.h);
+          const mesClassesSet = new Set(mesClasses);
+          const etudes = coursSansProf(ds, passee.date, passee.h).filter((c) => c.classes.some((cl) => mesClassesSet.has(cl)));
+          return (
+            <>
+              <span className="surtitre">
+                {JOURS[jourSemaineIso(passee.date)]} · H{passee.h} · {periode(passee.h).debut} – {periode(passee.h).fin}
+              </span>
+              {part ? (
+                <>
+                  <h2 className="titre-l">Ton cours est parti</h2>
+                  <p className="texte">
+                    Ta {part.classe} de cette heure a été donnée {JOURS[jourSemaineIso(part.date)].toLowerCase()} {deIso(part.date).getDate()} en H{part.hVide}, à la place du cours de {nomAffiche(part.absent)} ({part.statut.toLowerCase()}).
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="titre-l">{etudes.length ? 'Une occasion passée' : 'Heure libre passée'}</h2>
+                  {etudes.length ? (
+                    <>
+                      <p className="texte">Pendant ton heure libre, {etudes.length > 1 ? 'ces classes que tu as étaient' : 'une classe que tu as était'} sans prof :</p>
+                      {etudes.map((e) => (
+                        <span key={e.id} className="avantage">
+                          <Icon nom="livre" taille={16} /> {e.classe} · {e.matiere || 'cours'} (étude)
+                        </span>
+                      ))}
+                      <p className="petit">La prochaine fois, une flèche te propose d’avancer un cours ou une remédiation dès que l’absence est encodée.</p>
+                    </>
+                  ) : (
+                    <p className="texte">Rien de particulier à cette heure.</p>
+                  )}
+                </>
+              )}
+              <button className="bouton bouton--sec" onClick={() => setPassee(null)}>
+                Fermer
+              </button>
+            </>
+          );
+        })()}
+      </Feuille>
+
       <Feuille ouverte={!!detail} onFermer={() => setDetail(null)} titre="Détail du cours">
         {detail && (
           <>
@@ -446,9 +496,13 @@ export function Horaire() {
               {detail.classe} · {detail.local}
             </h2>
             <p className="texte">{detail.matiere}{detail.deplace ? ` · déplacé depuis ${JOURS[jourSemaineIso(detail.deplace.date)]} H${detail.deplace.h} (${detail.deplace.statut.toLowerCase()})` : ''}</p>
-            <button className="bouton bouton--prim" onClick={() => { setDetail(null); aller('locaux', { date: detail.date, h: detail.h }); }}>
-              <Icon nom="porte" /> Changer de local
-            </button>
+            {detail.date > aujourdhui || (detail.date === aujourdhui && detail.h > heureFinie) ? (
+              <button className="bouton bouton--prim" onClick={() => { setDetail(null); aller('locaux', { date: detail.date, h: detail.h }); }}>
+                <Icon nom="porte" /> Changer de local
+              </button>
+            ) : (
+              <p className="petit">Cours passé.</p>
+            )}
           </>
         )}
       </Feuille>
@@ -456,7 +510,7 @@ export function Horaire() {
   );
 }
 
-function CaseHoraire({ c, cible, origine, onClick }: { c: Case; cible: boolean; origine: boolean; onClick: () => void }) {
+function CaseHoraire({ c, cible, origine, onClick, cliquable }: { c: Case; cible: boolean; origine: boolean; onClick: () => void; cliquable: boolean }) {
   const extra = `${cible ? ' case--cible' : ''}${origine ? ' case--origine' : ''}`;
   const commun = { 'data-cle': c.cle } as Record<string, string>;
   switch (c.type) {
@@ -471,7 +525,15 @@ function CaseHoraire({ c, cible, origine, onClick }: { c: Case; cible: boolean; 
         </button>
       );
     case 'perdue':
-      return (
+      return cliquable ? (
+        <button className={`case case--perdue${extra}`} {...commun} onClick={onClick} aria-label="Heure passée : voir ce qui s’est passé">
+          {c.haut ?? (
+            <>
+              <Icon nom="horloge" taille={13} /> {c.nb}
+            </>
+          )}
+        </button>
+      ) : (
         <div className={`case case--perdue${extra}`} {...commun} title="Heure passée">
           {c.haut ?? (
             <>
