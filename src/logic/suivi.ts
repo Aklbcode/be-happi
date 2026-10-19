@@ -118,6 +118,18 @@ export function aPrevenir(d: { prof: string; absent: string; classe: string }, s
   return [
     { qui: nomAffiche(d.prof), comment: 'voit la validation dans Be Happi ; son horaire est à jour.', auto: true },
     { qui: `Élèves de ${classes.join(', ')}`, comment: 'à prévenir avec « Publier pour les élèves » (Be Happi ou Power Apps).', auto: false },
-    { qui: `${nomAffiche(d.absent)} et les collègues concernés`, comment: 'un message Teams est prêt ci-dessous, il suffit de l’envoyer.', auto: false },
+    { qui: `${nomAffiche(d.absent)} et les collègues concernés`, comment: 'sont prévenus par le message Teams prêt ci-dessous : il suffit de l’envoyer.', auto: false },
   ];
+}
+
+/** « 1 heure récupérée, 2 à valider, 7 à l'étude » : les propositions en attente ne comptent pas comme récupérées. */
+export function resumeHeures(heures: HeureSansProf[], avecEtude = true): string {
+  if (!heures.length) return 'aucune heure sans prof';
+  const ok = heures.filter((x) => x.recuperee && !x.enAttente).length;
+  const attente = heures.filter((x) => x.enAttente).length;
+  const etude = heures.filter((x) => !x.recuperee).length;
+  const morceaux = [`${ok} heure${ok > 1 ? 's' : ''} récupérée${ok > 1 ? 's' : ''}`];
+  if (attente) morceaux.push(`${attente} à valider`);
+  if (avecEtude) morceaux.push(`${etude} à l'étude`);
+  return morceaux.join(', ');
 }

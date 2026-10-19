@@ -9,7 +9,7 @@ import { Regle, type CaseRegle } from '../ui/Regle';
 import { Remarques } from '../ui/Remarques';
 import { FeuilleAide } from '../ui/FeuilleAide';
 import { ChoixJour, prochainsJours } from '../ui/Choix';
-import { bilanDuJour } from '../logic/suivi';
+import { bilanDuJour, resumeHeures } from '../logic/suivi';
 import { coursSansProf, nomAffiche } from '../logic/horaire';
 import { coursDansLocauxFermes, remarquesVieScolaire } from '../logic/remarques';
 import { etatPublication } from '../logic/publication';
@@ -101,7 +101,7 @@ export function Pilotage() {
           )}
           <p className="texte">
             {bilan.absents.length ? `${bilan.absents.length} collègue${bilan.absents.length > 1 ? 's' : ''} absent${bilan.absents.length > 1 ? 's' : ''}` : 'Personne d’absent'} ·{' '}
-            {bilan.heures.length ? `${bilan.recuperees} heure${bilan.recuperees > 1 ? 's' : ''} récupérée${bilan.recuperees > 1 ? 's' : ''} sur ${bilan.heures.length}` : 'aucune heure sans prof'}
+            {bilan.heures.length ? `${resumeHeures(bilan.heures, false)} sur ${bilan.heures.length}` : 'aucune heure sans prof'}
           </p>
         </section>
 

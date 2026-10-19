@@ -9,7 +9,7 @@ import { Feuille } from '../ui/Feuille';
 import { Entete } from '../ui/Entete';
 import { analyserProposition, type Analyse, type Controle } from '../logic/deplacements';
 import { memeDeplacement, nomAffiche } from '../logic/horaire';
-import { aPrevenir, bilanDuJour, journal, moment, trajet } from '../logic/suivi';
+import { aPrevenir, bilanDuJour, journal, moment, resumeHeures, trajet } from '../logic/suivi';
 import { dateLongue, periode } from '../lib/calendar';
 
 /** Les contrôles montrés en pastilles (les autres n'apparaissent que s'ils bloquent). */
@@ -101,13 +101,13 @@ export function Validations() {
         </h2>
         <p className="texte">
           {bilan.absents.length ? `${bilan.absents.length} collègue${bilan.absents.length > 1 ? 's' : ''} absent${bilan.absents.length > 1 ? 's' : ''} aujourd'hui · ` : 'Personne d’absent aujourd’hui · '}
-          {bilan.heures.length ? `${bilan.recuperees} heure${bilan.recuperees > 1 ? 's' : ''} récupérée${bilan.recuperees > 1 ? 's' : ''}, ${bilan.aLEtude} à l'étude` : 'aucune heure sans prof'}
+          {resumeHeures(bilan.heures)}
         </p>
         {bilan.heures.length > 0 && (
           <div className="defile-x" style={{ margin: '0 -20px', padding: '2px 20px' }}>
             {bilan.heures.map((x, i) => (
               <span key={i} className="puce" style={{ background: x.recuperee ? 'rgba(124,128,255,0.28)' : 'rgba(255,255,255,0.1)', color: '#fff', flex: 'none' }}>
-                H{x.h} · {x.classe} · {x.recuperee ? 'récupérée' : 'étude'}
+                H{x.h} · {x.classe} · {x.enAttente ? 'à valider' : x.recuperee ? 'récupérée' : 'étude'}
               </span>
             ))}
           </div>

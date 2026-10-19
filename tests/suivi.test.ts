@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import type { Cours, Dataset } from '../src/data/types';
 import { LOCAUX } from '../src/data/locaux';
 import { classesDe } from '../src/logic/horaire';
-import { aPrevenir, bilanDuJour, journal, suiviDuProf } from '../src/logic/suivi';
+import { aPrevenir, bilanDuJour, journal, resumeHeures, suiviDuProf } from '../src/logic/suivi';
 
 const LUNDI = '2026-11-16';
 const c = (prof: string, jour: number, h: number, classe: string, local: string): Cours => ({ id: `${prof}-${jour}-${h}`, prof, jour, h, classe, classes: classesDe(classe), local, matiere: 'Cours' });
@@ -64,6 +64,9 @@ test('bilan du jour : heures sans prof, récupérées ou à l’étude (sans mot
   assert.equal(b.recuperees, 2);
   assert.equal(b.aLEtude, 1);
   assert.deepEqual(b.heures.filter((x) => !x.recuperee).map((x) => x.classe), ['3B']);
+  // La proposition en attente n'est pas encore une heure récupérée.
+  assert.deepEqual(b.heures.filter((x) => x.enAttente).map((x) => x.classe), ['3A']);
+  assert.equal(resumeHeures(b.heures), "1 heure récupérée, 1 à valider, 1 à l'étude");
 });
 
 test('qui prévenir : le prof seul en cas de refus ; élèves et collègues en cas de validation', () => {
