@@ -270,12 +270,28 @@ export function remarquesSecretariat(ds: Dataset, maintenant: Date): Remarque[] 
   return sortie.slice(0, 3);
 }
 
+/** Les n derniers jours de cours avant une date (exclue) : du premier au dernier. */
+export function joursDeCoursAvant(fin: string, n: number): { du: string; au: string } {
+  let d = deIso(fin);
+  let au = '';
+  for (let k = 0, garde = 0; k < n && garde < 400; garde++) {
+    d = plusJours(d, -1);
+    if (!estJourDeCours(d)) continue;
+    if (!au) au = iso(d);
+    k++;
+  }
+  return { du: iso(d), au: au || iso(d) };
+}
+
 /** Pour la direction : les tendances. */
 export function remarquesDirection(ds: Dataset, maintenant: Date): Remarque[] {
   const sortie: Remarque[] = [];
   const auj = iso(maintenant);
-  const recent = statsPeriode(ds, plusJoursIso(auj, -14), plusJoursIso(auj, -1));
-  const avant = statsPeriode(ds, plusJoursIso(auj, -28), plusJoursIso(auj, -15));
+  // Deux semaines de cours (congés sautés) comparées aux deux d'avant.
+  const r = joursDeCoursAvant(auj, 10);
+  const a = joursDeCoursAvant(r.du, 10);
+  const recent = statsPeriode(ds, r.du, r.au);
+  const avant = statsPeriode(ds, a.du, a.au);
   if (recent.heures >= 5 && avant.heures >= 5) {
     const diff = Math.round((recent.taux - avant.taux) * 100);
     sortie.push({
@@ -283,11 +299,11 @@ export function remarquesDirection(ds: Dataset, maintenant: Date): Remarque[] {
       icone: diff >= 0 ? 'etincelle' : 'attention',
       ton: diff >= 0 ? 'indigo' : 'orange',
       titre: `${Math.round(recent.taux * 100)} % des heures récupérées`,
-      texte: `Sur les deux dernières semaines, ${diff >= 0 ? `+${diff}` : diff} points par rapport aux deux précédentes.`,
+      texte: `Sur les deux dernières semaines de cours, ${diff >= 0 ? `+${diff}` : diff} point${Math.abs(diff) > 1 ? 's' : ''} par rapport aux deux précédentes.`,
       action: { libelle: 'Tableau de bord', href: '#/direction' },
     });
   }
-  const mois = statsPeriode(ds, plusJoursIso(auj, -28), plusJoursIso(auj, -1));
+  const mois = statsPeriode(ds, joursDeCoursAvant(auj, 20).du, plusJoursIso(auj, -1));
   const pire = mois.parClasse[0];
   if (pire && pire.perdues - pire.recuperees >= 3) {
     sortie.push({

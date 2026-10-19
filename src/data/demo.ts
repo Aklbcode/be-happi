@@ -150,6 +150,7 @@ function historique(cours: Cours[], moment: Date): { absences: Absence[]; deplac
   jours.reverse();
   const occupe = new Set<string>();
   let remedMoi = 0;
+  let reste = 0.5;
 
   const libre = (prof: string, date: string, h: number) => {
     const jour = jourSemaineIso(date);
@@ -175,7 +176,10 @@ function historique(cours: Cours[], moment: Date): { absences: Absence[]; deplac
       const aH = plein ? 9 : Math.min(9, deH + Math.floor(r() * 3));
       absences.push({ id: `h-a-${absences.length}`, prof, date, deH, aH });
       for (const c of sesCours.filter((x) => x.h >= deH && x.h <= aH && x.h !== MIDI)) {
-        if (r() > pRecup) continue;
+        // Diffusion d'erreur : la part d'heures récupérées suit la rampe sans à-coups d'une semaine à l'autre.
+        reste += pRecup;
+        if (reste < 1) continue;
+        reste -= 1;
         const lundi = plusJoursIso(date, 1 - jour);
         const moves = cours.filter(
           (x) => x.prof !== prof && x.prof !== MOI_DEMO && memesClasses(x.classes, c.classes) && (x.jour > jour || (x.jour === jour && x.h !== c.h)) && libre(x.prof, date, c.h),

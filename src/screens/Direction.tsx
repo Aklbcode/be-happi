@@ -9,9 +9,9 @@ import { Icon } from '../ui/Icon';
 import { Barres, type Colonne } from '../ui/Barres';
 import { Remarques } from '../ui/Remarques';
 import { statsPeriode, statsSignalements } from '../logic/stats';
-import { remarquesDirection } from '../logic/remarques';
+import { joursDeCoursAvant, remarquesDirection } from '../logic/remarques';
 import { nomAffiche } from '../logic/horaire';
-import { deIso, iso, lundiDe, plusJoursIso } from '../lib/calendar';
+import { deIso, estJourDeCours, iso, lundiDe, plusJoursIso } from '../lib/calendar';
 import { lien } from '../lib/route';
 
 type Periode = '4' | '8' | 'annee';
@@ -26,11 +26,21 @@ export function Direction() {
     if (!ds) return null;
     const rentree = `${maintenant.getMonth() >= 7 ? maintenant.getFullYear() : maintenant.getFullYear() - 1}-08-25`;
     const lundiCourant = iso(lundiDe(maintenant));
-    const du = periode === 'annee' ? rentree : plusJoursIso(lundiCourant, -7 * (Number(periode) - 1));
+    // En semaines de cours : les semaines de congé ne comptent pas.
+    let du = rentree;
+    if (periode !== 'annee') {
+      du = lundiCourant;
+      for (let k = 0, garde = 0; k < Number(periode) - 1 && garde < 60; garde++) {
+        du = plusJoursIso(du, -7);
+        if ([0, 1, 2, 3, 4].some((n) => estJourDeCours(deIso(plusJoursIso(du, n))))) k++;
+      }
+    }
     const s = statsPeriode(ds, du, aujourdhui);
-    // La période d'avant, de même longueur, pour la tendance.
-    const jours = Math.round((deIso(aujourdhui).getTime() - deIso(du).getTime()) / 86400000);
-    const avant = statsPeriode(ds, plusJoursIso(du, -jours - 1), plusJoursIso(du, -1));
+    // La période d'avant, du même nombre de jours de cours, pour la tendance.
+    let nbJours = 0;
+    for (let d = du; d <= aujourdhui; d = plusJoursIso(d, 1)) if (estJourDeCours(deIso(d))) nbJours++;
+    const p = joursDeCoursAvant(du, nbJours);
+    const avant = statsPeriode(ds, p.du, p.au);
     const sig = statsSignalements(ds, aujourdhui);
     return { s, avant, sig, remarques: remarquesDirection(ds, maintenant), lundiCourant };
   }, [ds, periode, maintenant, aujourdhui]);

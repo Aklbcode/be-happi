@@ -443,8 +443,8 @@ function ouEst(a: Analyse, cx: Contexte, r: Fabrique): Reponse {
     const nom = nomAffiche(prof);
     const jour = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((h) => {
       const x = positionProf(ds, prof, date, h);
-      const ton: Ton = x.statut === 'cours' ? 'indigo' : x.statut === 'absent' ? 'rose' : x.statut === 'fourche' ? 'orange' : 'gris';
-      return { h, texte: x.statut === 'cours' ? `${x.classe} · ${x.local}` : x.texte, ton, x };
+      const ton: Ton = x.note === 'local fermé' ? 'rose' : x.statut === 'cours' ? 'indigo' : x.statut === 'absent' ? 'rose' : x.statut === 'fourche' ? 'orange' : 'gris';
+      return { h, texte: x.statut === 'cours' ? `${x.classe} · ${x.local}${x.note === 'local fermé' ? ' (local fermé)' : ''}` : x.texte, ton, x };
     });
     let phrase: string;
     if (hc) {
@@ -481,8 +481,9 @@ function ouEst(a: Analyse, cx: Contexte, r: Fabrique): Reponse {
     const cl = a.classes[0];
     const jour = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((h) => {
       const x = positionClasse(ds, cl, date, h);
-      const ton: Ton = x.statut === 'cours' || x.statut === 'remediation' ? 'indigo' : x.statut === 'etude' ? 'orange' : 'gris';
-      const texte = x.statut === 'cours' || x.statut === 'remediation' ? `${x.matiere || 'Cours'} · ${x.local ?? ''}${x.prof ? ` · ${nomAffiche(x.prof)}` : ''}` : x.texte;
+      const ferme = x.note === 'local fermé';
+      const ton: Ton = ferme ? 'rose' : x.statut === 'cours' || x.statut === 'remediation' ? 'indigo' : x.statut === 'etude' ? 'orange' : 'gris';
+      const texte = x.statut === 'cours' || x.statut === 'remediation' ? `${x.matiere || 'Cours'} · ${x.local ?? ''}${ferme ? ' (local fermé)' : ''}${x.prof ? ` · ${nomAffiche(x.prof)}` : ''}` : x.texte;
       return { h, texte, ton, x };
     });
     let phrase: string;

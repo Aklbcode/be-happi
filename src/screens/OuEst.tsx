@@ -178,8 +178,8 @@ function Fiche({ t, date, hNow, onAide }: { t: Trouve; date: string; hNow?: numb
             )}
           </div>
         </div>
-        <Regle heures={jour.map((p) => ({ h: p.h, ton: ton(p.statut), titre: `H${p.h} · ${p.texte}` }))} actuel={hNow} />
-        <ListeJour lignes={jour.map((p) => ({ h: p.h, ton: ton(p.statut), texte: p.statut === 'cours' ? `${p.classe} · ${p.local}${p.matiere ? ` · ${p.matiere}` : ''}${p.note ? ` (${p.note})` : ''}` : p.texte }))} actuel={hNow} />
+        <Regle heures={jour.map((p) => ({ h: p.h, ton: p.note === 'local fermé' ? 'rose' : ton(p.statut), titre: `H${p.h} · ${p.texte}` }))} actuel={hNow} />
+        <ListeJour lignes={jour.map((p) => ({ h: p.h, ton: p.note === 'local fermé' ? 'rose' : ton(p.statut), texte: p.statut === 'cours' ? `${p.classe} · ${p.local}${p.matiere ? ` · ${p.matiere}` : ''}${p.note ? ` (${p.note})` : ''}` : p.texte }))} actuel={hNow} />
         <div className="rangee enrouler">
           {email && (
             <button className="bouton bouton--prim bouton--petit" onClick={() => ouvrirTeams({ type: 'teams-chat', emails: [email], noms: [nomAffiche(t.nom)], message: `Bonjour ${nomAffiche(t.nom)}, ` })}>
@@ -214,11 +214,11 @@ function Fiche({ t, date, hNow, onAide }: { t: Trouve; date: string; hNow?: numb
             )}
           </div>
         </div>
-        <Regle heures={jour.map((p) => ({ h: p.h, ton: ton(p.statut), titre: `H${p.h} · ${p.texte}` }))} actuel={hNow} />
+        <Regle heures={jour.map((p) => ({ h: p.h, ton: p.note === 'local fermé' ? 'rose' : ton(p.statut), titre: `H${p.h} · ${p.texte}` }))} actuel={hNow} />
         <ListeJour
           lignes={jour.map((p) => ({
             h: p.h,
-            ton: ton(p.statut),
+            ton: p.note === 'local fermé' ? 'rose' : ton(p.statut),
             texte:
               p.statut === 'cours' || p.statut === 'remediation'
                 ? `${p.matiere || 'Cours'} · ${p.local ?? ''}${p.prof ? ` · ${nomAffiche(p.prof)}` : ''}${p.note ? ` (${p.note})` : ''}`

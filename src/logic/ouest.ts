@@ -7,6 +7,10 @@ import { absentA, classesDe, classesReservation, coursDuProf, nomAffiche } from 
 import { etatLocal, type InfoLocal } from './occupation';
 import { sansAccents } from '../data/champs';
 
+/** Le local est-il fermé par un signalement bloquant (fuite, panne…) ? */
+export const localFerme = (ds: Dataset, code: string, date: string): boolean =>
+  !!code && ds.signalements.some((s) => s.local === code && s.bloquant && !s.resolu && s.depuis <= date);
+
 export type StatutProf = 'cours' | 'absent' | 'fourche' | 'midi' | 'avant' | 'apres' | 'pas-cours' | 'conge';
 
 export interface PositionProf {
@@ -29,7 +33,7 @@ export function positionProf(ds: Dataset, prof: string, date: string, h: number)
   if (c) {
     return {
       h, statut: 'cours', classe: c.classe, local: c.local, matiere: c.matiere,
-      note: c.deplace ? 'cours déplacé' : undefined,
+      note: localFerme(ds, c.local, date) ? 'local fermé' : c.deplace ? 'cours déplacé' : undefined,
       texte: `${c.classe} · ${c.local || 'local ?'}`,
     };
   }
@@ -88,7 +92,8 @@ export function positionClasse(ds: Dataset, classe: string, date: string, h: num
     }
     const resa = ds.reservations.find((r) => r.date === date && r.h === h && r.prof === c.prof && r.note !== 'remédiation');
     const local = resa?.local ?? c.local;
-    return { h, statut: 'cours', matiere: c.matiere, prof: c.prof, local, note: resa && resa.local !== c.local ? 'local changé' : undefined, texte: `${c.matiere || 'Cours'} · ${local}` };
+    const note = localFerme(ds, local, date) ? 'local fermé' : resa && resa.local !== c.local ? 'local changé' : undefined;
+    return { h, statut: 'cours', matiere: c.matiere, prof: c.prof, local, note, texte: `${c.matiere || 'Cours'} · ${local}` };
   }
   return { h, statut: 'libre', texte: 'Pas cours' };
 }
