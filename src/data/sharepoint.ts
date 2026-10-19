@@ -436,6 +436,43 @@ export async function deciderDeplacement(d: Deplacement, decision: Decision, nou
   return enregistrerDecision(decision);
 }
 
+/**
+ * Le prof retire sa propre proposition, tant qu'elle attend (comme le bouton « Annuler » de
+ * Power Apps) : la ligne est relue, puis supprimée seulement si elle n'a pas bougé entre-temps.
+ * Déjà validée : on ne touche à rien, c'est à l'éducateur de l'annuler.
+ */
+export async function retirerDeplacement(d: Deplacement): Promise<void> {
+  const ids = await listes();
+  const idListe = ids[config.listes.deplacements];
+  if (!idListe) throw new Error(`Liste introuvable : ${config.listes.deplacements}`);
+  if (!d.id) throw new Error('Proposition sans identifiant.');
+  const s = await site();
+  const relire = async () => {
+    try {
+      return await relireProposition(idListe, d.id!);
+    } catch (e) {
+      if (e instanceof Error && /déjà été traitée/.test(e.message)) throw new Error('Déjà validée : demande à l’éducateur de l’annuler.');
+      throw e;
+    }
+  };
+  let item: Item;
+  try {
+    item = await relire();
+  } catch (e) {
+    // Déjà retirée ailleurs : le résultat voulu est atteint.
+    if (e instanceof Error && /retirée entre-temps/.test(e.message)) return;
+    throw e;
+  }
+  try {
+    await appel(`/sites/${s}/lists/${idListe}/items/${d.id}`, { method: 'DELETE', headers: item.eTag ? { 'If-Match': item.eTag } : {} });
+  } catch (e) {
+    if (e instanceof ErreurGraph && e.status === 404) return;
+    if (!(e instanceof ErreurGraph && e.status === 412)) throw e;
+    await relire();
+    await appel(`/sites/${s}/lists/${idListe}/items/${d.id}`, { method: 'DELETE' });
+  }
+}
+
 /** Note la décision dans la liste facultative « Decisions ». Ne bloque jamais la décision elle-même. */
 export async function enregistrerDecision(dec: Decision): Promise<boolean> {
   const ids = await listes();

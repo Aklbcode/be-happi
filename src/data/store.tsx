@@ -39,6 +39,8 @@ export interface Store {
   reserver: (r: Omit<Reservation, 'prof'>) => Promise<void>;
   annulerReservation: (r: Reservation) => Promise<void>;
   proposer: (d: Omit<Deplacement, 'prof' | 'statut'>) => Promise<void>;
+  /** Retirer sa propre proposition encore en attente (comme « Annuler » dans Power Apps). */
+  retirer: (d: Deplacement) => Promise<void>;
   /** Valider ou refuser une proposition (revérifiée sur les données les plus fraîches). */
   decider: (d: Deplacement, statut: Decision['statut'], commentaire: string) => Promise<{ journalOk: boolean; local?: string }>;
   peutValider: boolean;
@@ -99,11 +101,15 @@ const titulaireDe = (ds: Dataset, local: string, date: string, h: number): strin
 
 const TOUS: Profil[] = ['prof', 'educateur', 'secretariat', 'direction', 'technique', 'eleve'];
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({ children, scenario }: { children: ReactNode; /** Démo : données en plus pour une app (Décale). */ scenario?: (ds: Dataset, moment: Date) => Dataset }) {
   const simulation = !__DEMO_FORCEE__ && simulationActive();
   const demo = __DEMO_FORCEE__ || (!sharepointConfigure() && !simulation);
   const [maintenant, setMaintenant] = useState<Date>(() => (demo ? momentDemo(new Date()) : new Date()));
-  const [ds, setDs] = useState<Dataset | null>(() => (demo ? datasetDemo(momentDemo(new Date())) : lireCache()));
+  const fabriquerDemo = useCallback(() => {
+    const m = momentDemo(new Date());
+    return scenario ? scenario(datasetDemo(m), m) : datasetDemo(m);
+  }, [scenario]);
+  const [ds, setDs] = useState<Dataset | null>(() => (demo ? fabriquerDemo() : lireCache()));
   const [chargement, setChargement] = useState(!demo);
   const [erreur, setErreur] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -119,7 +125,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const charger = useCallback(async () => {
     if (demo) {
-      setDs(datasetDemo(momentDemo(new Date())));
+      setDs(fabriquerDemo());
       return;
     }
     setChargement(true);
@@ -135,7 +141,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setChargement(false);
     }
-  }, [demo]);
+  }, [demo, fabriquerDemo]);
 
   useEffect(() => {
     void charger();
@@ -195,10 +201,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!ds) return;
       // En démo, l'heure affichée suit le lundi simulé.
       const complet: Deplacement = { ...d, prof: ds.moi.nom, statut: 'En attente', creeLe: horodatage() };
-      complet.id = demo ? `demo-${Date.now()}` : await (await sp()).enregistrerDeplacement(complet);
+      // En démo, un identifiant unique même pour plusieurs demandes envoyées d'un coup.
+      complet.id = demo ? `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : await (await sp()).enregistrerDeplacement(complet);
       maj((x) => ({ ...x, deplacements: [...x.deplacements, complet] }));
     },
     [demo, ds, horodatage, maj, sp],
+  );
+
+  const retirer = useCallback(
+    async (d: Deplacement) => {
+      if (!ds) return;
+      if (d.prof !== ds.moi.nom) throw new Error('Seul le prof qui a proposé peut retirer sa demande.');
+      if (d.statut !== 'En attente') throw new Error('Déjà validée : demande à l’éducateur de l’annuler.');
+      if (!demo) await (await sp()).retirerDeplacement(d);
+      maj((x) => ({ ...x, deplacements: x.deplacements.filter((y) => !memeDeplacement(y, d)) }));
+    },
+    [demo, ds, maj, sp],
   );
 
   const minutes = minutesDe(maintenant);
@@ -421,6 +439,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reserver,
       annulerReservation,
       proposer,
+      retirer,
       decider,
       peutValider,
       peutVoirValidations,
@@ -440,7 +459,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast,
       montrerToast,
     }),
-    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, reserver, annulerReservation, proposer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
+    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, reserver, annulerReservation, proposer, retirer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
   );
 
   return <Ctx.Provider value={valeur}>{children}</Ctx.Provider>;

@@ -154,3 +154,19 @@ test('SharePoint · Écritures.', async () => {
   assert.ok(chg.some((x) => x.fields.Title === 'autre jour'));
   assert.ok(!chg.some((x) => x.fields.Title === 'ancien'));
 });
+
+test('SharePoint · Retirer sa proposition : seulement tant qu’elle attend.', async () => {
+  const id = await sp.enregistrerDeplacement({ absent: 'DURANT', date: J(1), hVide: 4, classe: '3A, 3B', prof: 'LAMBERT', hOrigine: 3, dateOrigine: J(1), statut: 'En attente' });
+  assert.ok(listes['Deplacements'].items.some((x) => x.id === id));
+  await sp.retirerDeplacement({ id, absent: 'DURANT', date: J(1), hVide: 4, classe: '3A, 3B', prof: 'LAMBERT', hOrigine: 3, dateOrigine: J(1), statut: 'En attente' });
+  assert.ok(!listes['Deplacements'].items.some((x) => x.id === id), 'ligne supprimée, comme « Annuler » dans Power Apps');
+  // Déjà retirée : rien à faire, pas d'erreur.
+  await sp.retirerDeplacement({ id, absent: 'DURANT', date: J(1), hVide: 4, classe: '3A, 3B', prof: 'LAMBERT', hOrigine: 3, dateOrigine: J(1), statut: 'En attente' });
+  // Validée entre-temps (statut vide = confirmé pour Power Apps) : on ne touche à rien.
+  const validee = listes['Deplacements'].items[0];
+  await assert.rejects(
+    sp.retirerDeplacement({ id: validee.id, absent: 'DURANT', date: J(1), hVide: 4, classe: '3A, 3B', prof: 'LAMBERT', hOrigine: 3, dateOrigine: J(1), statut: 'En attente' }),
+    /Déjà validée/,
+  );
+  assert.ok(listes['Deplacements'].items.includes(validee));
+});

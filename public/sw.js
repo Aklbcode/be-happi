@@ -23,7 +23,7 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate') {
-    // Chaque page garde sa copie (Be Happi et Pulse), sans les paramètres de l'adresse.
+    // Chaque page garde sa copie (Be Happi et Décale), sans les paramètres de l'adresse.
     const cle = url.origin + url.pathname;
     e.respondWith(
       fetch(req)

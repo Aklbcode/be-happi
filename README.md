@@ -2,7 +2,7 @@
 
 L'app de l'IPES Tubize pour toute l'école : profs, éducateurs, secrétariat, direction, service technique et élèves. Elle tourne dans Teams (onglet personnel) et sur téléphone (à installer depuis le navigateur), et travaille sur les mêmes listes SharePoint que l'app Power Apps.
 
-**En ligne : https://aklbcode.github.io/be-happi/** (mode démo tant que l'appareil n'est pas relié à l'école : voir « Mise en service »). **Pulse**, l'école sur un seul écran : https://aklbcode.github.io/be-happi/pulse/
+**En ligne : https://aklbcode.github.io/be-happi/** (mode démo tant que l'appareil n'est pas relié à l'école : voir « Mise en service »). **Décale**, l'app des profs pour optimiser leurs déplacements de cours : https://aklbcode.github.io/be-happi/decale/
 
 ## Version 1.0 : six espaces
 
@@ -87,19 +87,18 @@ Sans réglages, l'app démarre en **mode démo** (données fictives, noms invent
 
 Ce dépôt est public et ne contient ni donnée personnelle ni réglage de l'école : la démo utilise un horaire et des noms inventés, et les seules données de l'école présentes sont la liste des locaux et leur équipement. L'adresse du site SharePoint et les identifiants Microsoft de l'école n'y sont jamais écrits (voir « Mise en service »).
 
-## Pulse : l'école sur un seul écran
+## Décale : le meilleur plan de déplacements de ta semaine
 
-**https://aklbcode.github.io/be-happi/pulse/** : une deuxième façon de voir l'école, sur le même moteur que Be Happi (mêmes données : démo, simulation ou SharePoint ; mêmes règles ; mêmes écritures).
+**https://aklbcode.github.io/be-happi/decale/** : une app centrée sur une seule chose, les déplacements de cours des profs, sur le même moteur que Be Happi (mêmes données : démo, simulation ou SharePoint ; mêmes règles que Power Apps ; mêmes écritures dans la liste Deplacements).
 
-- **Le temps est l'interface** : la ligne de pouls, en bas, va de 8h25 à 16h25. Chaque heure bat ; un pic jaune = des classes sans prof. On la fait glisser (doigt, souris, flèches du clavier), ou on appuie sur lecture pour voir la journée défiler en accéléré. « Revenir à maintenant » ramène au direct.
-- **Le plan** : les 67 locaux là où ils sont (PR au nord, BC à l'ouest, BF au milieu, BT et sa tour à l'est), étages alignés. Quatre couleurs de craie : bleu libre, jaune classe sans prof, lilas réservé ou déplacé, rose fermé ; ton propre cours est entouré.
-- **Lentilles** : Locaux, Classes, Profs, Mon trajet (la journée d'un prof tracée de local en local). Un élève ne voit que le trajet de sa classe, rien du personnel.
-- **Le fil de l'heure** : classes à l'étude et « Qui peut aider ? » (message Teams prêt), absents, cours déplacés, locaux fermés, locaux libres ; pour un prof, l'heure libérée où avancer un cours, proposée en un geste.
-- **Fiches** : toucher un local (réserver, signaler), un prof ou une classe (sa journée et son trajet).
-- **Chercher ou demander** (⌘K ou /) : un local, un prof, une classe, ou une question à Happi.
-- Tableau noir ou tableau blanc, plein écran pour la télé du hall ou une réunion, installable comme app.
+- **Le plan calculé** : Décale regarde toutes les heures libérées de tes classes sur deux semaines (celle du prochain jour de cours et la suivante) et cherche la meilleure combinaison de cours à avancer : commencer plus tard, finir plus tôt, combler une fourche, libérer un jour. Il voit ce qu'un déplacement seul ne voit pas : avancer tes deux dernières heures du vendredi te fait finir deux heures plus tôt, alors que l'avant-dernière seule ne change rien. Jusqu'à trois plans différents, comme des itinéraires.
+- **Ta semaine avant / après** : ton horaire sur une feuille de cahier, les heures libérées de tes classes en rouge, les déplacements en flèches bleues ; « Après le plan » fait glisser les cours dans les heures libérées, et le temps gagné apparaît hachuré en vert.
+- **Proposer en un geste** : chaque déplacement est revérifié avec les contrôles de Be Happi et de Power Apps, puis enregistré « En attente » ; l'éducateur valide dans Be Happi ou Power Apps. Tant qu'elle attend, le prof peut **retirer** sa demande (la ligne est supprimée, comme « Annuler » dans Power Apps).
+- **Ce qui compte pour toi** : finir plus tôt, commencer plus tard, moins de fourches (réglé sur l'appareil). Décale ne propose jamais un plan où le prof perd au change (un jour libéré compte plus que ses minutes), ni un jour de cours en plus.
+- **Pourquoi pas ?** : chaque heure libérée de tes classes dit si tu peux la prendre, sinon pourquoi (tu as cours, classes pas exactement les mêmes, cours déjà proposé, reprise par un collègue, refus de l'éducateur, temps de midi…).
+- Papier clair ou sombre, installable comme app ; un élève n'y a pas accès (pas d'horaire).
 
-Code : `pulse/index.html`, `src/pulse/` (moteur `etat.ts` testé, interface), styles propres (`pulse.css`). Be Happi reste la version complète (formulaires, validations, publication…) ; Pulse y renvoie pour ces écrans.
+Code : `decale/index.html`, `src/decale/` (moteur `moteur.ts` testé dans `tests/decale.test.ts`, feuille `Semaine.tsx`, écran `Decale.tsx`, styles `decale.css`). Polices : Instrument Sans et Playwrite Belgique Wallonie-Bruxelles (Google Fonts).
 
 ## Simulation : les vraies données sans connexion
 

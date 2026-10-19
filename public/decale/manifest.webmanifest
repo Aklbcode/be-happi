@@ -1,0 +1,16 @@
+{
+  "name": "Décale – IPES Tubize",
+  "short_name": "Décale",
+  "description": "Les heures libérées par les collègues absents deviennent du temps pour toi : le meilleur plan de déplacements de ta semaine.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3F4F9",
+  "theme_color": "#F3F4F9",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

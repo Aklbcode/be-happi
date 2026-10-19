@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
 // "npm run build"      → version normale (GitHub Pages, Teams), chemins relatifs ; deux pages :
-//                        Be Happi (index.html) et Pulse (pulse/index.html), sur le même moteur.
+//                        Be Happi (index.html) et Décale (decale/index.html), sur le même moteur.
 // "npm run build:demo" → un seul fichier HTML autonome (démo à partager, données fictives).
 export default defineConfig(({ mode }) => ({
   base: './',
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
         : {
             input: {
               main: fileURLToPath(new URL('./index.html', import.meta.url)),
-              pulse: fileURLToPath(new URL('./pulse/index.html', import.meta.url)),
+              decale: fileURLToPath(new URL('./decale/index.html', import.meta.url)),
             },
           },
     chunkSizeWarningLimit: 1200,

@@ -216,7 +216,8 @@ export function evaluer(ds: Dataset, moi: string, c: CoursJour, d: string, date:
   else if (allonge) avantages.push(`Attention : ${jC}, ta journée s'allonge`);
   if (!avantages.length) avantages.push('Échange simple, sans heure gagnée');
 
-  const quand = semaineSuivante ? `${jO} ${deIso(d).getDate()} (semaine prochaine)` : memeJour ? 'aujourd’hui' : jO;
+  // Le même jour : on nomme le jour (« depuis jeudi H7 »), même quand ce n'est pas aujourd'hui.
+  const quand = semaineSuivante ? `${jO} ${deIso(d).getDate()} (semaine prochaine)` : jO;
   const resume = avantageProf ? `${dureeTxt(gainMinutes || PG * 50)} de moins ${jO}` : combleFourche ? 'comble ta fourche' : 'échange simple';
 
   return { score, avantageProf, allonge, gainMinutes, avantages, resume: `${resume} · depuis ${quand} H${c.h}`, memeJour };

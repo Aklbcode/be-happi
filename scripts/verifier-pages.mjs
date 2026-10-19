@@ -1,4 +1,4 @@
-// Après « npm run build » : chaque page (Be Happi, Pulse) charge bien ses fichiers.
+// Après « npm run build » : chaque page (Be Happi, Décale) charge bien ses fichiers.
 // Vérifie que les adresses relatives des <script>, <link> et icônes existent dans dist/.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -25,8 +25,8 @@ for (const page of pages) {
     console.log(`${ok ? 'ok ' : 'MANQUE'} ${relative(racine, page)} → ${u}`);
   }
 }
-if (!pages.some((p) => p.endsWith(join('pulse', 'index.html')))) {
-  console.log('MANQUE pulse/index.html');
+if (!pages.some((p) => p.endsWith(join('decale', 'index.html')))) {
+  console.log('MANQUE decale/index.html');
   erreurs++;
 }
 if (erreurs) {
