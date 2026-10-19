@@ -1,6 +1,6 @@
 // Écran « Horaire » : la semaine, les heures libérées et les flèches de déplacement.
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as EvPointeur } from 'react';
 import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
@@ -79,13 +79,22 @@ export function Horaire() {
   const options = useMemo(() => (ds && sel ? optionsPour(ds, moi, sel.date, sel.h, aujourdhui, finieEff) : []), [ds, sel, moi, aujourdhui, finieEff]);
 
   // Le meilleur cours à avancer pour chaque heure libérée de la semaine : une flèche directement sur l'horaire.
-  const meilleures = useMemo(() => {
-    if (!ds || vue !== 'moi') return [];
-    return [...opps.values()]
-      .filter((o) => !o.passe)
-      .map((o) => optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff)[0])
-      .filter(Boolean);
+  const parHeure = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof optionsPour>>();
+    if (!ds || vue !== 'moi') return m;
+    for (const o of opps.values()) if (!o.passe) m.set(`${o.date}|${o.h}`, optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff));
+    return m;
   }, [ds, vue, opps, moi, aujourdhui, finieEff]);
+  const meilleures = useMemo(() => [...parHeure.values()].map((l) => l[0]).filter(Boolean), [parHeure]);
+  // Souris : survoler une heure libérée montre ses options ; survoler un cours montre où il peut aller.
+  const [survol, setSurvol] = useState<string | null>(null);
+  const survolees = useMemo(() => {
+    if (!survol) return null;
+    const ici = parHeure.get(survol);
+    if (ici?.length) return ici.slice(0, 4);
+    const depuis = [...parHeure.values()].flat().filter((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}` === survol);
+    return depuis.length ? depuis : null;
+  }, [survol, parHeure]);
 
   const lignes: Case[][] = useMemo(() => {
     if (!ds) return [];
@@ -130,7 +139,7 @@ export function Horaire() {
   // Flèches : du cours de départ vers l'heure libérée.
   const dessiner = useCallback(() => {
     const g = grilleRef.current;
-    if (!g || vue !== 'moi' || (!sel && !toutesFleches)) {
+    if (!g || vue !== 'moi' || (!sel && !survolees && !toutesFleches)) {
       setFleches([]);
       return;
     }
@@ -143,7 +152,8 @@ export function Horaire() {
     };
     const res: Fleche[] = [];
     // Une heure touchée : toutes ses options, animées. Sinon : la meilleure de chaque heure, discrète.
-    const aDessiner = sel ? options.slice(0, 4) : meilleures;
+    const aDessiner = sel ? options.slice(0, 4) : survolees ?? meilleures;
+    const vif = !!sel || !!survolees;
     aDessiner.forEach((o) => {
       const cible = centre(`${o.date}|${o.h}`);
       const dateCase = o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO;
@@ -160,19 +170,19 @@ export function Horaire() {
       const y2 = cible.y - uy * Math.min(cible.w, cible.h) * 0.55;
       const cx = (x1 + x2) / 2 - uy * long * 0.18;
       const cy = (y1 + y2) / 2 + ux * long * 0.18;
-      const fort = sel ? o.meilleur : o.meilleur && o.avantageProf;
+      const fort = vif ? o.meilleur : o.meilleur && o.avantageProf;
       const couleur = o.semaineSuivante ? 'var(--sarcelle)' : fort ? 'var(--indigo)' : 'var(--indigo-moyen)';
       res.push({
         d: `M${x1.toFixed(1)} ${y1.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`,
         couleur,
         marqueur: o.semaineSuivante ? 'pointe-s1' : fort ? 'pointe-best' : 'pointe-autre',
-        epais: sel ? (o.meilleur ? 3 : 2.2) : fort ? 2.4 : 1.8,
-        anime: !!sel,
+        epais: vif ? (o.meilleur ? 3 : 2.2) : fort ? 2.4 : 1.8,
+        anime: vif,
         label: o.semaineSuivante ? { x: (x1 + 2 * cx + x2) / 4, y: (y1 + 2 * cy + y2) / 4, texte: 'S+1' } : undefined,
       });
     });
     setFleches(res);
-  }, [sel, options, vue, meilleures, toutesFleches]);
+  }, [sel, options, vue, meilleures, toutesFleches, survolees]);
 
   useLayoutEffect(() => {
     dessiner();
@@ -189,7 +199,8 @@ export function Horaire() {
   const d5 = deIso(dates[4]);
   const libelleSemaine = d1.getMonth() === d5.getMonth() ? `${d1.getDate()} – ${d5.getDate()} ${MOIS[d5.getMonth()]}` : `${d1.getDate()} ${MOIS[d1.getMonth()]} – ${d5.getDate()} ${MOIS[d5.getMonth()]}`;
   const colonneAuj = dates.indexOf(aujourdhui);
-  const origines = new Set(options.map((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}`));
+  const origines = new Set((sel ? options : survolees ?? []).map((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}`));
+  const cibles = new Set((survolees ?? []).map((o) => `${o.date}|${o.h}`));
   const aiguille = (() => {
     if (colonneAuj < 0 || sit.h < 1 || sit.h > 9) return null;
     const p = periode(sit.h);
@@ -296,7 +307,7 @@ export function Horaire() {
         ))}
       </div>
 
-      <div className="grille" ref={grilleRef}>
+      <div className="grille" ref={grilleRef} onPointerLeave={() => setSurvol(null)}>
         {colonneAuj >= 0 && <div className="colonne-auj" style={colStyle(colonneAuj)} />}
         {dates.map((d, i) => {
           const c = conge(deIso(d));
@@ -319,10 +330,14 @@ export function Horaire() {
                 <CaseHoraire
                   key={c.cle}
                   c={c}
-                  cible={!!sel && sel.date === c.date && sel.h === c.h}
+                  cible={(!!sel && sel.date === c.date && sel.h === c.h) || cibles.has(c.cle)}
                   origine={origines.has(c.cle)}
                   onClick={() => toucher(c)}
                   cliquable={vue === 'moi'}
+                  onSurvol={(e, dedans) => {
+                    if (e.pointerType !== 'mouse' || vue !== 'moi') return;
+                    setSurvol(dedans ? c.cle : null);
+                  }}
                 />
               ))}
             </div>
@@ -384,7 +399,7 @@ export function Horaire() {
           <p className="petit grandit" style={{ margin: 0 }}>
             {meilleures.length
               ? toutesFleches
-                ? `${meilleures.length === 1 ? 'Une flèche montre le cours' : `${meilleures.length} flèches montrent les cours`} que tu peux avancer. Touche l’heure libérée pour voir toutes les options.`
+                ? `${meilleures.length === 1 ? 'Une flèche montre le cours' : `${meilleures.length} flèches montrent les cours`} que tu peux avancer. Survole ou touche une heure libérée (ou un cours) pour voir toutes les options.`
                 : 'Touche une heure libérée pour voir les cours qui peuvent y venir.'
               : 'Aucun cours à avancer cette semaine.'}
           </p>
@@ -510,9 +525,13 @@ export function Horaire() {
   );
 }
 
-function CaseHoraire({ c, cible, origine, onClick, cliquable }: { c: Case; cible: boolean; origine: boolean; onClick: () => void; cliquable: boolean }) {
+function CaseHoraire({ c, cible, origine, onClick, cliquable, onSurvol }: { c: Case; cible: boolean; origine: boolean; onClick: () => void; cliquable: boolean; onSurvol: (e: EvPointeur, dedans: boolean) => void }) {
   const extra = `${cible ? ' case--cible' : ''}${origine ? ' case--origine' : ''}`;
-  const commun = { 'data-cle': c.cle } as Record<string, string>;
+  const commun = {
+    'data-cle': c.cle,
+    onPointerEnter: (e: EvPointeur) => onSurvol(e, true),
+    onPointerLeave: (e: EvPointeur) => onSurvol(e, false),
+  } as Record<string, unknown>;
   switch (c.type) {
     case 'vide':
       return <div className="case" {...commun} />;
