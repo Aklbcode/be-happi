@@ -143,6 +143,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const montrerToast = useCallback((t: string) => {
     setToast(t);
+    // Petite vibration de confirmation sur téléphone (ignorée ailleurs).
+    try {
+      navigator.vibrate?.(15);
+    } catch {
+      /* rien */
+    }
     window.clearTimeout(minuterie.current);
     minuterie.current = window.setTimeout(() => setToast(null), 4200);
   }, []);

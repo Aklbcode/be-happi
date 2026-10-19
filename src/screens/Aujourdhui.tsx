@@ -13,7 +13,7 @@ import { lien } from '../lib/route';
 import { moment, suiviDuProf } from '../logic/suivi';
 import { remarquesProf } from '../logic/remarques';
 import { Remarques } from '../ui/Remarques';
-import { useMoi } from '../ui/Moi';
+import { BoutonTheme, useMoi } from '../ui/Moi';
 
 const ICONES_INFO: Record<string, string> = { Info: 'note', Retard: 'horloge', 'Éducateur absent': 'gens', 'Changement de local': 'porte' };
 
@@ -180,6 +180,7 @@ export function Aujourdhui() {
               Simulation
             </a>
           )}
+          <BoutonTheme />
           <button onClick={ouvrirMoi} className="rond rond--nuit" aria-label="Moi et mes espaces">
             {initiales}
           </button>

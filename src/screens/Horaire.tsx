@@ -1,6 +1,6 @@
 // Écran « Horaire » : la semaine, les heures libérées et les flèches de déplacement.
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as EvPointeur } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as EvPointeur } from 'react';
 import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
@@ -35,6 +35,14 @@ interface Fleche {
 }
 
 const CLE_FLECHES = 'behappi-fleches';
+const CLE_MODE = 'behappi-horaire-mode';
+const lireMode = (): 'semaine' | 'jour' => {
+  try {
+    return localStorage.getItem(CLE_MODE) === 'jour' ? 'jour' : 'semaine';
+  } catch {
+    return 'semaine';
+  }
+};
 const flechesVisibles = (): boolean => {
   try {
     return localStorage.getItem(CLE_FLECHES) !== '0';
@@ -53,6 +61,8 @@ export function Horaire() {
   });
   const [decalage, setDecalage] = useState(depart);
   const [toutesFleches, setToutesFleches] = useState(flechesVisibles);
+  const [mode, setMode] = useState(lireMode);
+  const [jourIdx, setJourIdx] = useState<number | null>(null);
   const [vue, setVue] = useState<Vue>('moi');
   const [classe, setClasse] = useState('');
   const [salle, setSalle] = useState('');
@@ -95,6 +105,84 @@ export function Horaire() {
     const depuis = [...parHeure.values()].flat().filter((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}` === survol);
     return depuis.length ? depuis : null;
   }, [survol, parHeure]);
+
+  // Glisser-déposer : prendre un cours qui peut bouger et le lâcher sur une heure encadrée.
+  // Souris : on glisse tout de suite ; doigt : appui long (0,3 s) puis on glisse.
+  const origineDe = (o: { semaineSuivante: boolean; dateO: string; hO: number }) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}`;
+  const glisse = useRef<{ cle: string; texte: string; x0: number; y0: number; id: number; souris: boolean; actif: boolean; minuteur?: number } | null>(null);
+  const [fantome, setFantome] = useState<{ x: number; y: number; texte: string } | null>(null);
+  const ignorerClic = useRef(false);
+  const doigt = useRef<{ x: number; y: number } | null>(null);
+
+  const placer = (x: number, y: number) => {
+    const g = grilleRef.current;
+    if (!g || !glisse.current) return;
+    const r = g.getBoundingClientRect();
+    setFantome({ x: x - r.left, y: y - r.top, texte: glisse.current.texte });
+  };
+  const activer = (x: number, y: number) => {
+    const g = glisse.current;
+    if (!g) return;
+    g.actif = true;
+    setSel(null);
+    setSurvol(g.cle);
+    try {
+      navigator.vibrate?.(12);
+    } catch {
+      /* rien */
+    }
+    placer(x, y);
+  };
+  function debutGlisse(e: EvPointeur) {
+    if (vue !== 'moi' || e.button > 0) return;
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-cle]');
+    const cle = el?.dataset.cle;
+    if (!cle || ![...parHeure.values()].flat().some((o) => origineDe(o) === cle)) return;
+    const texte = el.querySelector('b')?.textContent ?? '';
+    const souris = e.pointerType === 'mouse';
+    glisse.current = { cle, texte, x0: e.clientX, y0: e.clientY, id: e.pointerId, souris, actif: false };
+    if (!souris) glisse.current.minuteur = window.setTimeout(() => activer(e.clientX, e.clientY), 300);
+  }
+  function bougeGlisse(e: EvPointeur) {
+    const g = glisse.current;
+    if (!g || e.pointerId !== g.id) return;
+    if (!g.actif) {
+      const d = Math.hypot(e.clientX - g.x0, e.clientY - g.y0);
+      if (g.souris && d > 6) activer(e.clientX, e.clientY);
+      else if (!g.souris && d > 10) {
+        window.clearTimeout(g.minuteur);
+        glisse.current = null;
+      }
+      return;
+    }
+    placer(e.clientX, e.clientY);
+  }
+  function finGlisse(e: EvPointeur, annule = false) {
+    const g = glisse.current;
+    glisse.current = null;
+    if (!g) return;
+    window.clearTimeout(g.minuteur);
+    if (!g.actif) return;
+    setFantome(null);
+    setSurvol(null);
+    ignorerClic.current = true;
+    window.setTimeout(() => (ignorerClic.current = false), 80);
+    if (annule) return;
+    const cible = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-cle]')?.dataset.cle;
+    const o = [...parHeure.values()].flat().find((x) => origineDe(x) === g.cle && `${x.date}|${x.h}` === cible);
+    if (o) aller('deplacer', { date: o.date, h: o.h, o: o.cle });
+    else if (cible !== g.cle) montrerToast('Lâche le cours sur une heure encadrée');
+  }
+  // Pendant le glisser au doigt, la page ne doit pas défiler.
+  useEffect(() => {
+    const g = grilleRef.current;
+    if (!g) return;
+    const bloquer = (e: TouchEvent) => {
+      if (glisse.current?.actif) e.preventDefault();
+    };
+    g.addEventListener('touchmove', bloquer, { passive: false });
+    return () => g.removeEventListener('touchmove', bloquer);
+  });
 
   const lignes: Case[][] = useMemo(() => {
     if (!ds) return [];
@@ -201,6 +289,7 @@ export function Horaire() {
   const colonneAuj = dates.indexOf(aujourdhui);
   const origines = new Set((sel ? options : survolees ?? []).map((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}`));
   const cibles = new Set((survolees ?? []).map((o) => `${o.date}|${o.h}`));
+  const mobiles = new Set([...parHeure.values()].flat().map(origineDe));
   const aiguille = (() => {
     if (colonneAuj < 0 || sit.h < 1 || sit.h > 9) return null;
     const p = periode(sit.h);
@@ -209,7 +298,7 @@ export function Horaire() {
   })();
 
   function toucher(c: Case) {
-    if (vue !== 'moi') return;
+    if (vue !== 'moi' || ignorerClic.current) return;
     if (c.type === 'perdue') {
       setSel(null);
       setPassee(c);
@@ -224,6 +313,12 @@ export function Horaire() {
       setSel(sel && sel.date === c.date && sel.h === c.h ? null : { date: c.date, h: c.h });
     } else setSel(null);
   }
+
+  const changerSemaine = (n: number) => {
+    setDecalage((d) => d + n);
+    setSel(null);
+    setJourIdx(null);
+  };
 
   const colStyle = (i: number) => ({ left: `calc(46px + ${i} * ((100% - 62px) / 5 + 4px))`, width: 'calc((100% - 62px) / 5)' });
 
@@ -283,7 +378,7 @@ export function Horaire() {
       )}
 
       <div className="rangee rangee--entre">
-        <button className="rond" aria-label="Semaine précédente" onClick={() => { setDecalage(decalage - 1); setSel(null); }}>
+        <button className="rond" aria-label="Semaine précédente" onClick={() => changerSemaine(-1)}>
           <Icon nom="gauche" />
         </button>
         <div className="pile" style={{ alignItems: 'center' }}>
@@ -292,11 +387,103 @@ export function Horaire() {
             {vue === 'moi' ? 'Mon horaire' : vue === 'classe' ? `Horaire de la ${classeVue}` : `Occupation de ${salleVue}`}
           </span>
         </div>
-        <button className="rond" aria-label="Semaine suivante" onClick={() => { setDecalage(decalage + 1); setSel(null); }}>
+        <button className="rond" aria-label="Semaine suivante" onClick={() => changerSemaine(1)}>
           <Icon nom="droite" />
         </button>
       </div>
 
+      <div className="seg seg--mode" role="group" aria-label="Affichage">
+        {(['semaine', 'jour'] as const).map((m) => (
+          <button
+            key={m}
+            aria-pressed={mode === m}
+            onClick={() => {
+              setMode(m);
+              try {
+                localStorage.setItem(CLE_MODE, m);
+              } catch {
+                /* rien */
+              }
+            }}
+          >
+            {m === 'semaine' ? 'Semaine' : 'Jour'}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'jour' && (() => {
+        const idx = jourIdx ?? (colonneAuj >= 0 ? colonneAuj : Math.max(0, dates.findIndex((d) => !conge(deIso(d)))));
+        const dateJ = dates[idx];
+        const cg = conge(deIso(dateJ));
+        return (
+          <div
+            className="jour-vue"
+            onTouchStart={(e) => (doigt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
+            onTouchEnd={(e) => {
+              const d = doigt.current;
+              doigt.current = null;
+              if (!d) return;
+              const dx = e.changedTouches[0].clientX - d.x;
+              const dy = e.changedTouches[0].clientY - d.y;
+              if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+              const n = idx + (dx < 0 ? 1 : -1);
+              if (n < 0) { changerSemaine(-1); setJourIdx(4); }
+              else if (n > 4) { changerSemaine(1); setJourIdx(0); }
+              else setJourIdx(n);
+            }}
+          >
+            <div className="seg seg--jours" role="group" aria-label="Jour">
+              {dates.map((d, i) => (
+                <button key={d} aria-pressed={i === idx} onClick={() => setJourIdx(i)} className={i === colonneAuj ? 'auj' : undefined}>
+                  <span>{JOURS_COURTS[i + 1]}</span>
+                  <b>{deIso(d).getDate()}</b>
+                </button>
+              ))}
+            </div>
+            {cg ? (
+              <p className="texte">{cg.nom} : pas de cours.</p>
+            ) : (
+              <div className="pile pile--8" key={dateJ}>
+                {lignes.map((ligne, hIdx) => {
+                  const c = ligne[idx];
+                  const p = PERIODES[hIdx];
+                  const meilleure = parHeure.get(c.cle)?.[0];
+                  let titre = c.haut ?? '';
+                  let sous = c.bas ?? '';
+                  if (c.cours) {
+                    titre = `${c.cours.classe}${c.cours.matiere ? ` · ${c.cours.matiere}` : ''}`;
+                    sous = c.type === 'deplace' ? `${c.cours.local} · cours déplacé ici` : c.type === 'attente' ? `${c.cours.local} · proposé, à valider` : c.type === 'depart' ? `${c.cours.local} · part ${c.bas?.replace('→ ', 'vers ')}` : c.cours.local;
+                  } else if (c.type === 'possible' || c.type === 'etoile') {
+                    titre = `${c.nb} cours ${c.nb && c.nb > 1 ? 'peuvent' : 'peut'} venir ici`;
+                    sous = meilleure ? `Le plus avantageux : ${meilleure.classe}, ${JOURS[jourSemaineIso(meilleure.dateO)].toLowerCase()} H${meilleure.hO} · ${meilleure.resume.split(' · ')[0]}` : '';
+                  } else if (c.type === 'perdue') {
+                    titre = c.haut ? `Cours parti ${c.haut.replace('→ ', 'vers ')}` : 'Heure passée';
+                    sous = c.haut ? '' : `${c.nb} classe${c.nb && c.nb > 1 ? 's' : ''} à toi à l’étude`;
+                  } else if (c.type === 'vide') {
+                    titre = p.h === MIDI ? 'Temps de midi' : 'Libre';
+                  }
+                  return (
+                    <button key={c.cle} className={`jour-ligne jour-ligne--${c.type}${p.h === MIDI ? ' jour-ligne--midi' : ''}`} onClick={() => toucher(c)} disabled={c.type === 'vide' || vue !== 'moi'}>
+                      <span className="jour-heure">
+                        <b>H{p.h}</b>
+                        <span>{p.debut}</span>
+                      </span>
+                      <span className="pile grandit">
+                        <span className="jour-titre">{titre}</span>
+                        {sous && <span className="jour-sous">{sous}</span>}
+                      </span>
+                      {(c.type === 'possible' || c.type === 'etoile') && <Icon nom="droite" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {mode === 'semaine' && (
+      <>
       <div className="semaine-entete">
         <span />
         {dates.map((d, i) => (
@@ -307,7 +494,30 @@ export function Horaire() {
         ))}
       </div>
 
-      <div className="grille" ref={grilleRef} onPointerLeave={() => setSurvol(null)}>
+      <div
+        className={`grille${fantome ? ' grille--glisse' : ''}`}
+        key={lundi}
+        ref={grilleRef}
+        onPointerLeave={() => !glisse.current?.actif && setSurvol(null)}
+        onPointerDown={debutGlisse}
+        onPointerMove={bougeGlisse}
+        onPointerUp={(e) => finGlisse(e)}
+        onPointerCancel={(e) => finGlisse(e, true)}
+        onTouchStart={(e) => (doigt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
+        onTouchEnd={(e) => {
+          const d = doigt.current;
+          doigt.current = null;
+          if (!d || ignorerClic.current || glisse.current?.actif) return;
+          const dx = e.changedTouches[0].clientX - d.x;
+          const dy = e.changedTouches[0].clientY - d.y;
+          if (Math.abs(dx) >= 70 && Math.abs(dx) > 2 * Math.abs(dy)) changerSemaine(dx < 0 ? 1 : -1);
+        }}
+      >
+        {fantome && (
+          <div className="fantome" style={{ transform: `translate(${fantome.x}px, ${fantome.y}px)` }}>
+            {fantome.texte}
+          </div>
+        )}
         {colonneAuj >= 0 && <div className="colonne-auj" style={colStyle(colonneAuj)} />}
         {dates.map((d, i) => {
           const c = conge(deIso(d));
@@ -332,10 +542,11 @@ export function Horaire() {
                   c={c}
                   cible={(!!sel && sel.date === c.date && sel.h === c.h) || cibles.has(c.cle)}
                   origine={origines.has(c.cle)}
+                  mobile={mobiles.has(c.cle)}
                   onClick={() => toucher(c)}
                   cliquable={vue === 'moi'}
                   onSurvol={(e, dedans) => {
-                    if (e.pointerType !== 'mouse' || vue !== 'moi') return;
+                    if (e.pointerType !== 'mouse' || vue !== 'moi' || glisse.current?.actif) return;
                     setSurvol(dedans ? c.cle : null);
                   }}
                 />
@@ -378,6 +589,8 @@ export function Horaire() {
           ))}
         </svg>
       </div>
+      </>
+      )}
 
       <button className="bouton bouton--sec" onClick={exporterAgenda}>
         <Icon nom="agenda" taille={18} /> Mettre mon horaire dans mon agenda (4 semaines)
@@ -394,12 +607,12 @@ export function Horaire() {
           <span>{vue === 'classe' ? 'Touche « Moi » pour revenir à ton horaire.' : 'Les réservations apparaissent en orange.'}</span>
         )}
       </div>
-      {vue === 'moi' && !sel && (
+      {vue === 'moi' && !sel && mode === 'semaine' && (
         <div className="rangee rangee--entre enrouler">
           <p className="petit grandit" style={{ margin: 0 }}>
             {meilleures.length
               ? toutesFleches
-                ? `${meilleures.length === 1 ? 'Une flèche montre le cours' : `${meilleures.length} flèches montrent les cours`} que tu peux avancer. Survole ou touche une heure libérée (ou un cours) pour voir toutes les options.`
+                ? `${meilleures.length === 1 ? 'Une flèche montre le cours' : `${meilleures.length} flèches montrent les cours`} que tu peux avancer. Survole ou touche une heure libérée pour voir toutes les options ; un cours marqué d’un point se glisse aussi vers une heure libérée.`
                 : 'Touche une heure libérée pour voir les cours qui peuvent y venir.'
               : 'Aucun cours à avancer cette semaine.'}
           </p>
@@ -525,8 +738,8 @@ export function Horaire() {
   );
 }
 
-function CaseHoraire({ c, cible, origine, onClick, cliquable, onSurvol }: { c: Case; cible: boolean; origine: boolean; onClick: () => void; cliquable: boolean; onSurvol: (e: EvPointeur, dedans: boolean) => void }) {
-  const extra = `${cible ? ' case--cible' : ''}${origine ? ' case--origine' : ''}`;
+function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol }: { c: Case; cible: boolean; origine: boolean; mobile: boolean; onClick: () => void; cliquable: boolean; onSurvol: (e: EvPointeur, dedans: boolean) => void }) {
+  const extra = `${cible ? ' case--cible' : ''}${origine ? ' case--origine' : ''}${mobile ? ' case--mobile' : ''}`;
   const commun = {
     'data-cle': c.cle,
     onPointerEnter: (e: EvPointeur) => onSurvol(e, true),

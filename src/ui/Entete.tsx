@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { useStore } from '../data/store';
 import { Icon } from './Icon';
-import { initiales, useMoi } from './Moi';
+import { BoutonTheme, initiales, useMoi } from './Moi';
 
 export function Entete({ titre, sous, retour, droite, apres }: { titre: string; sous?: string; retour?: string; droite?: ReactNode; apres?: ReactNode }) {
   const { ds, demo, simulation, profil } = useStore();
@@ -23,6 +23,7 @@ export function Entete({ titre, sous, retour, droite, apres }: { titre: string; 
       </div>
       <div className="rangee">
         {droite}
+        {!retour && !droite && <BoutonTheme />}
         {simulation && (
           <a className="puce puce--demo" href="#/connexion" aria-label="Simulation : vraies données sur cet appareil seulement">
             Simulation

@@ -9,6 +9,7 @@ import { Feuille } from './Feuille';
 import { Icon } from './Icon';
 import { aller, lien } from '../lib/route';
 import { nomAffiche } from '../logic/horaire';
+import { indiceTeams } from '../lib/reglages';
 
 const Ctx = createContext<{ ouvrir: () => void }>({ ouvrir: () => {} });
 
@@ -26,6 +27,33 @@ export function appliquerTheme(t: Theme) {
   }
   if (t === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
+}
+
+/** Le thème affiché en ce moment est-il sombre ? (réglage, sinon celui de l'appareil) */
+function estSombre(): boolean {
+  const t = document.documentElement.dataset.theme;
+  if (t === 'sombre' || t === 'dark') return true;
+  if (t === 'clair' || t === 'light' || t === 'contraste') return false;
+  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/** Soleil / lune : passer du clair au sombre en un geste (pas dans Teams, qui impose son thème). */
+export function BoutonTheme() {
+  const [sombre, setSombre] = useState(estSombre);
+  if (indiceTeams()) return null;
+  return (
+    <button
+      className="rond rond--theme"
+      aria-label={sombre ? 'Passer en thème clair' : 'Passer en thème sombre'}
+      title={sombre ? 'Thème clair' : 'Thème sombre'}
+      onClick={() => {
+        appliquerTheme(sombre ? 'clair' : 'sombre');
+        setSombre(!sombre);
+      }}
+    >
+      <Icon nom={sombre ? 'soleil' : 'lune'} />
+    </button>
+  );
 }
 
 export function themeEnregistre(): Theme {
