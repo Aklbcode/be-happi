@@ -188,7 +188,7 @@ test('agenda .ics : lignes CRLF de 75 octets au plus, texte échappé, heures en
   assert.ok(ics.startsWith('BEGIN:VCALENDAR\r\n'));
   assert.ok(ics.includes('X-WR-CALNAME:Horaire de Camille\\, 3TQA'));
   assert.ok(ics.includes('SUMMARY:Sciences \\; labo\\, BF110'));
-  assert.ok(ics.includes(`DTSTART:${new Date(2026, 10, 16, 8, 25).toISOString().replace(/[-:]/g, '').slice(0, 13)}00Z`));
+  assert.ok(ics.includes('DTSTART:20261116T072500Z'));
   for (const ligne of ics.split('\r\n')) assert.ok(new TextEncoder().encode(ligne).length <= 75, `ligne trop longue : ${ligne}`);
 });
 

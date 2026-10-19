@@ -27,6 +27,24 @@ export const RECRES = [2, 7];
 
 export const periode = (h: number): Periode => PERIODES[Math.min(Math.max(h, 1), 9) - 1];
 
+const heureEcole = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Brussels', hourCycle: 'h23', hour: '2-digit', minute: '2-digit',
+});
+
+/** Instants des périodes à Bruxelles, indépendants du fuseau de l'appareil. */
+export function bornesPeriodes(date: string, hDebut: number, hFin: number): { debut: Date; fin: Date } {
+  const [annee, mois, jour] = date.split('-').map(Number);
+  // À midi UTC, le décalage est celui des cours de cette journée, même le jour
+  // du changement d'heure (qui se produit la nuit). Aucune règle été/hiver codée en dur.
+  const midi = Date.UTC(annee, mois - 1, jour, 12);
+  const parts = heureEcole.formatToParts(new Date(midi));
+  const heures = Number(parts.find((p) => p.type === 'hour')!.value);
+  const minutes = Number(parts.find((p) => p.type === 'minute')!.value);
+  const decalage = (heures * 60 + minutes - 12 * 60) * 60_000;
+  const instant = (min: number) => new Date(Date.UTC(annee, mois - 1, jour, 0, min) - decalage);
+  return { debut: instant(periode(hDebut).dm), fin: instant(periode(hFin).fm) };
+}
+
 export interface Conge {
   du: string;
   au: string;

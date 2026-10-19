@@ -5,7 +5,8 @@ import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { Entete } from '../ui/Entete';
-import { calendrierIcs, joursDeCours, telecharger, type Evenement } from '../lib/ics';
+import { calendrierIcs, telecharger } from '../lib/ics';
+import { evenementsProf } from '../logic/agenda';
 import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour } from '../logic/horaire';
 import { opportunitesSemaine, optionsPour } from '../logic/deplacements';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
@@ -229,12 +230,7 @@ export function Horaire() {
 
   function exporterAgenda() {
     if (!ds) return;
-    const evenements: Evenement[] = [];
-    for (const d of joursDeCours(maintenant, 4)) {
-      for (const c of coursDuProf(ds, moi, d)) {
-        evenements.push({ uid: `${moi}-${d}-${c.h}`, date: d, hDebut: c.h, hFin: c.h, titre: `${c.classe}${c.matiere ? ` · ${c.matiere}` : ''}`, lieu: c.local, description: c.deplace ? 'Cours déplacé (validé)' : `H${c.h}` });
-      }
-    }
+    const evenements = evenementsProf(ds, moi, maintenant);
     telecharger('mon-horaire.ics', calendrierIcs(`Horaire · ${ds.moi.prenom} ${nomAffiche(moi)}`, evenements));
     montrerToast('Agenda téléchargé : ouvre le fichier pour l’ajouter à Outlook');
   }

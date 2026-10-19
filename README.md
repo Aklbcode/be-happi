@@ -28,7 +28,7 @@ Chacun voit d'abord ce qui le concerne. Les espaces viennent de la liste **Roles
 - **Publication élèves** : mêmes textes que le bouton « Publier pour les élèves » de Power Apps ; Be Happi dit quand elle n'est plus à jour, et annonce la remédiation au lieu de « étude ».
 - **Infos du jour**, **Signaler** (avec QR code sur chaque porte), **Matériel** (racks de tablettes, PC portables, projecteurs…), **Locaux libres** rangés comme sur le terrain.
 - **Écran du hall** (`#/ecran`) : pour la télé de l'accueil, les changements du jour classe par classe, sans nom de prof (`?noms=1` pour les afficher en salle des profs), les locaux fermés et un QR code vers la vue élève.
-- **Agenda** : l'horaire des prochaines semaines en fichier .ics (Outlook, Google Agenda, téléphone).
+- **Agenda** : l'horaire des prochaines semaines en fichier .ics (Outlook, Google Agenda, téléphone). L'export du prof tient compte des absences, des déplacements validés, des locaux réservés et des remédiations. Les heures de l'agenda et des réunions Collab sont celles de Bruxelles, même si l'appareil est réglé sur un autre fuseau. Le fichier est une copie au moment du téléchargement : les changements ultérieurs demandent un nouvel export.
 - **Hors ligne** : l'app s'ouvre même sans réseau (dernière version chargée), les données se mettent à jour dès que la connexion revient.
 
 ### Règles des déplacements
