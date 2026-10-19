@@ -41,10 +41,11 @@ test('Simulation : l’app charge les vraies listes et écrit seulement dans la 
     moi: { givenName: 'Luc', mail: 'luc.lambert@ecole.example' },
     importeLe: new Date().toISOString(),
     listes: {
-      Profs: L('L1', 'Titre,Email\nLAMBERT,luc.lambert@ecole.example\nDURANT,'),
+      // Titre renommé « Prof » dans SharePoint : l'export porte « Prof » (comme à l'école).
+      Profs: L('L1', 'Prof,MatierePrincipale,Email\nLAMBERT,Géographie,luc.lambert@ecole.example\nDURANT,Histoire,'),
       Roles: L('L2', 'Titre,Role\neduc@ecole.example,Éducatrice'),
-      Horaires: L('L3', `Titre,JourNum,Heure,Classes,Local,Matière\nLAMBERT,${jourNum},3,5TQB,BF110,Géographie\nDURANT,${jourNum},4,"3A, 3B",BC105,Histoire`),
-      Absences: L('L4', `Titre,DateAbs,DeH,AH,Créé\nDURANT,${fr(demain)},1,9,${fr(new Date())} 08:00`),
+      Horaires: L('L3', `Prof,JourNum,Jour,Heure,HeureDebut,Matière,Classes,Local,DeplacementPossible\nLAMBERT,${jourNum},x,3,10:25,Géographie,5TQB,BF110,Oui\nDURANT,${jourNum},x,4,11:15,Histoire,"3A, 3B",BC105,Oui`),
+      Absences: L('L4', `Prof,DateAbs,DeH,AH,Créé\nDURANT,${fr(demain)},1,9,${fr(new Date())} 08:00`),
       Deplacements: L('L5', 'Titre,DateDep,HeureVide,Classe,Collegue,HeureOrigine,DateOrigine,Statut'),
       Signalements: L('L6', `Titre,Statut,Urgence,Créé,Créé par\nBF110 · Store bloqué,En cours,Normale,${fr(new Date())} 09:00,Auteur Test`),
     },

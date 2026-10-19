@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { config } from '../config';
-import { arreterSimulation, demarrerSimulation, infoSimulation, lireCsv, listePourFichier, versListe, type EtatSimulation } from '../data/simulation';
+import { arreterSimulation, corrigerTitre, demarrerSimulation, infoSimulation, lireCsv, listePourFichier, versListe, type EtatSimulation } from '../data/simulation';
 import { Icon } from './Icon';
 
 interface Fichier {
@@ -47,7 +47,7 @@ export function ImporterSimulation() {
 
   const reconnus = fichiers.filter((f) => f.liste);
   const horaire = reconnus.some((f) => f.liste === config.listes.horaires);
-  const pret = horaire && /@/.test(mail);
+  const pret = horaire && /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(mail.trim());
 
   async function lancer() {
     setEncours(true);
@@ -55,7 +55,7 @@ export function ImporterSimulation() {
     try {
       const etat: EtatSimulation = { listes: {}, moi: { givenName: prenomDe(mail), mail: mail.trim().toLowerCase() }, importeLe: new Date().toISOString() };
       reconnus.forEach((f, i) => {
-        etat.listes[f.liste!] = versListe(`L${i + 1}`, f.lignes);
+        etat.listes[f.liste!] = corrigerTitre(f.liste!, versListe(`L${i + 1}`, f.lignes));
       });
       await demarrerSimulation(etat);
       window.location.reload();

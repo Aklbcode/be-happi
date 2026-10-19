@@ -71,12 +71,14 @@ async function charger(): Promise<EtatSimulation> {
   if (etat) return etat;
   const e = await operation<EtatSimulation | undefined>('readonly', (s) => s.get('etat'));
   if (!e) throw new Error('Simulation : données introuvables sur cet appareil. Importe à nouveau les fichiers.');
+  for (const [nom, l] of Object.entries(e.listes)) corrigerTitre(nom, l);
   etat = e;
   return e;
 }
 
 /** Pour les tests : utiliser cet état sans IndexedDB (rien n'est enregistré). */
 export function utiliserEtat(e: EtatSimulation): void {
+  for (const [nom, l] of Object.entries(e.listes)) corrigerTitre(nom, l);
   etat = e;
   memoireSeule = true;
 }
@@ -207,6 +209,30 @@ export function versListe(id: string, lignes: string[][]): ListeSim {
     return it;
   });
   return { id, colonnes: role.filter((r) => !r.startsWith('@')), items };
+}
+
+/**
+ * La colonne « Titre » est souvent renommée (« Prof » dans Horaires, Profs, Absences…) : l'export
+ * porte alors ce nom-là, alors que Graph l'appelle toujours « Title ». On la retrouve : la colonne
+ * qui porte le nom du champ (prof, nom, mail…), sinon la première colonne qui n'est pas connue.
+ */
+export function corrigerTitre(nomListe: string, l: ListeSim): ListeSim {
+  if (l.colonnes.includes('Title')) return l;
+  const cle = (Object.keys(config.listes) as (keyof typeof config.listes)[]).find((k) => config.listes[k] === nomListe);
+  const champs = (cle ? (config.champs as Record<string, Record<string, string>>)[cle] : undefined) ?? {};
+  const internes = new Set(Object.values(champs));
+  const nomTitre = Object.entries(champs).find(([, v]) => v === 'Title')?.[0] ?? '';
+  const candidat =
+    l.colonnes.find((c) => !internes.has(c) && nomTitre && sansAccents(c) === sansAccents(nomTitre)) ??
+    l.colonnes.find((c) => !internes.has(c) && ['prof', 'nom', 'mail', 'email'].includes(sansAccents(c)) && !Object.values(champs).some((v) => sansAccents(v) === sansAccents(c))) ??
+    l.colonnes.find((c) => !internes.has(c) && c !== 'Created');
+  if (!candidat) return l;
+  for (const it of l.items) {
+    if (it.fields[candidat] != null) it.fields.Title = it.fields[candidat];
+    delete it.fields[candidat];
+  }
+  l.colonnes = l.colonnes.map((c) => (c === candidat ? 'Title' : c));
+  return l;
 }
 
 // ---------- Le faux Microsoft Graph ----------
