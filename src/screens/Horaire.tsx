@@ -31,11 +31,28 @@ interface Fleche {
   marqueur: string;
   label?: { x: number; y: number; texte: string };
   epais: number;
+  anime: boolean;
 }
+
+const CLE_FLECHES = 'behappi-fleches';
+const flechesVisibles = (): boolean => {
+  try {
+    return localStorage.getItem(CLE_FLECHES) !== '0';
+  } catch {
+    return true;
+  }
+};
 
 export function Horaire() {
   const { ds, maintenant, aujourdhui, minutes, heureFinie, montrerToast } = useStore();
-  const [decalage, setDecalage] = useState(0);
+  // Pendant un congé, on ouvre directement la première semaine de cours (au plus 3 semaines plus loin).
+  const [depart] = useState(() => {
+    const b = jourSemaine(maintenant) >= 6 ? plusJours(maintenant, 8 - jourSemaine(maintenant)) : lundiDe(maintenant);
+    for (let n = 0; n < 3; n++) if ([0, 1, 2, 3, 4].some((k) => !conge(plusJours(b, n * 7 + k)))) return n;
+    return 0;
+  });
+  const [decalage, setDecalage] = useState(depart);
+  const [toutesFleches, setToutesFleches] = useState(flechesVisibles);
   const [vue, setVue] = useState<Vue>('moi');
   const [classe, setClasse] = useState('');
   const [salle, setSalle] = useState('');
@@ -59,6 +76,15 @@ export function Horaire() {
   const opps = useMemo(() => (ds && vue === 'moi' ? opportunitesSemaine(ds, moi, lundi, aujourdhui, finieEff) : new Map()), [ds, vue, moi, lundi, aujourdhui, finieEff]);
 
   const options = useMemo(() => (ds && sel ? optionsPour(ds, moi, sel.date, sel.h, aujourdhui, finieEff) : []), [ds, sel, moi, aujourdhui, finieEff]);
+
+  // Le meilleur cours à avancer pour chaque heure libérée de la semaine : une flèche directement sur l'horaire.
+  const meilleures = useMemo(() => {
+    if (!ds || vue !== 'moi') return [];
+    return [...opps.values()]
+      .filter((o) => !o.passe)
+      .map((o) => optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff)[0])
+      .filter(Boolean);
+  }, [ds, vue, opps, moi, aujourdhui, finieEff]);
 
   const lignes: Case[][] = useMemo(() => {
     if (!ds) return [];
@@ -103,7 +129,7 @@ export function Horaire() {
   // Flèches : du cours de départ vers l'heure libérée.
   const dessiner = useCallback(() => {
     const g = grilleRef.current;
-    if (!g || !sel || vue !== 'moi') {
+    if (!g || vue !== 'moi' || (!sel && !toutesFleches)) {
       setFleches([]);
       return;
     }
@@ -114,13 +140,14 @@ export function Horaire() {
       const r = el.getBoundingClientRect();
       return { x: r.left - gr.left + r.width / 2, y: r.top - gr.top + r.height / 2, w: r.width, h: r.height };
     };
-    const cible = centre(`${sel.date}|${sel.h}`);
-    if (!cible) return;
     const res: Fleche[] = [];
-    options.slice(0, 4).forEach((o) => {
+    // Une heure touchée : toutes ses options, animées. Sinon : la meilleure de chaque heure, discrète.
+    const aDessiner = sel ? options.slice(0, 4) : meilleures;
+    aDessiner.forEach((o) => {
+      const cible = centre(`${o.date}|${o.h}`);
       const dateCase = o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO;
       const dep = centre(`${dateCase}|${o.hO}`);
-      if (!dep) return;
+      if (!dep || !cible) return;
       const dx = cible.x - dep.x;
       const dy = cible.y - dep.y;
       const long = Math.hypot(dx, dy) || 1;
@@ -132,17 +159,19 @@ export function Horaire() {
       const y2 = cible.y - uy * Math.min(cible.w, cible.h) * 0.55;
       const cx = (x1 + x2) / 2 - uy * long * 0.18;
       const cy = (y1 + y2) / 2 + ux * long * 0.18;
-      const couleur = o.semaineSuivante ? 'var(--sarcelle)' : o.meilleur ? 'var(--indigo)' : 'var(--indigo-moyen)';
+      const fort = sel ? o.meilleur : o.meilleur && o.avantageProf;
+      const couleur = o.semaineSuivante ? 'var(--sarcelle)' : fort ? 'var(--indigo)' : 'var(--indigo-moyen)';
       res.push({
         d: `M${x1.toFixed(1)} ${y1.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`,
         couleur,
-        marqueur: o.semaineSuivante ? 'pointe-s1' : o.meilleur ? 'pointe-best' : 'pointe-autre',
-        epais: o.meilleur ? 3 : 2.2,
+        marqueur: o.semaineSuivante ? 'pointe-s1' : fort ? 'pointe-best' : 'pointe-autre',
+        epais: sel ? (o.meilleur ? 3 : 2.2) : fort ? 2.4 : 1.8,
+        anime: !!sel,
         label: o.semaineSuivante ? { x: (x1 + 2 * cx + x2) / 4, y: (y1 + 2 * cy + y2) / 4, texte: 'S+1' } : undefined,
       });
     });
     setFleches(res);
-  }, [sel, options, vue]);
+  }, [sel, options, vue, meilleures, toutesFleches]);
 
   useLayoutEffect(() => {
     dessiner();
@@ -199,8 +228,8 @@ export function Horaire() {
         titre="Horaire"
         sous="Ta semaine et les heures libérées"
         droite={
-          decalage !== 0 ? (
-            <button className="bouton bouton--sec bouton--petit" onClick={() => { setDecalage(0); setSel(null); }}>
+          decalage !== depart ? (
+            <button className="bouton bouton--sec bouton--petit" onClick={() => { setDecalage(depart); setSel(null); }}>
               Cette semaine
             </button>
           ) : undefined
@@ -312,8 +341,8 @@ export function Horaire() {
           {fleches.map((f, i) => (
             <g key={i}>
               <path d={f.d} fill="none" stroke="var(--fond)" strokeWidth={f.epais + 4} strokeLinecap="round" opacity={0.85} />
-              <path d={f.d} fill="none" stroke={f.couleur} strokeWidth={f.epais} strokeDasharray="6 4" strokeLinecap="round" markerEnd={`url(#${f.marqueur})`}>
-                <animate attributeName="stroke-dashoffset" from="20" to="0" dur="0.9s" repeatCount="indefinite" />
+              <path d={f.d} fill="none" stroke={f.couleur} strokeWidth={f.epais} strokeDasharray={f.anime ? '6 4' : undefined} strokeLinecap="round" markerEnd={`url(#${f.marqueur})`} opacity={f.anime ? 1 : 0.9}>
+                {f.anime && <animate attributeName="stroke-dashoffset" from="20" to="0" dur="0.9s" repeatCount="indefinite" />}
               </path>
               {f.label && (
                 <g transform={`translate(${f.label.x} ${f.label.y})`}>
@@ -343,7 +372,33 @@ export function Horaire() {
           <span>{vue === 'classe' ? 'Touche « Moi » pour revenir à ton horaire.' : 'Les réservations apparaissent en orange.'}</span>
         )}
       </div>
-      {vue === 'moi' && !sel && <p className="petit">Touche une heure libérée pour voir les cours qui peuvent y venir.</p>}
+      {vue === 'moi' && !sel && (
+        <div className="rangee rangee--entre enrouler">
+          <p className="petit grandit" style={{ margin: 0 }}>
+            {meilleures.length
+              ? toutesFleches
+                ? `${meilleures.length === 1 ? 'Une flèche montre le cours' : `${meilleures.length} flèches montrent les cours`} que tu peux avancer. Touche l’heure libérée pour voir toutes les options.`
+                : 'Touche une heure libérée pour voir les cours qui peuvent y venir.'
+              : 'Aucun cours à avancer cette semaine.'}
+          </p>
+          {meilleures.length > 0 && (
+            <button
+              className="lien-action"
+              onClick={() => {
+                const v = !toutesFleches;
+                setToutesFleches(v);
+                try {
+                  localStorage.setItem(CLE_FLECHES, v ? '1' : '0');
+                } catch {
+                  /* rien */
+                }
+              }}
+            >
+              {toutesFleches ? 'Masquer les flèches' : 'Montrer les flèches'}
+            </button>
+          )}
+        </div>
+      )}
 
       <Feuille ouverte={!!sel && options.length > 0} onFermer={() => setSel(null)} titre="Déplacements possibles">
         {sel && (
