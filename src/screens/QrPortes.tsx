@@ -10,7 +10,7 @@ import { BATIMENTS } from '../data/batiments';
 import { lienApp } from '../lib/liens';
 
 export function QrPortes() {
-  const { ds } = useStore();
+  const { ds, demo } = useStore();
   const [bat, setBat] = useState('F');
   const locaux = useMemo(() => (ds ? ds.locaux.filter((l) => l.batiment === bat) : []), [ds, bat]);
   const svgs = useMemo(() => locaux.map((l) => ({ code: l.code, svg: qrSvg(lienApp(`signaler?local=${encodeURIComponent(l.code)}`), 150) })), [locaux]);
@@ -20,6 +20,11 @@ export function QrPortes() {
       <Entete titre="QR portes" sous="À coller sur la porte de chaque local" retour="#/ecole" />
       <div className="sans-impression pile pile--12">
         <p className="texte">Un élève ou un prof voit un problème ? Il scanne le QR : « Signaler » s’ouvre avec le local rempli, et le signalement arrive chez le service technique.</p>
+        {demo && (
+          <span className="puce puce--demo puce--long">
+            <Icon nom="attention" taille={16} /> Démo : ces codes ouvrent la démo. Imprime-les une fois l’école reliée : ils mèneront alors aux vraies données.
+          </span>
+        )}
         <div className="seg seg--auto" role="group" aria-label="Bâtiment">
           {BATIMENTS.map((b) => (
             <button key={b.code} aria-pressed={bat === b.code} onClick={() => setBat(b.code)}>

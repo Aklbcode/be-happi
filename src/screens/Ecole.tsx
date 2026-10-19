@@ -1,9 +1,14 @@
 // Écran « École » : tous les services ouverts à la personne, rangés par usage, et l'espace affiché.
 
+import { useState } from 'react';
 import { useStore } from '../data/store';
 import { Entete } from '../ui/Entete';
 import { Icon } from '../ui/Icon';
 import { useMoi } from '../ui/Moi';
+import { Feuille } from '../ui/Feuille';
+import { QrInstallation, TEXTE_QR, TEXTE_QR_MOBILE, estMobile } from '../ui/Installer';
+import { adresseApp } from '../lib/liens';
+import { lienInstallation, reglagesActuels } from '../lib/reglages';
 import { profil as descProfil, peutOuvrir } from '../data/profils';
 import { lien, type Ecran } from '../lib/route';
 
@@ -59,7 +64,9 @@ const GROUPES: { titre: string; services: Service[] }[] = [
 export function Ecole() {
   const { ds, demo, profil, profils } = useStore();
   const { ouvrir } = useMoi();
+  const [telephone, setTelephone] = useState(false);
   const p = descProfil(profil);
+  const ecole = demo ? null : reglagesActuels();
   return (
     <section className="ecran" aria-label="École">
       <Entete titre="École" sous="Tous les services" />
@@ -99,6 +106,19 @@ export function Ecole() {
         );
       })}
 
+      {ecole && !estMobile() && (
+        <button className="carte carte--lien" onClick={() => setTelephone(true)}>
+          <span className="vignette">
+            <Icon nom="qr" />
+          </span>
+          <span className="pile grandit">
+            <span className="titre-s">Be Happi sur ton téléphone</span>
+            <span className="petit">Un QR code à scanner, déjà relié à l’école</span>
+          </span>
+          <Icon nom="droite" />
+        </button>
+      )}
+
       {profil !== 'eleve' && (
         <a className="carte carte--lien" href={lien('connexion')}>
           <span className="vignette">
@@ -113,6 +133,16 @@ export function Ecole() {
       )}
 
       <p className="petit" style={{ textAlign: 'center' }}>Be Happi · version {__VERSION__} · IPES Tubize</p>
+
+      {ecole && (
+        <Feuille ouverte={telephone} onFermer={() => setTelephone(false)} titre="Be Happi sur ton téléphone">
+          <h2 className="titre-l">Sur ton téléphone</h2>
+          <QrInstallation lien={lienInstallation(adresseApp(), ecole)} texte={TEXTE_QR} texteMobile={TEXTE_QR_MOBILE} />
+          <button className="bouton bouton--sec" onClick={() => setTelephone(false)}>
+            Fermer
+          </button>
+        </Feuille>
+      )}
     </section>
   );
 }

@@ -411,6 +411,9 @@ a { color: var(--indigo-encre); }
 .entete { display: flex; align-items: flex-start; gap: 12px; }
 .entete > .rond:first-child { margin-top: 4px; }
 .entete .titre-xl { overflow-wrap: anywhere; }
+@media (max-width: 374px) {
+  .entete .titre-xl { font-size: 27px; }
+}
 .sous-titre { margin: 0 0 2px; font-size: 14px; font-weight: 600; color: var(--discret); }
 .rond--grand { width: 52px; height: 52px; border-radius: 26px; font-size: 16px; font-family: var(--police-titre); font-weight: 800; }
 .rond--indigo { background: var(--indigo); color: var(--sur-indigo); border-color: transparent; font-weight: 800; }
@@ -734,12 +737,33 @@ select.champ--ligne { padding-right: 8px; }
   .onglets, .entete, .sans-impression, .toast { display: none !important; }
   body, html { background: #fff; }
   .ecran { padding: 0; max-width: none; }
-  .planche-qr { grid-template-columns: repeat(4, 1fr); gap: 6mm; }
+  .planche-qr { grid-template-columns: repeat(3, 1fr); gap: 6mm; }
   .etiquette-qr { border: 1px dashed #999; border-radius: 0; }
+  .etiquette-qr-code svg { width: 46mm; height: 46mm; }
 }
 .entete .pile > .puce { align-self: flex-start; margin-top: 6px; }
 .nouveautes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .nouveautes li { display: flex; gap: 12px; align-items: flex-start; }
 .nouveautes .texte { font-size: 14px; }
-.hall-qr-code { display: block; width: min(11vw, 180px); aspect-ratio: 1; margin: 0.4em 0; border-radius: 0.5em; overflow: hidden; }
+.hall-qr-code { display: block; width: min(13vw, 240px); aspect-ratio: 1; margin: 0.4em 0; border-radius: 0.5em; overflow: hidden; }
 .hall-qr-code svg { width: 100%; height: 100%; display: block; }
+
+/* ---------- Mise en service : relier l'app à l'école ---------- */
+.ecran--relier { min-height: 100dvh; justify-content: center; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); }
+.ecran--relier .bulle-chargement { animation: none; }
+.adresse-site { overflow-wrap: anywhere; }
+.installer { display: flex; gap: 16px; align-items: center; }
+.installer-qr { flex: none; width: 140px; height: 140px; border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid var(--trait); }
+.installer-qr svg { width: 100%; height: 100%; display: block; }
+.installer-lien { font-size: 12px; }
+@media (max-width: 440px) {
+  .installer { flex-direction: column; align-items: stretch; }
+  .installer-qr { align-self: center; width: 176px; height: 176px; }
+}
+.mise-en-service-prete { border-top: 1px solid var(--trait); padding-top: 14px; }
+.replie { border-top: 1px solid var(--trait); padding-top: 12px; }
+.replie > summary { cursor: pointer; list-style: none; font-size: 14px; font-weight: 700; color: var(--indigo-encre); }
+.replie > summary::-webkit-details-marker { display: none; }
+.replie > summary::after { content: ' ▾'; }
+.replie[open] > summary { margin-bottom: 12px; }
+.replie[open] > summary::after { content: ' ▴'; }

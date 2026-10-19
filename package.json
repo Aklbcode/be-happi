@@ -1,7 +1,7 @@
 {
   "name": "be-happi",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Be Happi : l'app de l'IPES Tubize pour les profs, éducateurs, secrétariat, direction, service technique et élèves, dans Teams et sur téléphone.",
   "scripts": {

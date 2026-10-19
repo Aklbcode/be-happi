@@ -1,5 +1,7 @@
 // Réglages de connexion. Tant que tenantId, clientId et le site ne sont pas remplis,
 // l'app tourne en mode démo (données fictives).
+// Ces quatre valeurs ne sont JAMAIS écrites ici (le code est public) : elles arrivent au démarrage
+// par le lien d'installation de l'école (voir src/lib/reglages.ts et le README, « Mise en service »).
 
 export const config = {
   /** Identifiant du tenant Microsoft 365 de l'école (fourni par l'IT). */

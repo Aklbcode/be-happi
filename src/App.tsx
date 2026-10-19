@@ -1,13 +1,15 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { StoreProvider, useStore } from './data/store';
 import { useRoute, type Ecran } from './lib/route';
-import { suivreThemeTeams } from './lib/teams';
+import { dansTeams, suivreThemeTeams } from './lib/teams';
+import { adopterReglages, indiceTeams, preparerReglages, refuserLien, type Depart } from './lib/reglages';
 import { profil as descProfil, peutOuvrir } from './data/profils';
 import { Onglets } from './ui/Onglets';
 import { Icon } from './ui/Icon';
 import { MoiProvider, appliquerTheme, themeEnregistre } from './ui/Moi';
 import { ApercuTeams } from './ui/ApercuTeams';
 import { Bienvenue } from './ui/Bienvenue';
+import { ConfirmerEcole } from './ui/ConfirmerEcole';
 import { Aujourdhui } from './screens/Aujourdhui';
 import { Horaire } from './screens/Horaire';
 import { Deplacer } from './screens/Deplacer';
@@ -30,12 +32,13 @@ import { Eleve } from './screens/Eleve';
 import { EcranHall } from './screens/EcranHall';
 import { QrPortes } from './screens/QrPortes';
 
+declare const __DEMO_FORCEE__: boolean;
+
 function Coquille() {
   const route = useRoute();
   const { toast, erreur, chargement, ds, profil, profils, peutValider } = useStore();
 
   useEffect(() => {
-    appliquerTheme(themeEnregistre());
     void suivreThemeTeams((t) => {
       document.documentElement.dataset.theme = t;
     });
@@ -43,7 +46,8 @@ function Coquille() {
 
   const ecran: Ecran = route.ecran ?? descProfil(profil).accueil;
   const p = route.params;
-  const autorise = peutOuvrir(ecran, profils);
+  // Connexion reste ouverte tant que rien n'est chargé ou en cas d'erreur : c'est là qu'on voit pourquoi.
+  const autorise = peutOuvrir(ecran, profils) || (ecran === 'connexion' && (!ds || !!erreur));
 
   let vue: ReactNode;
   if (!autorise) vue = <NonAutorise />;
@@ -122,6 +126,51 @@ function NonAutorise() {
 }
 
 export default function App() {
+  // D'abord les réglages de l'école (onglet Teams, lien d'installation, appareil), puis les données.
+  const [depart, setDepart] = useState<Depart | null>(() =>
+    __DEMO_FORCEE__ ? { etat: 'pret' } : indiceTeams() ? null : preparerReglages(false),
+  );
+
+  useEffect(() => {
+    appliquerTheme(themeEnregistre());
+  }, []);
+
+  useEffect(() => {
+    if (depart) return;
+    let actif = true;
+    void dansTeams().then((teams) => {
+      if (actif) setDepart(preparerReglages(teams));
+    });
+    return () => {
+      actif = false;
+    };
+  }, [depart]);
+
+  if (!depart)
+    return (
+      <section className="ecran ecran--chargement" aria-busy="true">
+        <span className="bulle-chargement">
+          <Icon nom="etincelle" taille={30} />
+        </span>
+      </section>
+    );
+
+  if (depart.etat === 'confirmer')
+    return (
+      <ConfirmerEcole
+        propose={depart.propose}
+        actuels={depart.actuels}
+        onOui={() => {
+          adopterReglages(depart.propose);
+          setDepart({ etat: 'pret' });
+        }}
+        onNon={() => {
+          refuserLien(depart.actuels);
+          setDepart({ etat: 'pret' });
+        }}
+      />
+    );
+
   return (
     <StoreProvider>
       <MoiProvider>

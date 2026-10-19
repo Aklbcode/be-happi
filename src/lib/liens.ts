@@ -1,6 +1,8 @@
 // Liens profonds vers Teams : ouvrir une conversation ou une réunion déjà remplie.
 // Aucune permission supplémentaire : Teams s'ouvre chez la personne, qui n'a plus qu'à envoyer.
 
+import { avecEcole, reglagesActuels } from './reglages';
+
 /** Un message ou une réunion Teams prêts à ouvrir (adresses + texte). */
 export type MessageTeams =
   | { type: 'teams-chat'; emails: string[]; noms: string[]; message: string; sujet?: string }
@@ -26,8 +28,16 @@ export function lienReunionTeams(o: { sujet: string; debut: Date; fin: Date; par
   return `https://teams.microsoft.com/l/meeting/new?${p.toString()}`;
 }
 
-/** Adresse d'un écran de Be Happi, pour un message (« ouvre la proposition ici »). */
+/** Adresse de l'app (sans paramètres ni écran). */
+export const adresseApp = (): string =>
+  typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://aklbcode.github.io/be-happi/';
+
+/**
+ * Adresse d'un écran de Be Happi (QR code d'une porte, écran du hall…). Une fois l'école reliée,
+ * elle porte aussi les réglages : un téléphone qui scanne arrive sur les vraies données, pas en démo.
+ */
 export function lienApp(chemin: string): string {
-  const base = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://aklbcode.github.io/be-happi/';
+  const ecole = reglagesActuels();
+  const base = ecole ? avecEcole(adresseApp(), ecole) : adresseApp();
   return `${base}${chemin.startsWith('#') ? chemin : `#/${chemin}`}`;
 }

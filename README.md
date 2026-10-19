@@ -2,7 +2,7 @@
 
 L'app de l'IPES Tubize pour toute l'école : profs, éducateurs, secrétariat, direction, service technique et élèves. Elle tourne dans Teams (onglet personnel) et sur téléphone (à installer depuis le navigateur), et travaille sur les mêmes listes SharePoint que l'app Power Apps.
 
-**En ligne : https://aklbcode.github.io/be-happi/** (mode démo tant que la connexion SharePoint n'est pas réglée).
+**En ligne : https://aklbcode.github.io/be-happi/** (mode démo tant que l'appareil n'est pas relié à l'école : voir « Mise en service »).
 
 ## Version 1.0 : six espaces
 
@@ -85,28 +85,51 @@ L'écran **École → Connexion → Vérifier les listes** contrôle toutes les 
 
 Sans réglages, l'app démarre en **mode démo** (données fictives, noms inventés, adresses en `@ecole.example`) ; les messages et réunions Teams y sont montrés en aperçu au lieu d'ouvrir Teams.
 
-Ce dépôt est public et ne contient aucune donnée personnelle : la démo utilise un horaire et des noms inventés, et les seules données de l'école présentes sont la liste des locaux et leur équipement. Les identifiants `tenantId` et `clientId` ne sont pas des secrets (une app web les affiche forcément).
+Ce dépôt est public et ne contient ni donnée personnelle ni réglage de l'école : la démo utilise un horaire et des noms inventés, et les seules données de l'école présentes sont la liste des locaux et leur équipement. L'adresse du site SharePoint et les identifiants Microsoft de l'école n'y sont jamais écrits (voir « Mise en service »).
+
+## Mise en service : relier l'app à l'école
+
+L'app en ligne est la même pour tout le monde. Ce qui la relie à l'école (tenant, application, site SharePoint) voyage dans un **lien d'installation** (`…/be-happi/?ecole=…`), jamais dans ce dépôt. Ce lien n'ouvre rien à lui seul : il faut se connecter avec un compte Microsoft de l'école, et SharePoint ne montre que ce que la personne a le droit de voir. Quelqu'un d'extérieur qui ouvre l'app ne voit que la démo.
+
+1. **L'IT enregistre l'application** (une fois, voir plus bas) et envoie deux identifiants : l'*ID de l'annuaire (locataire)* et l'*ID d'application (client)*.
+2. Dans Be Happi : **École → Connexion → Mise en service**. Coller les deux identifiants et l'adresse du site SharePoint des listes (copiée depuis le navigateur, même une page de liste). L'app fabrique alors, sur l'appareil, sans rien publier :
+   - le **paquet Teams** (`be-happi-teams.zip`) : l'onglet Be Happi déjà relié à l'école, à importer par l'IT ;
+   - le **lien et son QR code** pour les téléphones et navigateurs ;
+   - **Utiliser sur cet appareil**.
+3. **L'IT importe le paquet** dans le centre d'administration Teams (*Applications Teams → Gérer les applications → Charger une nouvelle application*) et le rend disponible au personnel et aux élèves (il peut aussi l'épingler par une stratégie de configuration).
+
+Ensuite :
+
+- **Dans Teams** (ordinateur et app Teams du téléphone) : rien à faire, l'onglet porte les réglages et ce sont eux qui comptent.
+- **Ailleurs** : le lien ou le QR code (*École → Be Happi sur ton téléphone*) s'ouvre une première fois sur une question, « Relier Be Happi à ton école ? », avec l'adresse du site. L'appareil s'en souvient. Un lien ne remplace jamais en silence l'école déjà enregistrée.
+- Les **QR codes des portes** et celui de l'**écran du hall** portent aussi les réglages : un élève qui scanne arrive sur les vraies données, pas sur la démo. Les imprimer une fois l'école reliée (et les réimprimer si l'IT change d'application).
+- **Oublier l'école sur cet appareil** (*École → Connexion*) efface les réglages, la copie des listes et la session Microsoft de l'app.
+- **iPhone** : une app ajoutée à l'écran d'accueil ne partage pas la mémoire de Safari. La première fois, y ouvrir *École → Connexion* et coller le lien dans le premier champ (ou utiliser l'app Teams).
+
+Les identifiants du tenant et de l'application ne sont pas des secrets (une app web les montre forcément au navigateur) : les garder hors du dépôt évite simplement d'afficher publiquement l'école et son SharePoint.
+
+En ligne de commande, même résultat : `python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/ --tenant … --client … --site https://….sharepoint.com/sites/…` (le fichier reste sur l'ordinateur, ignoré par git).
 
 ## Réglages (`src/config.ts`)
 
-| Réglage | Exemple | Qui le fournit |
-|---|---|---|
-| `tenantId` | identifiant du tenant | IT |
-| `clientId` | identifiant de l'app Entra ID | IT |
-| `siteHost` | `ecole.sharepoint.com` | site SharePoint des listes |
-| `sitePath` | `/sites/BeHappi` | site SharePoint des listes |
-| `permissionSharePoint` | `Sites.ReadWrite.All` ou `Sites.Selected` | IT (voir plus bas) |
+| Réglage | Rôle |
+|---|---|
+| `permissionSharePoint` | `Sites.ReadWrite.All` (par défaut) ou `Sites.Selected` (voir plus bas) |
+| `listes`, `champs` | noms des listes et noms internes des colonnes (ceux de l'app Power Apps) |
+| `roles` | rôles de la liste Roles qui ouvrent les espaces Éducateur, Secrétariat, Direction et Technique |
 
-Les noms de colonnes se règlent dans `config.champs`, les rôles dans `config.roles`.
+`tenantId`, `clientId`, `siteHost` et `sitePath` y restent **vides** : le lien d'installation les remplit au démarrage (`src/lib/reglages.ts`).
 
 ## Ce que l'IT doit faire (une fois)
 
-1. **Enregistrer l'application** dans Microsoft Entra ID (*Inscriptions d'applications*) :
-   - type de compte : ce tenant uniquement ;
+1. **Enregistrer l'application** dans Microsoft Entra ID (*Inscriptions d'applications → Nouvelle inscription*) :
+   - nom : Be Happi ; type de compte : **ce tenant uniquement** ;
    - plateforme **Application monopage (SPA)** avec deux URI de redirection : `https://aklbcode.github.io/be-happi/` et `brk-multihub://aklbcode.github.io` (connexion dans Teams) ;
-   - autorisations Microsoft Graph **déléguées** : `User.Read` et `Sites.ReadWrite.All` (consentement administrateur conseillé pour éviter la question à chaque personne).
-2. **Importer le paquet Teams** `be-happi-teams.zip` dans le centre d'administration Teams (*Gérer les applications → Charger*), puis le rendre disponible.
-3. Vérifier que les élèves n'ont **pas** accès en lecture aux listes du personnel (voir « Qui voit quoi »).
+   - autorisations Microsoft Graph **déléguées** : `User.Read` et `Sites.ReadWrite.All`, puis **Accorder un consentement d'administrateur** (sinon chaque personne doit accepter) ;
+   - aucun secret ni certificat : l'app tourne dans le navigateur.
+2. **Envoyer** l'*ID de l'annuaire (locataire)* et l'*ID d'application (client)* (page *Vue d'ensemble* de l'application) à la personne qui fait la mise en service.
+3. **Importer le paquet Teams** reçu (`be-happi-teams.zip`) dans le centre d'administration Teams, puis le rendre disponible.
+4. Vérifier que les élèves n'ont **pas** accès en lecture aux listes du personnel (voir « Qui voit quoi »).
 
 Les messages et réunions Teams passent par des **liens Teams** (la conversation ou la réunion s'ouvre déjà remplie, la personne n'a plus qu'à envoyer) : aucune autorisation supplémentaire.
 
@@ -128,9 +151,9 @@ npm run dev          # en local
 npm test             # tests du moteur et du « cerveau » (sans dépendance, Node 22)
 npm run build        # version en ligne (dist/)
 npm run build:demo   # démo autonome en un seul fichier (dist-demo/)
-python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/   # paquet Teams
+python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/   # paquet Teams (démo ; --tenant --client --site : relié à l'école)
 ```
 
-Organisation du code : `src/logic/` (règles et calculs, testés : horaire, déplacements, occupation, suivi, Où est, Collab, impact d'une absence, publication élèves, statistiques, matériel, Happi, constats), `src/data/` (types, démo, lecture et écriture SharePoint, état de l'app, espaces), `src/screens/` (un fichier par écran), `src/ui/` (éléments communs), `src/lib/` (calendrier, connexion, Teams, agenda .ics, QR codes).
+Organisation du code : `src/logic/` (règles et calculs, testés : horaire, déplacements, occupation, suivi, Où est, Collab, impact d'une absence, publication élèves, statistiques, matériel, Happi, constats), `src/data/` (types, démo, lecture et écriture SharePoint, état de l'app, espaces), `src/screens/` (un fichier par écran), `src/ui/` (éléments communs), `src/lib/` (calendrier, connexion, réglages de l'école et lien d'installation, Teams et paquet Teams, agenda .ics, QR codes, zip).
 
 La mise en ligne est automatique : chaque modification envoyée sur la branche `main` est testée puis publiée sur GitHub Pages (voir `.github/workflows/deploy.yml`). Si un test échoue, rien n'est publié. Sur les autres branches, `.github/workflows/verif.yml` teste et construit sans publier.

@@ -1,15 +1,33 @@
-// Écran « Connexion » : état de la liaison avec SharePoint et diagnostic des listes.
+// Écran « Connexion » : état de la liaison avec SharePoint, diagnostic des listes, et la mise en
+// service (relier l'app à l'école sans jamais écrire ses réglages dans le code public).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
-import { config, sharepointConfigure } from '../config';
+import { config } from '../config';
 import { lien } from '../lib/route';
+import { adresseApp } from '../lib/liens';
+import { dansTeams } from '../lib/teams';
+import {
+  adopterReglages,
+  depuisLien,
+  estGuid,
+  lienInstallation,
+  lireSite,
+  oublierReglages,
+  reglagesActuels,
+  valides,
+  type ReglagesEcole,
+} from '../lib/reglages';
 import { Entete } from '../ui/Entete';
+import { BoutonPaquetTeams, QrInstallation, TEXTE_QR, TEXTE_QR_MOBILE } from '../ui/Installer';
+import { AdresseSite } from '../ui/ConfirmerEcole';
 import { PROFILS } from '../data/profils';
 import type { DiagListe } from '../data/sharepoint';
 
 type Diag = DiagListe[];
+
+declare const __DEMO_FORCEE__: boolean;
 
 export function Connexion() {
   const { ds, demo, chargement, erreur, recharger } = useStore();
@@ -35,20 +53,18 @@ export function Connexion() {
       <Entete titre="Connexion" sous="SharePoint de l’école" retour={lien('ecole')} />
 
       {demo ? (
-        <div className="carte">
-          <span className="puce puce--demo" style={{ alignSelf: 'flex-start' }}>Mode démo</span>
-          <h2 className="titre-m">Données fictives</h2>
-          <p className="texte">
-            L'app fonctionne avec un horaire inventé. Pour lire les vraies listes SharePoint de l'école, il faut que l'IT enregistre l'application
-            (identifiant du tenant et de l'app) et indiquer l'adresse du site SharePoint.
-          </p>
-          <ul className="texte" style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Tenant : {config.tenantId ? 'renseigné' : 'à fournir par l’IT'}</li>
-            <li>Application : {config.clientId ? 'renseignée' : 'à fournir par l’IT'}</li>
-            <li>Site SharePoint : {config.siteHost ? `${config.siteHost}${config.sitePath}` : 'à indiquer'}</li>
-          </ul>
-          {sharepointConfigure() && <p className="petit">Réglages présents : cette version de démo est forcée.</p>}
-        </div>
+        <>
+          <div className="carte">
+            <span className="puce puce--demo" style={{ alignSelf: 'flex-start' }}>Mode démo</span>
+            <h2 className="titre-m">Données fictives</h2>
+            <p className="texte">
+              L’app tourne avec un horaire inventé. Pour les vraies données : l’IT enregistre l’application dans Microsoft Entra ID (étapes dans le README),
+              puis les réglages se collent ci-dessous. Ils ne sont jamais écrits dans le code public.
+            </p>
+            {__DEMO_FORCEE__ && <p className="petit">Version de démonstration autonome : la mise en service se fait depuis l’app en ligne.</p>}
+          </div>
+          {!__DEMO_FORCEE__ && <MiseEnService />}
+        </>
       ) : (
         <div className="carte">
           <span className="puce puce--indigo" style={{ alignSelf: 'flex-start' }}>SharePoint</span>
@@ -114,6 +130,158 @@ export function Connexion() {
           )}
         </div>
       )}
+
+      {!demo && <Partage />}
     </section>
+  );
+}
+
+const FORMAT_ID = 'Format attendu : xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
+
+function Champ(o: { libelle: string; aide: string; valeur: string; erreur: string; exemple: string; onChange: (v: string) => void }) {
+  return (
+    <label className="pile">
+      <span className="petit fort">{o.libelle}</span>
+      <input
+        className="champ champ--ligne mono"
+        value={o.valeur}
+        placeholder={o.exemple}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoComplete="off"
+        aria-invalid={!!o.erreur}
+        onChange={(e) => o.onChange(e.target.value)}
+      />
+      <span className={`petit${o.erreur ? ' texte--alerte' : ''}`}>{o.erreur || o.aide}</span>
+    </label>
+  );
+}
+
+/** Les trois réglages de l'école → lien d'installation, QR code, paquet Teams. */
+function MiseEnService() {
+  const [tenant, setTenant] = useState('');
+  const [client, setClient] = useState('');
+  const [site, setSite] = useState('');
+  const s = lireSite(site);
+  const r: ReglagesEcole = { tenantId: tenant.trim().toLowerCase(), clientId: client.trim().toLowerCase(), siteHost: s?.siteHost ?? '', sitePath: s?.sitePath ?? '' };
+  const memeId = !!r.tenantId && r.tenantId === r.clientId;
+  const pret = valides(r) && !memeId;
+
+  // Un lien d'installation reçu, collé dans n'importe quel champ, remplit les trois.
+  const saisir = (valeur: string, poser: (v: string) => void) => {
+    const recu = depuisLien(valeur);
+    if (!recu) return poser(valeur);
+    setTenant(recu.tenantId);
+    setClient(recu.clientId);
+    setSite(`https://${recu.siteHost}${recu.sitePath}`);
+  };
+
+  return (
+    <div className="carte">
+      <span className="puce puce--indigo" style={{ alignSelf: 'flex-start' }}>Mise en service</span>
+      <h2 className="titre-m">Relier Be Happi à l’école</h2>
+      <p className="texte">Les deux identifiants viennent de l’IT ; le site est celui des listes de l’app Power Apps. Tu as reçu un lien d’installation ? Colle-le dans le premier champ.</p>
+      <Champ
+        libelle="ID de l’annuaire (tenant)"
+        aide="Entra ID → l’application → Vue d’ensemble"
+        exemple="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        valeur={tenant}
+        erreur={tenant.trim() && !estGuid(tenant) ? FORMAT_ID : ''}
+        onChange={(v) => saisir(v, setTenant)}
+      />
+      <Champ
+        libelle="ID d’application (client)"
+        aide="Juste au-dessus, sur la même page"
+        exemple="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        valeur={client}
+        erreur={client.trim() && !estGuid(client) ? FORMAT_ID : memeId ? 'C’est le même que le tenant : prends l’« ID d’application (client) ».' : ''}
+        onChange={(v) => saisir(v, setClient)}
+      />
+      <Champ
+        libelle="Adresse du site SharePoint"
+        aide="Copiée depuis le navigateur, même une page d’une liste"
+        exemple="https://ecole.sharepoint.com/sites/BeHappi"
+        valeur={site}
+        erreur={site.trim() && !s ? 'Adresse attendue : https://….sharepoint.com/sites/…' : ''}
+        onChange={(v) => saisir(v, setSite)}
+      />
+
+      {pret ? (
+        <div className="pile pile--12 mise-en-service-prete">
+          <p className="texte fort rangee rangee--haut">
+            <Icon nom="coche" epaisseur={2.4} taille={18} />
+            <span className="grandit adresse-site">
+              Prêt pour <AdresseSite r={r} />
+            </span>
+          </p>
+          <button
+            className="bouton bouton--prim"
+            onClick={() => {
+              adopterReglages(r);
+              window.location.reload();
+            }}
+          >
+            Utiliser sur cet appareil
+          </button>
+          <BoutonPaquetTeams ecole={r} />
+          <QrInstallation
+            lien={lienInstallation(adresseApp(), r)}
+            texte="Pour un téléphone : scanne ce code, ou envoie le lien. Il ne donne accès à rien sans compte Microsoft de l’école."
+            texteMobile="Pour les autres téléphones : envoie ce lien. Il ne donne accès à rien sans compte Microsoft de l’école."
+          />
+        </div>
+      ) : (
+        <p className="petit">Rien n’est envoyé ni publié : le lien et le paquet sont fabriqués sur cet appareil.</p>
+      )}
+    </div>
+  );
+}
+
+/** École reliée : le lien pour les téléphones, le paquet Teams, et oublier l'école sur cet appareil. */
+function Partage() {
+  const ecole = reglagesActuels();
+  const [enTeams, setEnTeams] = useState(true);
+  const [oublier, setOublier] = useState(false);
+  useEffect(() => {
+    void dansTeams().then(setEnTeams);
+  }, []);
+  if (!ecole) return null;
+  return (
+    <div className="carte">
+      <span className="puce puce--indigo" style={{ alignSelf: 'flex-start' }}>Partager</span>
+      <h2 className="titre-m">Be Happi sur un téléphone</h2>
+      <QrInstallation lien={lienInstallation(adresseApp(), ecole)} texte={TEXTE_QR} texteMobile={TEXTE_QR_MOBILE} />
+      <details className="replie">
+        <summary>Pour l’IT : le paquet Teams</summary>
+        <div className="pile pile--12">
+          <BoutonPaquetTeams ecole={ecole} />
+          <p className="petit">
+            Site : <span className="mono adresse-site"><AdresseSite r={ecole} /></span>
+          </p>
+        </div>
+      </details>
+      {!enTeams &&
+        (oublier ? (
+          <div className="rangee enrouler">
+            <span className="texte grandit">Oublier l’école sur cet appareil ? Les données copiées et la session seront effacées.</span>
+            <button
+              className="bouton bouton--sec bouton--petit"
+              onClick={() => {
+                oublierReglages();
+                window.location.reload();
+              }}
+            >
+              Oui, oublier
+            </button>
+            <button className="lien-action" onClick={() => setOublier(false)}>
+              Annuler
+            </button>
+          </div>
+        ) : (
+          <button className="lien-action" onClick={() => setOublier(true)}>
+            Oublier l’école sur cet appareil
+          </button>
+        ))}
+    </div>
   );
 }

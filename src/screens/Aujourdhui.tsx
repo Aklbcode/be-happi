@@ -360,6 +360,9 @@ export function Aujourdhui() {
           Six espaces à essayer : prof, éducateur, secrétariat, direction, service technique et élève. Chacun voit d’abord ce qui le concerne.
         </p>
         <p className="texte">Dès que l'école aura activé la connexion, l'app lira directement les listes SharePoint (horaires, absences, réservations…).</p>
+        <a className="lien-action" href={lien('connexion')} onClick={() => setInfoDemo(false)}>
+          Relier Be Happi à l’école (mise en service)
+        </a>
         <div className="rangee">
           <button
             className="bouton bouton--prim grandit"
