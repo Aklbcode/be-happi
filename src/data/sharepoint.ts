@@ -7,6 +7,7 @@ import { LOCAUX } from './locaux';
 import { jour, localDans, num, profilsAvec, reconnaitre, rolesDe, sansAccents, txt, val, versUtcMidi, ALIAS, type Champs } from './champs';
 import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Signalement } from './types';
 import { iso, plusJoursIso } from '../lib/calendar';
+import { repondreSimulation, simulationActive } from './simulation';
 
 export { localDans, reconnaitre } from './champs';
 
@@ -32,6 +33,12 @@ export class ErreurGraph extends Error {
 }
 
 async function appel(url: string, init: RequestInit = {}): Promise<any> {
+  // Simulation : la copie locale répond à la place de Microsoft (rien ne sort de l'appareil).
+  if (simulationActive()) {
+    const r = await repondreSimulation(url, init);
+    if (r.status >= 400) throw new ErreurGraph(r.status, `Simulation ${r.status} : ${String(r.corps)}`);
+    return r.corps;
+  }
   const t = await jeton();
   const r = await fetch(url.startsWith('http') ? url : GRAPH + url, {
     ...init,

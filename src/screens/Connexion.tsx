@@ -22,6 +22,7 @@ import {
 import { Entete } from '../ui/Entete';
 import { BoutonPaquetTeams, QrInstallation, TEXTE_QR, TEXTE_QR_MOBILE } from '../ui/Installer';
 import { AdresseSite } from '../ui/ConfirmerEcole';
+import { ImporterSimulation, SimulationEnCours } from '../ui/Simulation';
 import { PROFILS } from '../data/profils';
 import type { DiagListe } from '../data/sharepoint';
 
@@ -30,7 +31,7 @@ type Diag = DiagListe[];
 declare const __DEMO_FORCEE__: boolean;
 
 export function Connexion() {
-  const { ds, demo, chargement, erreur, recharger } = useStore();
+  const { ds, demo, simulation, chargement, erreur, recharger } = useStore();
   const [diag, setDiag] = useState<Diag | null>(null);
   const [diagErreur, setDiagErreur] = useState<string | null>(null);
   const [encours, setEncours] = useState(false);
@@ -63,11 +64,14 @@ export function Connexion() {
             </p>
             {__DEMO_FORCEE__ && <p className="petit">Version de démonstration autonome : la mise en service se fait depuis l’app en ligne.</p>}
           </div>
+          {!__DEMO_FORCEE__ && <ImporterSimulation />}
           {!__DEMO_FORCEE__ && <MiseEnService />}
         </>
       ) : (
+        <>
+        {simulation && <SimulationEnCours />}
         <div className="carte">
-          <span className="puce puce--indigo" style={{ alignSelf: 'flex-start' }}>SharePoint</span>
+          <span className="puce puce--indigo" style={{ alignSelf: 'flex-start' }}>{simulation ? 'Copie locale' : 'SharePoint'}</span>
           <h2 className="titre-m">{chargement ? 'Chargement…' : erreur ? 'Problème de connexion' : 'Connecté'}</h2>
           {erreur && <p className="texte" style={{ color: 'var(--rose-encre)' }}>{erreur}</p>}
           {ds && !erreur && (
@@ -129,9 +133,10 @@ export function Connexion() {
             </div>
           )}
         </div>
+        </>
       )}
 
-      {!demo && <Partage />}
+      {!demo && !simulation && <Partage />}
     </section>
   );
 }

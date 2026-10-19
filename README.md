@@ -87,6 +87,10 @@ Sans réglages, l'app démarre en **mode démo** (données fictives, noms invent
 
 Ce dépôt est public et ne contient ni donnée personnelle ni réglage de l'école : la démo utilise un horaire et des noms inventés, et les seules données de l'école présentes sont la liste des locaux et leur équipement. L'adresse du site SharePoint et les identifiants Microsoft de l'école n'y sont jamais écrits (voir « Mise en service »).
 
+## Simulation : les vraies données sans connexion
+
+En attendant l'IT : *École → Connexion → Essayer avec les vraies données*. Dans SharePoint, chaque liste s'exporte (*Exporter → Exporter au format CSV*) ; les fichiers déposés dans l'app restent **sur l'appareil** (IndexedDB du navigateur), rien n'est publié ni envoyé, et la version en ligne reste la démo pour tout le monde. Toute l'app tourne dessus (les six espaces sont ouverts) ; réserver, valider ou publier ne modifie que cette copie, jamais SharePoint ni Power Apps, et les messages Teams sont seulement montrés en aperçu. *Arrêter et effacer la copie* la supprime de l'appareil. Code : `src/data/simulation.ts` (lecture CSV et faux Microsoft Graph local).
+
 ## Mise en service : relier l'app à l'école
 
 L'app en ligne est la même pour tout le monde. Ce qui la relie à l'école (tenant, application, site SharePoint) voyage dans un **lien d'installation** (`…/be-happi/?ecole=…`), jamais dans ce dépôt. Ce lien n'ouvre rien à lui seul : il faut se connecter avec un compte Microsoft de l'école, et SharePoint ne montre que ce que la personne a le droit de voir. Quelqu'un d'extérieur qui ouvre l'app ne voit que la démo.

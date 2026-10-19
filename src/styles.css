@@ -767,3 +767,8 @@ select.champ--ligne { padding-right: 8px; }
 .replie > summary::after { content: ' ▾'; }
 .replie[open] > summary { margin-bottom: 12px; }
 .replie[open] > summary::after { content: ' ▴'; }
+.liste-fichiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.liste-fichiers li { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--trait-2); }
+.liste-fichiers li > span:first-child { overflow-wrap: anywhere; }
+.liste-fichiers select { grid-column: 1 / -1; width: 100%; }
+a.puce--demo { text-decoration: none; }

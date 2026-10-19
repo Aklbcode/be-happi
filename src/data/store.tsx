@@ -6,6 +6,7 @@ import { datasetDemo, momentDemo } from './demo';
 import { peutValiderAvec, peutVoirAvec } from './champs';
 import { RACKS } from './materiel';
 import { sharepointConfigure } from '../config';
+import { simulationActive } from './simulation';
 import { dernierePeriodeFinie, deIso, estJourDeCours, iso, jourSemaineIso, minutesDe, plusJoursIso, situation } from '../lib/calendar';
 import { memeDeplacement, nomAffiche } from '../logic/horaire';
 import { verifierDeplacement } from '../logic/deplacements';
@@ -17,6 +18,8 @@ declare const __DEMO_FORCEE__: boolean;
 export interface Store {
   ds: Dataset | null;
   demo: boolean;
+  /** Vraies données importées sur cet appareil, sans connexion (rien n'est envoyé à SharePoint). */
+  simulation: boolean;
   maintenant: Date;
   aujourdhui: string;
   minutes: number;
@@ -97,7 +100,8 @@ const titulaireDe = (ds: Dataset, local: string, date: string, h: number): strin
 const TOUS: Profil[] = ['prof', 'educateur', 'secretariat', 'direction', 'technique', 'eleve'];
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const demo = __DEMO_FORCEE__ || !sharepointConfigure();
+  const simulation = !__DEMO_FORCEE__ && simulationActive();
+  const demo = __DEMO_FORCEE__ || (!sharepointConfigure() && !simulation);
   const [maintenant, setMaintenant] = useState<Date>(() => (demo ? momentDemo(new Date()) : new Date()));
   const [ds, setDs] = useState<Dataset | null>(() => (demo ? datasetDemo(momentDemo(new Date())) : lireCache()));
   const [chargement, setChargement] = useState(!demo);
@@ -144,7 +148,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const profilsDs = ds?.moi.profils;
-  const profils: Profil[] = useMemo(() => (demo ? TOUS : profilsDs?.length ? profilsDs : ['eleve']), [demo, profilsDs]);
+  // En simulation, les six espaces sont ouverts pour tout essayer sur les vraies données.
+  const profils: Profil[] = useMemo(() => (demo || simulation ? TOUS : profilsDs?.length ? profilsDs : ['eleve']), [demo, simulation, profilsDs]);
   const profil: Profil = profilChoisi && profils.includes(profilChoisi) ? profilChoisi : profils[0];
   const changerProfil = useCallback((p: Profil) => {
     setProfilChoisi(p);
@@ -373,7 +378,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const ouvrirTeams = useCallback(
     (m: MessageTeams) => {
-      if (demo) {
+      if (demo || simulation) {
         setApercuTeams(m);
         return;
       }
@@ -393,6 +398,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ds,
       demo,
+      simulation,
       maintenant,
       aujourdhui,
       minutes,
@@ -428,7 +434,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast,
       montrerToast,
     }),
-    [ds, demo, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, reserver, annulerReservation, proposer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
+    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, reserver, annulerReservation, proposer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
   );
 
   return <Ctx.Provider value={valeur}>{children}</Ctx.Provider>;

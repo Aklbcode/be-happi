@@ -23,7 +23,7 @@ type Ligne =
   | { type: 'pause'; libelle: string };
 
 export function Aujourdhui() {
-  const { ds, demo, maintenant, aujourdhui, minutes, heureFinie, heurePassee, reserver, montrerToast, peutValider } = useStore();
+  const { ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, reserver, montrerToast, peutValider } = useStore();
   const { ouvrir: ouvrirMoi } = useMoi();
   const [remedOuverte, setRemedOuverte] = useState(false);
   const [suggestionCachee, setSuggestionCachee] = useState(false);
@@ -174,6 +174,11 @@ export function Aujourdhui() {
             <button className="puce puce--demo" onClick={() => setInfoDemo(true)}>
               Démo
             </button>
+          )}
+          {simulation && (
+            <a className="puce puce--demo" href={lien('connexion')}>
+              Simulation
+            </a>
           )}
           <button onClick={ouvrirMoi} className="rond rond--nuit" aria-label="Moi et mes espaces">
             {initiales}
