@@ -1,44 +1,44 @@
-/* Be Happi — système visuel « Indigo & Signal »
+/* Be Happi — thème « Campus » (vert forêt, 20/10) ; les noms de jetons restent ceux d'« Indigo & Signal »
    indigo = validé / action principale · orange = proposé / à faire · rouge = temps de midi (H5) */
 
 :root {
   color-scheme: light;
-  --fond: #f2f4f8;
+  --fond: #f6f5f0;
   --surface: #ffffff;
-  --surface-2: #f7f8fb;
-  --encre: #0f1630;
-  --encre-2: #2b3550;
-  --texte-2: #46506a;
-  --discret: #4a5571;
-  --trait: #dde2ec;
-  --trait-2: #e8ebf2;
-  --indigo: #3b3fd8;
+  --surface-2: #f2f3ed;
+  --encre: #233e36;
+  --encre-2: #3b514a;
+  --texte-2: #5b6b63;
+  --discret: #66736b;
+  --trait: #e4e7de;
+  --trait-2: #e9ece4;
+  --indigo: #266754;
   --sur-indigo: #ffffff;
-  --indigo-encre: #2a2da8;
-  --indigo-pale: #ecebff;
-  --indigo-pale-2: #f5f5ff;
-  --indigo-moyen: #9ea2ee;
-  --orange: #e2580b;
+  --indigo-encre: #205442;
+  --indigo-pale: #e7eee5;
+  --indigo-pale-2: #f0f4eb;
+  --indigo-moyen: #9bb2a0;
+  --orange: #c76b3c;
   --orange-bouton: #c2410c;
   --sur-orange: #ffffff;
-  --orange-encre: #a63e05;
-  --orange-pale: #ffefe3;
-  --orange-pale-2: #fff7f1;
-  --sarcelle: #0e7490;
-  --rose: #e11d48;
-  --rose-encre: #be123c;
-  --rose-pale: #ffe4e8;
+  --orange-encre: #a14f29;
+  --orange-pale: #fff0df;
+  --orange-pale-2: #fff7ec;
+  --sarcelle: #357b70;
+  --rose: #c15c53;
+  --rose-encre: #a44740;
+  --rose-pale: #fbe9e2;
   --herbe: #d6ecd2;
-  --nuit: #0f1630;
-  --nuit-texte-2: #c9d0e6;
-  --nuit-texte-3: #aeb8d6;
-  --passe: #e8ebf2;
-  --passe-encre: #4a5571;
-  --hachure: #dde2ec;
-  --ombre: 0 8px 24px rgba(15, 22, 48, 0.1);
+  --nuit: #173f35;
+  --nuit-texte-2: #d0e0d4;
+  --nuit-texte-3: #b9ccbd;
+  --passe: #eceee7;
+  --passe-encre: #68756c;
+  --hachure: #e3e8dc;
+  --ombre: 0 12px 38px rgba(34, 62, 54, 0.06);
   --rayon: 20px;
   /* Graphiques : récupérées (indigo) et à l'étude (orange), validés pour le daltonisme */
-  --viz-recup: #3b3fd8;
+  --viz-recup: #266754;
   --viz-etude: #e2580b;
   --vert: #15803d;
   /* Les polices de Décale : Instrument Sans pour tout lire (chiffres alignés pour les heures et les
@@ -53,21 +53,21 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='clair']):not([data-theme='light']):not([data-theme='contraste']) {
     color-scheme: dark;
-    --fond: #0b1020;
-    --surface: #151b2e;
-    --surface-2: #1a2136;
-    --encre: #e8ecf7;
-    --encre-2: #cfd6ea;
-    --texte-2: #b7c0d8;
-    --discret: #9aa5c3;
-    --trait: #2a3350;
-    --trait-2: #222a43;
-    --indigo: #7c80ff;
-    --sur-indigo: #0b1020;
-    --indigo-encre: #b9bbff;
-    --indigo-pale: #23285a;
-    --indigo-pale-2: #1b2048;
-    --indigo-moyen: #5a5fc9;
+    --fond: #142720;
+    --surface: #1c3229;
+    --surface-2: #243b31;
+    --encre: #edf2e6;
+    --encre-2: #d3dfcf;
+    --texte-2: #bdcebd;
+    --discret: #a4b9a4;
+    --trait: #334d3c;
+    --trait-2: #294332;
+    --indigo: #cfeba7;
+    --sur-indigo: #183b2b;
+    --indigo-encre: #c3e4a0;
+    --indigo-pale: #294533;
+    --indigo-pale-2: #223c2d;
+    --indigo-moyen: #708e67;
     --orange: #ff8a3d;
     --orange-bouton: #ff8a3d;
     --sur-orange: #0b1020;
@@ -79,12 +79,12 @@
     --rose-encre: #fda4af;
     --rose-pale: #3b1621;
     --herbe: #1c3a27;
-    --nuit: #1e2647;
-    --passe: #1c2338;
-    --passe-encre: #9aa5c3;
-    --hachure: #2a3350;
+    --nuit: #173f35;
+    --passe: #243c2e;
+    --passe-encre: #a3b79e;
+    --hachure: #334d3c;
     --ombre: 0 8px 24px rgba(0, 0, 0, 0.4);
-    --viz-recup: #7c80ff;
+    --viz-recup: #cfeba7;
     --viz-etude: #e06a24;
     --vert: #4ade80;
   }
@@ -93,21 +93,21 @@
 :root[data-theme='sombre'],
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --fond: #0b1020;
-  --surface: #151b2e;
-  --surface-2: #1a2136;
-  --encre: #e8ecf7;
-  --encre-2: #cfd6ea;
-  --texte-2: #b7c0d8;
-  --discret: #9aa5c3;
-  --trait: #2a3350;
-  --trait-2: #222a43;
-  --indigo: #7c80ff;
-  --sur-indigo: #0b1020;
-  --indigo-encre: #b9bbff;
-  --indigo-pale: #23285a;
-  --indigo-pale-2: #1b2048;
-  --indigo-moyen: #5a5fc9;
+  --fond: #142720;
+  --surface: #1c3229;
+  --surface-2: #243b31;
+  --encre: #edf2e6;
+  --encre-2: #d3dfcf;
+  --texte-2: #bdcebd;
+  --discret: #a4b9a4;
+  --trait: #334d3c;
+  --trait-2: #294332;
+  --indigo: #cfeba7;
+  --sur-indigo: #183b2b;
+  --indigo-encre: #c3e4a0;
+  --indigo-pale: #294533;
+  --indigo-pale-2: #223c2d;
+  --indigo-moyen: #708e67;
   --orange: #ff8a3d;
   --orange-bouton: #ff8a3d;
   --sur-orange: #0b1020;
@@ -119,12 +119,12 @@
   --rose-encre: #fda4af;
   --rose-pale: #3b1621;
   --herbe: #1c3a27;
-  --nuit: #1e2647;
-  --passe: #1c2338;
-  --passe-encre: #9aa5c3;
-  --hachure: #2a3350;
+  --nuit: #173f35;
+  --passe: #243c2e;
+  --passe-encre: #a3b79e;
+  --hachure: #334d3c;
   --ombre: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --viz-recup: #7c80ff;
+  --viz-recup: #cfeba7;
   --viz-etude: #e06a24;
   --vert: #4ade80;
 }
@@ -816,3 +816,29 @@ a.puce--demo { text-decoration: none; }
 @keyframes entree { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .bouton:active, .tuile:active, .carte--lien:active, .rond:active { transform: scale(0.97); }
 .rond--theme { flex: none; }
+
+/* Ordinateur : menu à gauche (thème « Campus »), la barre d'onglets du bas disparaît. */
+.menu-lateral { display: none; }
+@media (min-width: 1040px) {
+  .menu-lateral { position: fixed; inset: 0 auto 0 0; width: 244px; z-index: 40; display: flex; flex-direction: column; gap: 18px; padding: 26px 16px 18px; background: #173f35; color: #dae5d9; }
+  body:has(.menu-lateral) .ecran { margin-left: calc(244px + max(28px, (100vw - 244px - 620px) / 2)); margin-right: auto; }
+  body:has(.menu-lateral) .ecran--large { margin-left: calc(244px + max(28px, (100vw - 244px - 980px) / 2)); }
+  body:has(.menu-lateral) .onglets { display: none; }
+  body:has(.menu-lateral) .ecran { padding-bottom: 48px; }
+  body:has(.menu-lateral) .toast { left: calc(50% + 122px); bottom: 28px; }
+}
+.menu-marque { font-family: var(--police-main); font-size: 26px; line-height: 1.4; color: #f2f4df; text-decoration: none; padding: 0 10px; }
+.menu-espace { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border-radius: 14px; border: 1px solid rgba(195, 213, 181, 0.14); background: #244c40; color: #eff3df; text-align: left; cursor: pointer; }
+.menu-espace span { flex: 1; min-width: 0; display: grid; }
+.menu-espace small { font-size: 11px; color: #afc6b6; }
+.menu-espace b { font-size: 14px; font-weight: 600; }
+.menu-nav { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; scrollbar-color: #688774 transparent; }
+.menu-groupe { display: flex; flex-direction: column; gap: 2px; margin-top: 16px; }
+.menu-titre { padding: 0 12px 6px; font-size: 12px; font-weight: 600; color: #8fad9b; }
+.menu-lien { display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 0 12px; border-radius: 11px; color: #c6d6c9; font-size: 14px; font-weight: 500; text-decoration: none; }
+.menu-lien:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+.menu-lien[aria-current='page'] { background: #e2efb6; color: #173f35; font-weight: 650; }
+.menu-lien .pastille { position: static; margin-left: auto; }
+.menu-lien:focus-visible, .menu-espace:focus-visible, .menu-moi:focus-visible { outline: 2.5px solid #e2efb6; outline-offset: 2px; }
+.menu-moi { display: flex; align-items: center; gap: 10px; padding: 14px 4px 0; border: 0; border-top: 1px solid rgba(194, 211, 185, 0.14); background: none; color: #eaf0dd; font-weight: 600; cursor: pointer; text-align: left; }
+.menu-rond { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #e2efb6; color: #173f35; font-size: 13px; font-weight: 700; }

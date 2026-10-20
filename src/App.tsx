@@ -5,6 +5,7 @@ import { suivreThemeTeams } from './lib/teams';
 import { useDepart } from './lib/depart';
 import { profil as descProfil, peutOuvrir } from './data/profils';
 import { Onglets } from './ui/Onglets';
+import { MenuLateral } from './ui/MenuLateral';
 import { Icon } from './ui/Icon';
 import { MoiProvider, appliquerTheme, themeEnregistre } from './ui/Moi';
 import { ApercuTeams } from './ui/ApercuTeams';
@@ -97,6 +98,7 @@ function Coquille() {
         vue
       )}
       {!sansBarre && <Onglets actif={ecran} profil={profil} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
+      {ecran !== 'ecran' && <MenuLateral actif={ecran} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
       <ApercuTeams />
       {ecran !== 'ecran' && <Bienvenue />}
       {toast && (

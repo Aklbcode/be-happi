@@ -14,7 +14,7 @@ import { lien, type Ecran } from '../lib/route';
 
 declare const __VERSION__: string;
 
-interface Service {
+export interface Service {
   ecran: Ecran;
   titre: string;
   sous: string;
@@ -22,7 +22,7 @@ interface Service {
   params?: Record<string, string>;
 }
 
-const GROUPES: { titre: string; services: Service[] }[] = [
+export const GROUPES: { titre: string; services: Service[] }[] = [
   {
     titre: 'Au quotidien',
     services: [
