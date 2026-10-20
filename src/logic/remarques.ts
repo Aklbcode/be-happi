@@ -6,6 +6,7 @@ import { JOURS, MIDI, deIso, dureeTxt, estJourDeCours, iso, jourSemaineIso, lund
 import { coursDuProf, coursSansProf, nomAffiche } from './horaire';
 import { etatLocal } from './occupation';
 import { optionsPour, opportunitesSemaine } from './deplacements';
+import { PRIORITES_DEFAUT, type Priorites } from './priorites';
 import { impactAbsence } from './impact';
 import { etatPublication } from './publication';
 import { heuresSansProf, statsPeriode } from './stats';
@@ -25,7 +26,7 @@ export interface Remarque {
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`;
 
 /** Pour un prof : sa semaine, ses classes, ses demandes en cours. */
-export function remarquesProf(ds: Dataset, moi: string, maintenant: Date, heurePassee: number): Remarque[] {
+export function remarquesProf(ds: Dataset, moi: string, maintenant: Date, heurePassee: number, p: Priorites = PRIORITES_DEFAUT): Remarque[] {
   if (!moi) return [];
   const sortie: Remarque[] = [];
   const auj = iso(maintenant);
@@ -35,9 +36,9 @@ export function remarquesProf(ds: Dataset, moi: string, maintenant: Date, heureP
   // 1. Du temps à gagner en avançant des cours cette semaine.
   let gain = 0;
   let nb = 0;
-  for (const o of opportunitesSemaine(ds, moi, lundi, auj, heurePassee).values()) {
+  for (const o of opportunitesSemaine(ds, moi, lundi, auj, heurePassee, p).values()) {
     if (o.passe || !o.etoile) continue;
-    const meilleure = optionsPour(ds, moi, o.date, o.h, auj, heurePassee)[0];
+    const meilleure = optionsPour(ds, moi, o.date, o.h, auj, heurePassee, p)[0];
     if (meilleure?.avantageProf && !meilleure.allonge) {
       gain += meilleure.gainMinutes;
       nb++;

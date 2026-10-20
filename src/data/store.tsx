@@ -11,6 +11,7 @@ import { dernierePeriodeFinie, deIso, estJourDeCours, iso, jourSemaineIso, minut
 import { memeDeplacement, nomAffiche } from '../logic/horaire';
 import { verifierDeplacement } from '../logic/deplacements';
 import { changementsDuJour } from '../logic/publication';
+import { priorites as lirePriorites, type Priorites } from '../logic/priorites';
 import { lienChatTeams, lienReunionTeams, type MessageTeams } from '../lib/liens';
 
 declare const __DEMO_FORCEE__: boolean;
@@ -35,6 +36,9 @@ export interface Store {
   changerProfil: (p: Profil) => void;
   /** Classe choisie en vue élève (gardée sur l'appareil). */
   classeEleve: string;
+  /** Ce qui compte pour le prof dans un déplacement (gardé sur l'appareil, partagé avec Décale). */
+  priorites: Priorites;
+  changerPriorites: (p: Priorites) => void;
   changerClasseEleve: (c: string) => void;
   reserver: (r: Omit<Reservation, 'prof'>) => Promise<void>;
   annulerReservation: (r: Reservation) => Promise<void>;
@@ -68,6 +72,7 @@ const Ctx = createContext<Store | null>(null);
 const CLE_CACHE = 'behappi-cache-v3';
 const CLE_PROFIL = 'behappi-profil';
 const CLE_CLASSE = 'behappi-classe';
+const CLE_PRIORITES = 'behappi-priorites';
 
 const lire = (cle: string): string | null => {
   try {
@@ -116,6 +121,15 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
   const [apercuTeams, setApercuTeams] = useState<MessageTeams | null>(null);
   const [profilChoisi, setProfilChoisi] = useState<Profil | null>(() => lire(CLE_PROFIL) as Profil | null);
   const [classeEleve, setClasseEleve] = useState<string>(() => lire(CLE_CLASSE) ?? '');
+  const [priorites, setPriorites] = useState<Priorites>(() => {
+    // Réglées d'abord dans Décale (« decale-priorites ») : reprises telles quelles.
+    const brut = lire(CLE_PRIORITES) ?? lire('decale-priorites');
+    try {
+      return lirePriorites(brut ? JSON.parse(brut) : null);
+    } catch {
+      return lirePriorites(null);
+    }
+  });
   const minuterie = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -170,6 +184,10 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
   const changerClasseEleve = useCallback((c: string) => {
     setClasseEleve(c);
     ecrire(CLE_CLASSE, c);
+  }, []);
+  const changerPriorites = useCallback((p: Priorites) => {
+    setPriorites(p);
+    ecrire(CLE_PRIORITES, JSON.stringify(p));
   }, []);
 
   const sp = useCallback(() => import('./sharepoint'), []);
@@ -436,6 +454,8 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
       changerProfil,
       classeEleve,
       changerClasseEleve,
+      priorites,
+      changerPriorites,
       reserver,
       annulerReservation,
       proposer,
@@ -459,7 +479,7 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
       toast,
       montrerToast,
     }),
-    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, reserver, annulerReservation, proposer, retirer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
+    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, priorites, changerPriorites, reserver, annulerReservation, proposer, retirer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
   );
 
   return <Ctx.Provider value={valeur}>{children}</Ctx.Provider>;

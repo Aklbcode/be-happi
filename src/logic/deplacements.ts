@@ -15,6 +15,7 @@ import type { Dataset, Deplacement } from '../data/types';
 import { JOURS, MIDI, deIso, dureeTxt, jourSemaineIso, periode, plusJoursIso } from '../lib/calendar';
 import { absentA, classeOccupee, classesDe, coursDuProf, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent, type CoursJour } from './horaire';
 import { etatLocal } from './occupation';
+import { PRIORITES_DEFAUT, type Priorites } from './priorites';
 
 export interface Controle {
   cle: 'heure' | 'midi' | 'absent' | 'prof' | 'classes' | 'origine' | 'local';
@@ -159,8 +160,12 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
 
 type Avantages = Pick<OptionDeplacement, 'score' | 'avantageProf' | 'allonge' | 'gainMinutes' | 'avantages' | 'resume' | 'memeJour'>;
 
-/** Ce que le déplacement change pour le prof (et pour la classe). */
-export function evaluer(ds: Dataset, moi: string, c: CoursJour, d: string, date: string, h: number, semaineSuivante: boolean): Avantages {
+/**
+ * Ce que le déplacement change pour le prof (et pour la classe), pesé selon ce qui compte pour lui :
+ * une heure gagnée le matin ou le soir compte pleinement si c'est sa priorité (sinon moins), et avec
+ * « Moins de fourches », combler un trou compte davantage et en créer un coûte.
+ */
+export function evaluer(ds: Dataset, moi: string, c: CoursJour, d: string, date: string, h: number, semaineSuivante: boolean, p: Priorites = PRIORITES_DEFAUT): Avantages {
   const autres = coursDuProf(ds, moi, d).filter((x) => x.h !== c.h).map((x) => x.h);
   const memeJour = d === date;
   // Côté prof, jour de départ : est-ce que j'arrive plus tard ou pars plus tôt ?
@@ -201,7 +206,16 @@ export function evaluer(ds: Dataset, moi: string, c: CoursJour, d: string, date:
     if (q2.length > 0 && Math.min(...q2) > Math.min(...q)) classesDeb.push(cl);
   }
 
-  const score = (avantageProf ? 10 + 3 * PG : 0) + (classesFin.length || classesDeb.length ? 2 : 0) + (combleFourche ? 1 : 0) - (allonge ? 12 : 0);
+  // Partir du milieu de ta journée y laisse une fourche (H5, le temps de midi, n'en est pas une).
+  const creeFourche = sens === 'aucun' && c.h !== MIDI && autresApres.length > 0 && c.h > Math.min(...autresApres) && c.h < Math.max(...autresApres);
+  const poids = sens === 'commence' ? (p.debutTard ? 1 : 0.4) : sens === 'finit' ? (p.finTot ? 1 : 0.4) : 1;
+  const brut =
+    (avantageProf ? (10 + 3 * PG) * poids : 0) +
+    (classesFin.length || classesDeb.length ? 2 : 0) +
+    (combleFourche ? (p.fourches ? 3 : 1) : 0) -
+    (creeFourche && p.fourches ? 3 : 0) -
+    (allonge ? 12 : 0);
+  const score = Math.round(brut * 10) / 10;
 
   const jO = jourDe(d);
   const jC = jourDe(date);
@@ -212,6 +226,7 @@ export function evaluer(ds: Dataset, moi: string, c: CoursJour, d: string, date:
   if (combleFourche) avantages.push(`${capital(jC)}, ta fourche de ${periode(h).debut} est comblée`);
   if (classesFin.length) avantages.push(`${classesFin.length > 1 ? 'Les' : 'La'} ${liste(classesFin)} ${classesFin.length > 1 ? 'finissent' : 'finit'} plus tôt ${jO}`);
   if (classesDeb.length) avantages.push(`${classesDeb.length > 1 ? 'Les' : 'La'} ${liste(classesDeb)} ${classesDeb.length > 1 ? 'commencent' : 'commence'} plus tard ${jO}`);
+  if (creeFourche) avantages.push(`Attention : ${jO}, une fourche apparaît à ${periode(c.h).debut}`);
   if (jourVide) avantages.push(`Attention : ${jC}, tu n'avais pas cours`);
   else if (allonge) avantages.push(`Attention : ${jC}, ta journée s'allonge`);
   if (!avantages.length) avantages.push('Échange simple, sans heure gagnée');
@@ -223,7 +238,7 @@ export function evaluer(ds: Dataset, moi: string, c: CoursJour, d: string, date:
   return { score, avantageProf, allonge, gainMinutes, avantages, resume: `${resume} · depuis ${quand} H${c.h}`, memeJour };
 }
 
-export function optionsPour(ds: Dataset, moi: string, date: string, h: number, aujourdhui: string, heureFinie: number): OptionDeplacement[] {
+export function optionsPour(ds: Dataset, moi: string, date: string, h: number, aujourdhui: string, heureFinie: number, p: Priorites = PRIORITES_DEFAUT): OptionDeplacement[] {
   if (!heureLibre(ds, moi, date, h)) return [];
   if (date < aujourdhui || (date === aujourdhui && h <= heureFinie)) return [];
 
@@ -269,7 +284,7 @@ export function optionsPour(ds: Dataset, moi: string, date: string, h: number, a
               h,
               semaineSuivante,
               meilleur: false,
-              ...evaluer(ds, moi, c, d, date, h, semaineSuivante),
+              ...evaluer(ds, moi, c, d, date, h, semaineSuivante, p),
             },
           ];
         }),
@@ -316,7 +331,7 @@ export interface CaseSemaine {
 }
 
 /** Pour la grille de la semaine : combien de déplacements possibles par heure libre. */
-export function opportunitesSemaine(ds: Dataset, moi: string, lundi: string, aujourdhui: string, heureFinie: number): Map<string, CaseSemaine> {
+export function opportunitesSemaine(ds: Dataset, moi: string, lundi: string, aujourdhui: string, heureFinie: number, p: Priorites = PRIORITES_DEFAUT): Map<string, CaseSemaine> {
   const res = new Map<string, CaseSemaine>();
   for (let n = 0; n < 5; n++) {
     const date = plusJoursIso(lundi, n);
@@ -328,7 +343,7 @@ export function opportunitesSemaine(ds: Dataset, moi: string, lundi: string, auj
         if (nb) res.set(`${date}|${h}`, { date, h, nb, etoile: false, passe: true });
         continue;
       }
-      const opts = optionsPour(ds, moi, date, h, aujourdhui, heureFinie);
+      const opts = optionsPour(ds, moi, date, h, aujourdhui, heureFinie, p);
       if (opts.length) res.set(`${date}|${h}`, { date, h, nb: opts.length, etoile: opts.some((o) => o.meilleur && o.avantageProf), passe: false });
     }
   }

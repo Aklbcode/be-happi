@@ -23,7 +23,7 @@ type Ligne =
   | { type: 'pause'; libelle: string };
 
 export function Aujourdhui() {
-  const { ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, reserver, montrerToast, peutValider } = useStore();
+  const { ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, priorites, reserver, montrerToast, peutValider } = useStore();
   const { ouvrir: ouvrirMoi } = useMoi();
   const [remedOuverte, setRemedOuverte] = useState(false);
   const [suggestionCachee, setSuggestionCachee] = useState(false);
@@ -47,7 +47,7 @@ export function Aujourdhui() {
     let meilleure: OptionDeplacement | null = null;
     if (jourCours) {
       for (let h = Math.max(finieEff + 1, 1); h <= 9; h++) {
-        const opts = optionsPour(ds, moi, aujourdhui, h, aujourdhui, finieEff);
+        const opts = optionsPour(ds, moi, aujourdhui, h, aujourdhui, finieEff, priorites);
         if (opts.length) optionsParHeure.set(h, opts);
         for (const o of opts) if (!meilleure || o.score > meilleure.score) meilleure = o;
       }
@@ -88,9 +88,9 @@ export function Aujourdhui() {
     const suivi = suiviDuProf(ds, moi, aujourdhui);
     const aValider = ds.deplacements.filter((d) => d.statut === 'En attente').length;
     const infos = ds.infos.filter((i) => i.date === aujourdhui);
-    const remarques = remarquesProf(ds, moi, maintenant, heurePassee);
+    const remarques = remarquesProf(ds, moi, maintenant, heurePassee, priorites);
     return { moi, jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos, remarques };
-  }, [ds, maintenant, aujourdhui, minutes, heureFinie, heurePassee]);
+  }, [ds, maintenant, aujourdhui, minutes, heureFinie, heurePassee, priorites]);
 
   if (!ds || !calc) return <section className="ecran"><p className="texte">Chargement…</p></section>;
   const { jourCours, mesCours, sit, coursMaintenant, prochain, libreMaintenant, aLEtude, meilleure, lignes, prochainJour, premierDemain, suivi, aValider, infos, remarques } = calc;
@@ -167,7 +167,7 @@ export function Aujourdhui() {
       <header className="entete">
         <div className="pile grandit">
           <p className="sous-titre">{dateLongue(maintenant).replace(/^./, (x) => x.toUpperCase())}</p>
-          <h1 className="titre-xl">Bonjour {ds.moi.prenom || 'à toi'}</h1>
+          <h1 className="salut">Bonjour {ds.moi.prenom || 'à toi'}</h1>
         </div>
         <div className="rangee">
           {demo && (

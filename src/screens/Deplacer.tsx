@@ -7,15 +7,16 @@ import { optionsPour, type OptionDeplacement } from '../logic/deplacements';
 import { coursSansProf, nomAffiche } from '../logic/horaire';
 import { JOURS, deIso, jourSemaineIso, periode, situation } from '../lib/calendar';
 import { lien } from '../lib/route';
+import { CeQuiCompte } from '../ui/CeQuiCompte';
 
 export function Deplacer({ params }: { params: URLSearchParams }) {
-  const { ds, aujourdhui, minutes, heureFinie, proposer, montrerToast, demo } = useStore();
+  const { ds, aujourdhui, minutes, heureFinie, priorites, proposer, montrerToast, demo } = useStore();
   const date = params.get('date') ?? aujourdhui;
   const h = Number(params.get('h') ?? 0);
   const sit = situation(minutes);
   const finieEff = sit.enCours ? sit.h : heureFinie;
 
-  const calculees = useMemo(() => (ds ? optionsPour(ds, ds.moi.nom, date, h, aujourdhui, finieEff) : []), [ds, date, h, aujourdhui, finieEff]);
+  const calculees = useMemo(() => (ds ? optionsPour(ds, ds.moi.nom, date, h, aujourdhui, finieEff, priorites) : []), [ds, date, h, aujourdhui, finieEff, priorites]);
   const [choix, setChoix] = useState<string | null>(params.get('o'));
   const [faite, setFaite] = useState<OptionDeplacement | null>(null);
   const [envoi, setEnvoi] = useState(false);
@@ -94,9 +95,10 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
       ) : (
         <div role="radiogroup" aria-label="Options de déplacement" className="pile pile--12">
           <h2 className="titre-m">
-            {options.length > 1 ? `${options.length} options, la meilleure d'abord` : 'Une option'}
+            {options.length > 1 ? `${options.length} options, la meilleure pour toi d'abord` : 'Une option'}
             {options[0].semaineSuivante ? ' · semaine prochaine' : ''}
           </h2>
+          {options.length > 1 && !envoye && <CeQuiCompte explication={false} />}
           {options.map((o) => (
             <button key={o.cle} role="radio" aria-checked={sel?.cle === o.cle} className="option" disabled={envoye} onClick={() => setChoix(o.cle)}>
               <span className="radio" aria-hidden="true" />

@@ -218,3 +218,22 @@ test('analyse d’une proposition pour l’éducateur', () => {
   assert.equal(a.avantageProf, true);
   assert.match(a.avantages[0], /Lundi, tu finis à/);
 });
+
+test('ce qui compte pour toi : « finir plus tôt » décoché, le cours qui fait commencer plus tard passe devant', () => {
+  // Lundi : MOI a H1, H2 et H6 ; mardi : H1, H2, H3. X est absent lundi en H3 (3A).
+  const ds = donnees({
+    cours: [
+      c('MOI', 1, 1, '4B', 'BF201'), c('MOI', 1, 2, '4B', 'BF201'), c('MOI', 1, 6, '3A', 'BF201'),
+      c('MOI', 2, 1, '3A', 'BF201'), c('MOI', 2, 2, '4B', 'BF201'), c('MOI', 2, 3, '4B', 'BF201'),
+      c('X', 1, 3, '3A', 'BC105'),
+    ],
+    absences: [absentX],
+  });
+  const parDefaut = optionsPour(ds, 'MOI', LUNDI, 3, LUNDI, 0);
+  assert.equal(parDefaut[0].hO, 6, 'par défaut : finir plus tôt lundi (H6 avancé)');
+  assert.match(parDefaut[0].avantages[0], /tu finis à/);
+  const matin = optionsPour(ds, 'MOI', LUNDI, 3, LUNDI, 0, { finTot: false, debutTard: true, fourches: true });
+  assert.equal(matin[0].dateO, j(1), 'sans « finir plus tôt » : commencer plus tard mardi');
+  assert.match(matin[0].avantages[0], /tu commences à/);
+  assert.ok(matin.every((o) => o.controles.every((x) => x.ok)), 'les mêmes contrôles, seul le classement change');
+});

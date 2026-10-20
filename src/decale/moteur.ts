@@ -12,17 +12,13 @@
 import type { Dataset, Deplacement } from '../data/types';
 import { JOURS, MIDI, conge, deIso, dureeTxt, heureTxt, iso, jourSemaineIso, periode, plusJoursIso, prochainJourDeCours } from '../lib/calendar';
 import { optionsPour, verifierDeplacement, type OptionDeplacement } from '../logic/deplacements';
+import { PRIORITES_DEFAUT, type Priorites } from '../logic/priorites';
 import { absentA, classesDe, classesReservation, coursDuProf, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent } from '../logic/horaire';
 
 export type Occasion = OptionDeplacement;
 
-/** Ce qui compte pour le prof (réglé sur l'appareil). */
-export interface Priorites {
-  finTot: boolean;
-  debutTard: boolean;
-  fourches: boolean;
-}
-export const PRIORITES_DEFAUT: Priorites = { finTot: true, debutTard: true, fourches: true };
+// Ce qui compte pour le prof : les mêmes réglages que Be Happi (gardés sur l'appareil).
+export { PRIORITES_DEFAUT, type Priorites } from '../logic/priorites';
 
 const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 const jourDe = (date: string): string => JOURS[jourSemaineIso(date)];
@@ -55,12 +51,12 @@ export function horizon(aujourdhui: string): string[] {
 }
 
 /** Toutes les occasions : chaque heure libérée où tu peux avancer un de tes cours. */
-export function occasions(ds: Dataset, moi: string, jours: string[], aujourdhui: string, heurePassee: number): Occasion[] {
+export function occasions(ds: Dataset, moi: string, jours: string[], aujourdhui: string, heurePassee: number, p: Priorites = PRIORITES_DEFAUT): Occasion[] {
   const tout: Occasion[] = [];
   for (const date of jours)
     for (let h = 1; h <= 9; h++) {
       if (h === MIDI) continue;
-      tout.push(...optionsPour(ds, moi, date, h, aujourdhui, heurePassee));
+      tout.push(...optionsPour(ds, moi, date, h, aujourdhui, heurePassee, p));
     }
   return tout;
 }

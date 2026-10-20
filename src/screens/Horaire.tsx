@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
+import { CeQuiCompte } from '../ui/CeQuiCompte';
 import { Entete } from '../ui/Entete';
 import { calendrierIcs, joursDeCours, telecharger, type Evenement } from '../lib/ics';
 import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour } from '../logic/horaire';
@@ -52,7 +53,7 @@ const flechesVisibles = (): boolean => {
 };
 
 export function Horaire() {
-  const { ds, maintenant, aujourdhui, minutes, heureFinie, montrerToast } = useStore();
+  const { ds, maintenant, aujourdhui, minutes, heureFinie, priorites, montrerToast } = useStore();
   // Pendant un congé, on ouvre directement la première semaine de cours (au plus 3 semaines plus loin).
   const [depart] = useState(() => {
     const b = jourSemaine(maintenant) >= 6 ? plusJours(maintenant, 8 - jourSemaine(maintenant)) : lundiDe(maintenant);
@@ -84,17 +85,17 @@ export function Horaire() {
   const sallesConnues = useMemo(() => (ds ? ds.locaux.map((l) => l.code) : []), [ds]);
   const salleVue = salle || 'BT004';
 
-  const opps = useMemo(() => (ds && vue === 'moi' ? opportunitesSemaine(ds, moi, lundi, aujourdhui, finieEff) : new Map()), [ds, vue, moi, lundi, aujourdhui, finieEff]);
+  const opps = useMemo(() => (ds && vue === 'moi' ? opportunitesSemaine(ds, moi, lundi, aujourdhui, finieEff, priorites) : new Map()), [ds, vue, moi, lundi, aujourdhui, finieEff, priorites]);
 
-  const options = useMemo(() => (ds && sel ? optionsPour(ds, moi, sel.date, sel.h, aujourdhui, finieEff) : []), [ds, sel, moi, aujourdhui, finieEff]);
+  const options = useMemo(() => (ds && sel ? optionsPour(ds, moi, sel.date, sel.h, aujourdhui, finieEff, priorites) : []), [ds, sel, moi, aujourdhui, finieEff, priorites]);
 
   // Le meilleur cours à avancer pour chaque heure libérée de la semaine : une flèche directement sur l'horaire.
   const parHeure = useMemo(() => {
     const m = new Map<string, ReturnType<typeof optionsPour>>();
     if (!ds || vue !== 'moi') return m;
-    for (const o of opps.values()) if (!o.passe) m.set(`${o.date}|${o.h}`, optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff));
+    for (const o of opps.values()) if (!o.passe) m.set(`${o.date}|${o.h}`, optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff, priorites));
     return m;
-  }, [ds, vue, opps, moi, aujourdhui, finieEff]);
+  }, [ds, vue, opps, moi, aujourdhui, finieEff, priorites]);
   const meilleures = useMemo(() => [...parHeure.values()].map((l) => l[0]).filter(Boolean), [parHeure]);
   // Souris : survoler une heure libérée montre ses options ; survoler un cours montre où il peut aller.
   const [survol, setSurvol] = useState<string | null>(null);
@@ -634,6 +635,7 @@ export function Horaire() {
           )}
         </div>
       )}
+      {vue === 'moi' && <CeQuiCompte />}
 
       <Feuille ouverte={!!sel && options.length > 0} onFermer={() => setSel(null)} titre="Déplacements possibles">
         {sel && (

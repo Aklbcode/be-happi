@@ -8,7 +8,6 @@ import { JOURS, JOURS_COURTS, conge, deIso, dureeTxt, jourSemaineIso, periode, p
 import { coursDuProf, nomAffiche } from '../logic/horaire';
 import { moment as quandTxt } from '../logic/suivi';
 import {
-  PRIORITES_DEFAUT,
   accroche,
   accrocheEffets,
   bilanDemandes,
@@ -28,24 +27,12 @@ import {
   type HeureLiberee,
   type Occasion,
   type Phrase,
-  type Priorites,
 } from './moteur';
+import { LIBELLES_PRIORITES } from '../logic/priorites';
 import { Semaine, type Vue } from './Semaine';
 import { Volet } from './Volet';
 import { Icone } from './Icones';
 import { appliquerTheme, themeChoisi, themeSysteme, type ThemeDecale } from './theme';
-
-const CLE_PRIORITES = 'decale-priorites';
-
-function lirePriorites(): Priorites {
-  try {
-    const p = JSON.parse(localStorage.getItem(CLE_PRIORITES) ?? 'null');
-    if (p && typeof p.finTot === 'boolean' && typeof p.debutTard === 'boolean' && typeof p.fourches === 'boolean') return p;
-  } catch {
-    /* rien */
-  }
-  return PRIORITES_DEFAUT;
-}
 
 const jc = (date: string) => `${JOURS_COURTS[jourSemaineIso(date)].toLowerCase()}. ${deIso(date).getDate()}`;
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -60,10 +47,9 @@ type VoletOuvert =
 
 export function Decale() {
   const store = useStore();
-  const { ds, demo, simulation, aujourdhui, heurePassee, minutes, proposer, retirer, decider, montrerToast, toast, erreur, peutValider } = store;
+  const { ds, demo, simulation, aujourdhui, heurePassee, minutes, proposer, retirer, decider, montrerToast, toast, erreur, peutValider, priorites: prios, changerPriorites } = store;
   const [semaine, setSemaine] = useState<0 | 1>(0);
   const [vue, setVue] = useState<Vue>('avant');
-  const [prios, setPrios] = useState<Priorites>(lirePriorites);
   const [choix, setChoix] = useState(0);
   const [exclus, setExclus] = useState<Set<string>>(new Set());
   const [ajouts, setAjouts] = useState<Occasion[]>([]);
@@ -78,7 +64,7 @@ export function Decale() {
   const moi = ds?.moi.nom ?? '';
   const prof = !!ds && ds.cours.some((c) => c.prof === moi);
   const joursH = useMemo(() => horizon(aujourdhui), [aujourdhui]);
-  const occ = useMemo(() => (ds && prof ? occasions(ds, moi, joursH, aujourdhui, heurePassee) : []), [ds, prof, moi, joursH, aujourdhui, heurePassee]);
+  const occ = useMemo(() => (ds && prof ? occasions(ds, moi, joursH, aujourdhui, heurePassee, prios) : []), [ds, prof, moi, joursH, aujourdhui, heurePassee, prios]);
   const plans = useMemo(() => (ds && prof ? meilleursPlans(ds, moi, occ, prios) : []), [ds, prof, moi, occ, prios]);
   const clesPlans = plans.map((p) => p.cle).join('|');
 
@@ -112,14 +98,6 @@ export function Decale() {
   const trousSemaine = heures.filter((x) => jours.includes(x.date) && x.etat !== 'non');
   const planTouche = (l: string) => sel.some((o) => [o.date, o.dateO].some((d) => d >= l && d < plusJoursIso(l, 7)));
 
-  const changerPrios = (p: Priorites) => {
-    setPrios(p);
-    try {
-      localStorage.setItem(CLE_PRIORITES, JSON.stringify(p));
-    } catch {
-      /* rien */
-    }
-  };
 
   const basculerTheme = () => {
     const t = theme === 'veillee' ? 'cahier' : 'veillee';
@@ -416,14 +394,8 @@ export function Decale() {
           <section className="bloc-section" aria-labelledby="titre-prios">
             <h2 id="titre-prios">Ce qui compte pour toi</h2>
             <div className="prios">
-              {(
-                [
-                  ['finTot', 'Finir plus tôt'],
-                  ['debutTard', 'Commencer plus tard'],
-                  ['fourches', 'Moins de fourches'],
-                ] as const
-              ).map(([k, libelle]) => (
-                <button key={k} className="prio" aria-pressed={prios[k]} onClick={() => changerPrios({ ...prios, [k]: !prios[k] })}>
+              {LIBELLES_PRIORITES.map(([k, libelle]) => (
+                <button key={k} className="prio" aria-pressed={prios[k]} onClick={() => changerPriorites({ ...prios, [k]: !prios[k] })}>
                   {prios[k] && <Icone nom="coche" taille={16} />}
                   {libelle}
                 </button>

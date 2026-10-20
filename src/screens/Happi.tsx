@@ -41,7 +41,7 @@ function reconnaissance(): Reconnaissance | null {
 
 export function Happi({ params }: { params: URLSearchParams }) {
   const store = useStore();
-  const { ds, maintenant, heurePassee, profil, classeEleve, reserver, reserverMateriel, ouvrirTeams, montrerToast } = store;
+  const { ds, maintenant, heurePassee, profil, classeEleve, priorites, reserver, reserverMateriel, ouvrirTeams, montrerToast } = store;
   const [messages, setMessages] = useState<Message[]>(memoire);
   const [texte, setTexte] = useState('');
   const [pense, setPense] = useState(false);
@@ -53,7 +53,7 @@ export function Happi({ params }: { params: URLSearchParams }) {
 
   const remarques: Remarque[] = useMemo(() => {
     if (!ds) return [];
-    if (profil === 'prof') return remarquesProf(ds, ds.moi.nom, maintenant, heurePassee);
+    if (profil === 'prof') return remarquesProf(ds, ds.moi.nom, maintenant, heurePassee, priorites);
     if (profil === 'educateur') return remarquesVieScolaire(ds, maintenant, heurePassee);
     if (profil === 'secretariat') return remarquesSecretariat(ds, maintenant);
     if (profil === 'direction') return remarquesDirection(ds, maintenant);
@@ -76,7 +76,7 @@ export function Happi({ params }: { params: URLSearchParams }) {
     ajouter({ de: 'moi', texte: q });
     setTexte('');
     setPense(true);
-    const r = repondre(q, { ds, moi, profil, maintenant, heurePassee, classeEleve: classeEleve || undefined });
+    const r = repondre(q, { ds, moi, profil, maintenant, heurePassee, classeEleve: classeEleve || undefined, priorites });
     window.setTimeout(() => {
       setPense(false);
       ajouter({ de: 'happi', texte: r.texte, reponse: r });

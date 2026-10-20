@@ -11,6 +11,7 @@ import { etatLocal, libreJusque } from './occupation';
 import { positionClasse, positionProf, profsLibres, tousLesProfs, toutesLesClasses, journeeEleve } from './ouest';
 import { creneauxCommuns, groupes, noms, plage, bornes, type Groupe } from './collab';
 import { opportunitesSemaine } from './deplacements';
+import type { Priorites } from './priorites';
 import { dispoMateriel } from './materiel';
 import { etatPublication } from './publication';
 import { statsPeriode } from './stats';
@@ -24,6 +25,8 @@ export interface Contexte {
   heurePassee: number;
   /** Classe choisie par l'élève. */
   classeEleve?: string;
+  /** Ce qui compte pour le prof dans un déplacement. */
+  priorites?: Priorites;
 }
 
 export type Ton = 'indigo' | 'orange' | 'rose' | 'gris';
@@ -718,7 +721,7 @@ function deplacer(cx: Contexte, r: Fabrique): Reponse {
   if (!cx.moi) return r('Les déplacements de cours concernent les profs qui ont un horaire.');
   const auj = iso(cx.maintenant);
   const lundi = iso(lundiDe(cx.maintenant));
-  const opps = [...opportunitesSemaine(ds, cx.moi, lundi, auj, cx.heurePassee).values()].filter((o) => !o.passe);
+  const opps = [...opportunitesSemaine(ds, cx.moi, lundi, auj, cx.heurePassee, cx.priorites).values()].filter((o) => !o.passe);
   if (!opps.length) return r("Pas de déplacement possible cette semaine pour l'instant. Je te préviens sur l'écran Aujourd'hui dès qu'une heure se libère.");
   const etoiles = opps.filter((o) => o.etoile);
   return r(

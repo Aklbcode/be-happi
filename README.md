@@ -6,6 +6,8 @@ L'app de l'IPES Tubize pour toute l'école : profs, éducateurs, secrétariat, d
 
 ## Version 1.0 : six espaces
 
+Mêmes polices que Décale : Instrument Sans pour tout lire, et l'écriture des écoles de la FWB (Playwrite Belgique Wallonie-Bruxelles) pour le bonjour et la marque.
+
 Chacun voit d'abord ce qui le concerne. Les espaces viennent de la liste **Roles** et de l'horaire ; en démo, les six sont ouverts (bouton « Démo » ou rond en haut à droite).
 
 | Espace | Onglets | Ce qu'il apporte |
@@ -23,7 +25,7 @@ Chacun voit d'abord ce qui le concerne. Les espaces viennent de la liste **Roles
 - **Happi a remarqué** : trois constats au plus, utiles à chaque espace (temps à gagner, fourche avec un local calme, classe qui perd des heures, local fermé avec des cours prévus, élèves pas à jour, tendance du taux de récupération…).
 - **Où est ?** : un collègue, une classe ou un local, maintenant et sur la journée ; qui est libre maintenant.
 - **Collab** : les heures communes de plusieurs collègues sur deux semaines (groupes déduits de l'horaire : équipe d'une classe, profs d'une matière), puis la réunion Teams et le local en un geste.
-- **Déplacements de cours** : suggestions, proposition, validation revérifiée en direct, suivi pour le prof, message Teams après la décision.
+- **Déplacements de cours** : suggestions, proposition, validation revérifiée en direct, suivi pour le prof, message Teams après la décision. **Ce qui compte pour toi** (Horaire et Déplacer) : finir plus tôt, commencer plus tard, moins de fourches ; le cours « le plus avantageux », les flèches de l'horaire et les plans de Décale suivent ces choix (gardés sur l'appareil, les mêmes dans les deux apps).
 - **Absences** (secrétariat) : une ligne par jour comme Power Apps, sans motif (toujours « Non précisé »), avec l'impact calculé avant d'enregistrer.
 - **Publication élèves** : mêmes textes que le bouton « Publier pour les élèves » de Power Apps ; Be Happi dit quand elle n'est plus à jour, et annonce la remédiation au lieu de « étude ».
 - **Infos du jour**, **Signaler** (avec QR code sur chaque porte), **Matériel** (racks de tablettes, PC portables, projecteurs…), **Locaux libres** rangés comme sur le terrain.
