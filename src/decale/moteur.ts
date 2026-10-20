@@ -757,3 +757,78 @@ export function urgence(date: string, h: number, aujourdhui: string, minutes: nu
 
 /** Une heure de l'horizon tombe-t-elle la semaine suivante ? */
 export const semaineSuivanteDe = (date: string, aujourdhui: string): boolean => lundiDe(date) > lundiDe(iso(prochainJourDeCours(deIso(aujourdhui), true)));
+
+// ---------------------------------------------------------------------------------------------
+// L'effet domino : quand ton cours part du milieu de la journée d'une classe, un collègue de
+// cette classe peut avancer son cours de fin de journée dans l'heure qui se libère. La classe
+// finit alors plus tôt au lieu d'avoir une étude. Ce deuxième déplacement ne vient pas d'une
+// absence : il se règle avec le collègue et l'éducateur (message Teams prêt).
+// ---------------------------------------------------------------------------------------------
+
+export interface Domino {
+  cle: string;
+  /** Le cours qui part (le tien). */
+  classe: string;
+  date: string;
+  h: number;
+  /** Le collègue qui peut combler l'heure, et son cours de fin de journée. */
+  prof: string;
+  hCollegue: number;
+  email?: string;
+  /** Il finit lui aussi plus tôt. */
+  gagneAussi: boolean;
+  texte: string;
+}
+
+export function dominos(
+  ds: Dataset,
+  moi: string,
+  partants: { classe: string; classes: string[]; dateO: string; hO: number }[],
+  aujourdhui: string,
+  heurePassee: number,
+): Domino[] {
+  const sortie: Domino[] = [];
+  for (const o of partants) {
+    if (o.hO === MIDI) continue;
+    if (o.dateO < aujourdhui || (o.dateO === aujourdhui && o.hO <= heurePassee)) continue;
+    const jour = jourSemaineIso(o.dateO);
+    // Les heures de la classe ce jour-là, sans ton cours.
+    const restes = o.classes.map((cl) => heuresDeLaClasse(ds, cl, o.dateO).filter((x) => x !== o.hO));
+    if (restes.some((r) => !r.length || Math.max(...r) < o.hO)) continue; // ton cours était le dernier : rien à combler
+    const derniere = Math.max(...restes.map((r) => Math.max(...r)));
+    const candidats = ds.cours.filter(
+      (c) =>
+        c.jour === jour &&
+        c.prof !== moi &&
+        c.h === derniere &&
+        c.h > o.hO &&
+        memesClasses(c.classes, o.classes) &&
+        !absentA(ds, c.prof, o.dateO, c.h) &&
+        !ds.deplacements.some((d) => d.prof === c.prof && d.statut !== 'Refusé' && d.dateOrigine === o.dateO && d.hOrigine === c.h),
+    );
+    for (const c of candidats) {
+      // Le collègue doit être libre à l'heure qui se libère.
+      const occupe =
+        absentA(ds, c.prof, o.dateO, o.hO) ||
+        coursDuProf(ds, c.prof, o.dateO, true).some((x) => x.h === o.hO) ||
+        ds.reservations.some((r) => r.prof === c.prof && r.date === o.dateO && r.h === o.hO);
+      if (occupe) continue;
+      const sesHeures = coursDuProf(ds, c.prof, o.dateO, true).map((x) => x.h);
+      const gagneAussi = Math.max(...sesHeures) === c.h && sesHeures.filter((x) => x !== c.h).length > 0;
+      const nouvelleFin = Math.max(...restes.map((r) => Math.max(...r.filter((x) => x !== c.h).concat(o.hO))));
+      const nom = nomAffiche(c.prof);
+      sortie.push({
+        cle: `${o.dateO}|${o.hO}|${c.id}`,
+        classe: o.classe,
+        date: o.dateO,
+        h: o.hO,
+        prof: c.prof,
+        hCollegue: c.h,
+        email: ds.profs.find((p) => p.nom === c.prof)?.email,
+        gagneAussi,
+        texte: `${nom} peut avancer son cours de H${c.h} en H${o.hO} : la ${o.classe} finirait à ${periode(nouvelleFin).fin} au lieu de ${periode(derniere).fin}${gagneAussi ? `, et ${nom} aussi` : ''}.`,
+      });
+    }
+  }
+  return sortie.sort((a, b) => Number(b.gagneAussi) - Number(a.gagneAussi));
+}

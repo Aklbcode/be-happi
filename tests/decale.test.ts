@@ -242,3 +242,19 @@ test('Plans : un jour libre peut valoir une fin plus tardive ailleurs (dit clair
   const textes = p.effets.flatMap(phrasesJour);
   assert.ok(textes.some((x) => x.signe === 'perte' && /Lundi, tu finis plus tard : 13h45 au lieu de 12h05/.test(x.texte)), 'le coût est dit');
 });
+
+test('Effet domino : un collègue de la classe peut combler l’heure que ton cours laisse', async () => {
+  const { dominos } = await import('../src/decale/moteur');
+  const plans = meilleursPlans(ds, moi, occ);
+  const jeudi = plusJoursIso(aujourdhui, 3);
+  const p = plans.find((x) => x.deplacements.some((o) => o.dateO === jeudi && o.hO === 7))!;
+  assert.ok(p, 'le plan qui avance le jeudi H7');
+  const d = dominos(ds, moi, p.deplacements, aujourdhui, heurePassee);
+  assert.equal(d.length, 1);
+  assert.equal(d[0].prof, 'WILLEMS');
+  assert.equal(d[0].hCollegue, 8);
+  assert.match(d[0].texte, /la 3TQA finirait à 14h35 au lieu de 15h35, et Willems aussi/);
+  // Un cours qui était le dernier de la classe ne laisse rien à combler.
+  const ven = plans[0].deplacements.filter((o) => o.dateO === vendredi && o.hO === 8);
+  assert.deepEqual(dominos(ds, moi, ven, aujourdhui, heurePassee), []);
+});

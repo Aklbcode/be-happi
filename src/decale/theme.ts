@@ -23,7 +23,7 @@ export function themeSysteme(): ThemeDecale {
 
 export function appliquerTheme(t: ThemeDecale, retenir: boolean): void {
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'veillee' ? '#11152A' : '#F3F4F9');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'veillee' ? '#161D1A' : '#F4EFE7');
   if (!retenir) return;
   try {
     localStorage.setItem(CLE, t);

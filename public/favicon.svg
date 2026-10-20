@@ -1,7 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#173f35"/>
-  <path d="M19 15h5v4h4.5v-4h7v4H40v-4h5v10l-3 3v24H22V28l-3-3z" fill="#e2efb6"/>
-  <path d="M28.5 52v-8a3.5 3.5 0 0 1 7 0v8z" fill="#173f35"/>
-  <path d="M30 32.5a2 2 0 0 1 4 0V37h-4z" fill="#173f35"/>
-  <path d="M22 28q10 3.5 20 0M22 41q10 3.5 20 0" fill="none" stroke="#173f35" stroke-width="1.6"/>
+  <rect width="64" height="64" rx="14" fill="#f1e6d4"/>
+  <rect x="38" y="5" width="2.6" height="9" rx="1" fill="#2f5446"/>
+  <path d="M11 22.5 32 9.5l21 13q-21 4.5-42 0z" fill="#2f5446"/>
+  <path d="M10.5 22.4q21.5 5 43 0v2.8q-21.5 5-43 0z" fill="#b5532f"/>
+  <path d="M13 25.6q19 4.2 38 0V31q-19 4.2-38 0z" fill="#ead9bc"/>
+  <rect x="15.5" y="26.6" width="2.6" height="3.6" rx="0.6" fill="#2f5446"/>
+  <rect x="20.7" y="27.4" width="2.6" height="3.6" rx="0.6" fill="#2f5446"/>
+  <rect x="25.9" y="27.4" width="2.6" height="3.6" rx="0.6" fill="#2f5446"/>
+  <rect x="31.1" y="27.4" width="2.6" height="3.6" rx="0.6" fill="#2f5446"/>
+  <rect x="36.3" y="27.4" width="2.6" height="3.6" rx="0.6" fill="#2f5446"/>
+  <rect x="41.5" y="27.4" width="2.6" height="3.6" rx="0.6" fill="#2f5446"/>
+  <rect x="46.7" y="26.6" width="2.6" height="3.6" rx="0.6" fill="#2f5446"/>
+  <path d="M14 31q18 4 36 0v25q-18 4-36 0z" fill="#d6bd96"/>
+  <path d="M14 40q18 4 36 0M14 48q18 4 36 0" fill="none" stroke="#c2a479" stroke-width="1.2"/>
 </svg>

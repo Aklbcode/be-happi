@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../data/store';
 import type { Deplacement } from '../data/types';
 import { JOURS, JOURS_COURTS, conge, deIso, dureeTxt, jourSemaineIso, periode, plusJoursIso } from '../lib/calendar';
-import { coursDuProf, nomAffiche } from '../logic/horaire';
+import { classesDe, coursDuProf, nomAffiche } from '../logic/horaire';
 import { moment as quandTxt } from '../logic/suivi';
 import {
   accroche,
@@ -23,6 +23,8 @@ import {
   titrePlan,
   urgence,
   verifierPlan,
+  dominos,
+  type Domino,
   vontEnsemble,
   type HeureLiberee,
   type Occasion,
@@ -32,6 +34,7 @@ import { LIBELLES_PRIORITES } from '../logic/priorites';
 import { Semaine, type Vue } from './Semaine';
 import { Volet } from './Volet';
 import { Icone } from './Icones';
+import { Tour } from '../ui/Marque';
 import { appliquerTheme, themeChoisi, themeSysteme, type ThemeDecale } from './theme';
 
 const jc = (date: string) => `${JOURS_COURTS[jourSemaineIso(date)].toLowerCase()}. ${deIso(date).getDate()}`;
@@ -47,7 +50,7 @@ type VoletOuvert =
 
 export function Decale() {
   const store = useStore();
-  const { ds, demo, simulation, aujourdhui, heurePassee, minutes, proposer, retirer, decider, montrerToast, toast, erreur, peutValider, priorites: prios, changerPriorites } = store;
+  const { ds, demo, simulation, aujourdhui, heurePassee, minutes, proposer, retirer, decider, montrerToast, toast, erreur, peutValider, priorites: prios, changerPriorites, ouvrirTeams, apercuTeams, fermerApercuTeams } = store;
   const [semaine, setSemaine] = useState<0 | 1>(0);
   const [vue, setVue] = useState<Vue>('avant');
   const [choix, setChoix] = useState(0);
@@ -95,6 +98,27 @@ export function Decale() {
     [ds, moi, cleJours],
   );
   const acquis = useMemo(() => (ds && prof ? bilanDemandes(ds, moi, joursH) : []), [ds, prof, moi, joursH]);
+  const domPlan = useMemo(() => (ds && prof && plan ? dominos(ds, moi, plan.deplacements, aujourdhui, heurePassee) : []), [ds, prof, moi, plan, aujourdhui, heurePassee]);
+  const domDemandes = useMemo(
+    () =>
+      ds && prof
+        ? dominos(
+            ds,
+            moi,
+            ds.deplacements.filter((d) => d.prof === moi && d.statut !== 'Refusé' && d.date >= aujourdhui).map((d) => ({ classe: d.classe, classes: classesDe(d.classe), dateO: d.dateOrigine, hO: d.hOrigine })),
+            aujourdhui,
+            heurePassee,
+          )
+        : [],
+    [ds, prof, moi, aujourdhui, heurePassee],
+  );
+  const proposerDomino = (d: Domino) =>
+    ouvrirTeams({
+      type: 'teams-chat',
+      emails: d.email ? [d.email] : [],
+      noms: [nomAffiche(d.prof)],
+      message: `Bonjour ! Mon cours avec la ${d.classe} de ${JOURS[jourSemaineIso(d.date)]} H${d.h} est déplacé : la classe a une heure libre à ce moment-là. Tu pourrais y avancer ton cours de H${d.hCollegue} ? La ${d.classe} finirait plus tôt${d.gagneAussi ? ', et toi aussi' : ''}. Si c'est d'accord pour toi, on le dit à l'éducateur.`,
+    });
   const trousSemaine = heures.filter((x) => jours.includes(x.date) && x.etat !== 'non');
   const planTouche = (l: string) => sel.some((o) => [o.date, o.dateO].some((d) => d >= l && d < plusJoursIso(l, 7)));
 
@@ -191,7 +215,13 @@ export function Decale() {
     <div className="decale">
       <header className="entete">
         <div className="entete-gauche">
-          <p className="marque">Décale</p>
+          <div className="marque-decale">
+            <Tour taille={34} />
+            <div>
+              <p className="marque">Décale</p>
+              <a className="par-la-tour" href="../">par la tour · IPES Tubize</a>
+            </div>
+          </div>
           <p className="crayon qui">
             {prenom}
             {(demo || simulation) && (
@@ -361,6 +391,7 @@ export function Decale() {
                   <Phrases phrases={plan.classes.map((c) => ({ texte: c.texte, signe: c.signe }))} />
                 </>
               )}
+              {domPlan.length > 0 && <Dominos liste={domPlan} onProposer={proposerDomino} />}
               {urgent && (
                 <p className="note">
                   <Icone nom="horloge" taille={18} /> {capital(JOURS[jourSemaineIso(urgent.o.date)])} H{urgent.o.h}, c’est aujourd’hui, dans {dureeTxt(urgent.reste!)} : l’éducateur doit valider vite.
@@ -373,6 +404,13 @@ export function Decale() {
                 <p className="crayon petit">L’éducateur valide chaque demande, dans La Tour ou Power Apps. Tant qu’elle attend, tu peux la retirer.</p>
               </div>
             </div>
+          )}
+
+          {domDemandes.length > 0 && (
+            <section className="bloc-section" aria-labelledby="titre-domino">
+              <h2 id="titre-domino">Effet domino</h2>
+              <Dominos liste={domDemandes} onProposer={proposerDomino} />
+            </section>
           )}
 
           <Demandes
@@ -481,6 +519,16 @@ export function Decale() {
           </ul>
           <button className="bouton" onClick={() => setVolet(null)}>
             Compris
+          </button>
+        </Volet>
+      )}
+
+      {apercuTeams && apercuTeams.type === 'teams-chat' && (
+        <Volet titre="Message Teams (aperçu)" sous={`À ${apercuTeams.noms.join(', ')}`} onFermer={fermerApercuTeams}>
+          <p className="message-teams">{apercuTeams.message}</p>
+          <p className="crayon petit">{demo ? 'Démo : en vrai, Teams s’ouvre avec ce message prêt à envoyer.' : 'Simulation : en vrai, Teams s’ouvre avec ce message prêt à envoyer.'}</p>
+          <button className="bouton" onClick={fermerApercuTeams}>
+            Fermer
           </button>
         </Volet>
       )}
@@ -730,5 +778,30 @@ function OptionVolet({ titre, o, dans, onAjouter, onEnlever }: { titre: string; 
         </button>
       )}
     </div>
+  );
+}
+
+/** L'effet domino : un collègue de la classe peut combler l'heure que ton cours laisse. */
+function Dominos({ liste, onProposer }: { liste: Domino[]; onProposer: (d: Domino) => void }) {
+  return (
+    <>
+      <h3>Effet domino</h3>
+      <ul className="dominos">
+        {liste.slice(0, 4).map((d) => (
+          <li key={d.cle}>
+            <p>
+              <b>
+                {capital(JOURS[jourSemaineIso(d.date)])} H{d.h}
+              </b>
+              , ta {d.classe} aura une heure libre. {d.texte}
+            </p>
+            <button className="lien-discret" onClick={() => onProposer(d)}>
+              Lui proposer sur Teams
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="crayon petit">Ce deuxième déplacement ne vient pas d’une absence : il se règle avec ton collègue et l’éducateur.</p>
+    </>
   );
 }

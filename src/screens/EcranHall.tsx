@@ -53,7 +53,7 @@ export function EcranHall({ params }: { params: URLSearchParams }) {
     <section className="hall" aria-label="Écran du hall">
       <header className="hall-tete">
         <a className="hall-marque" href="#/" aria-label="Revenir à La Tour">
-          <Tour taille={56} fond="#e2efb6" trait="#173f35" />
+          <Tour taille={56} />
           <span>
             <b>la tour</b>
             <small>IPES Tubize</small>

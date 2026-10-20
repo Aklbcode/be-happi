@@ -34,7 +34,7 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
   return (
     <aside className="menu-lateral" aria-label="Menu">
       <a className="menu-marque" href={`#/${p.accueil}`}>
-        <Tour taille={38} fond="#e2efb6" trait="#173f35" />
+        <Tour taille={38} />
         <span>
           <b>la tour</b>
           <small>IPES Tubize</small>

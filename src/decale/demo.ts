@@ -11,6 +11,8 @@ export function scenarioDecale(ds: Dataset, moment: Date): Dataset {
   const j = (n: number) => plusJoursIso(lundi, n);
   return {
     ...ds,
+    // Jeudi H7, Willems est libre : il pourra combler l'heure laissée par un cours de Camille (effet domino).
+    cours: ds.cours.filter((c) => !(c.prof === 'WILLEMS' && c.jour === 4 && c.h === 7)),
     absences: [
       ...ds.absences,
       // Lundi H6 : la 6TQB est libre aussi (Camille l'a vendredi en H7).

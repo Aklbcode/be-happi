@@ -1,23 +1,23 @@
-/* Décale — « Cahier » : ton horaire sur une feuille Seyès, au Bic quatre couleurs.
+/* Décale — aux couleurs de La Tour (toit vert, briques, framboise IPES), sur une feuille de cahier.
    Bleu = tes cours et tes gestes, rouge = les heures libérées, vert = ce que tu gagnes, encre = le texte.
    Instrument Sans pour tout lire ; Playwrite Belgique Wallonie-Bruxelles (l'écriture apprise dans
    les écoles de la FWB) seulement pour la marque et les annotations de gain, comme au stylo. */
 
 :root {
-  --bureau: #f3f4f9;
+  --bureau: #f4efe7;
   --papier: #ffffff;
-  --ligne: #e6e8f5;
-  --ligne-forte: #cfd3ee;
-  --marge: #ee9f9b;
-  --encre: #1d2340;
-  --crayon: #5a617e;
-  --bleu: #2441bf;
+  --ligne: #efe8dd;
+  --ligne-forte: #ddd2c1;
+  --marge: #dba892;
+  --encre: #23302b;
+  --crayon: #5c6560;
+  --bleu: #2f5446;
   --sur-bleu: #ffffff;
-  --bleu-pale: #e9edff;
-  --rouge: #c22c28;
-  --rouge-pale: #fdeeed;
-  --vert: #11713f;
-  --vert-pale: #e1f3e8;
+  --bleu-pale: #e6ede7;
+  --rouge: #c8074a;
+  --rouge-pale: #fde6ee;
+  --vert: #8f5a0c;
+  --vert-pale: #f7ead2;
   --ombre: 0 1px 0 #dadded, 0 14px 30px -20px rgba(29, 35, 64, 0.38);
   --voile: rgba(17, 21, 42, 0.4);
   --texte: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -29,20 +29,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='cahier']) {
-    --bureau: #11152a;
-    --papier: #181d34;
-    --ligne: #222944;
-    --ligne-forte: #2e3758;
-    --marge: #6a3139;
-    --encre: #e8ebf6;
-    --crayon: #a4abc7;
-    --bleu: #95aaff;
-    --sur-bleu: #10142a;
-    --bleu-pale: #232d5e;
-    --rouge: #ff8d86;
-    --rouge-pale: #3c2029;
-    --vert: #71d7a2;
-    --vert-pale: #16392b;
+    --bureau: #161d1a;
+    --papier: #1f2925;
+    --ligne: #2b3731;
+    --ligne-forte: #3a4840;
+    --marge: #6a4436;
+    --encre: #eef0ea;
+    --crayon: #a9b3ab;
+    --bleu: #a9d6bd;
+    --sur-bleu: #15241d;
+    --bleu-pale: #26392f;
+    --rouge: #ff6b98;
+    --rouge-pale: #3e1626;
+    --vert: #e6b45c;
+    --vert-pale: #3a2e16;
     --ombre: 0 1px 0 #0b0e1d, 0 16px 34px -22px rgba(0, 0, 0, 0.8);
     --voile: rgba(4, 6, 14, 0.62);
     color-scheme: dark;
@@ -50,20 +50,20 @@
 }
 
 :root[data-theme='veillee'] {
-  --bureau: #11152a;
-  --papier: #181d34;
-  --ligne: #222944;
-  --ligne-forte: #2e3758;
-  --marge: #6a3139;
-  --encre: #e8ebf6;
-  --crayon: #a4abc7;
-  --bleu: #95aaff;
-  --sur-bleu: #10142a;
-  --bleu-pale: #232d5e;
-  --rouge: #ff8d86;
-  --rouge-pale: #3c2029;
-  --vert: #71d7a2;
-  --vert-pale: #16392b;
+  --bureau: #161d1a;
+  --papier: #1f2925;
+  --ligne: #2b3731;
+  --ligne-forte: #3a4840;
+  --marge: #6a4436;
+  --encre: #eef0ea;
+  --crayon: #a9b3ab;
+  --bleu: #a9d6bd;
+  --sur-bleu: #15241d;
+  --bleu-pale: #26392f;
+  --rouge: #ff6b98;
+  --rouge-pale: #3e1626;
+  --vert: #e6b45c;
+  --vert-pale: #3a2e16;
   --ombre: 0 1px 0 #0b0e1d, 0 16px 34px -22px rgba(0, 0, 0, 0.8);
   --voile: rgba(4, 6, 14, 0.62);
   color-scheme: dark;
@@ -1255,3 +1255,11 @@ p {
     stroke-dashoffset: 0;
   }
 }
+
+.marque-decale { display: flex; align-items: center; gap: 10px; }
+.par-la-tour { font-size: 12px; color: var(--crayon); text-decoration: none; display: block; margin-top: -6px; }
+
+.dominos { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 10px; }
+.dominos li { padding: 10px 12px; border-radius: 12px; border: 1.5px dashed var(--ligne-forte); display: grid; gap: 4px; }
+.dominos .lien-discret { justify-self: start; padding-left: 0; }
+.message-teams { white-space: pre-wrap; padding: 12px; border-radius: 12px; background: var(--bleu-pale); }
