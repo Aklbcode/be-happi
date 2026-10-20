@@ -16,7 +16,7 @@ let pca: IPublicClientApplication | null = null;
 let teams = false;
 
 /**
- * Adresse de retour après la connexion : la page d'accueil de Be Happi, la seule que l'IT inscrit.
+ * Adresse de retour après la connexion : la page d'accueil de La Tour, la seule que l'IT inscrit.
  * Depuis une autre page du site (Décale), MSAL revient ensuite tout seul sur la page de départ.
  */
 const adresseRetour = (): string => window.location.origin + window.location.pathname.replace(/(?:decale\/)?(?:index\.html)?$/, '');

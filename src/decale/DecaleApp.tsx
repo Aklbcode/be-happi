@@ -1,5 +1,5 @@
 // Décale : l'app des profs pour optimiser leurs déplacements de cours, sur le même moteur que
-// Be Happi (mêmes données, mêmes règles, mêmes écritures). Démarrage commun (réglages de l'école,
+// La Tour (mêmes données, mêmes règles, mêmes écritures). Démarrage commun (réglages de l'école,
 // confirmation d'un lien), puis les données, puis l'écran.
 
 import { StoreProvider } from '../data/store';

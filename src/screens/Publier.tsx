@@ -58,7 +58,7 @@ export function Publier() {
               : etat === 'jamais'
                 ? `${e.calcule.length} changement${e.calcule.length > 1 ? 's' : ''} à annoncer ${date === aujourdhui ? "aujourd'hui" : dateLongue(deIso(date))}.`
                 : etat === 'ok'
-                  ? `${e.publie.length} ligne${e.publie.length > 1 ? 's' : ''} publiée${e.publie.length > 1 ? 's' : ''}. Be Happi vous prévient dès que quelque chose change.`
+                  ? `${e.publie.length} ligne${e.publie.length > 1 ? 's' : ''} publiée${e.publie.length > 1 ? 's' : ''}. La Tour vous prévient dès que quelque chose change.`
                   : 'Pas de prof absent, pas de déplacement, pas de changement de local.'}
           </p>
         </div>
@@ -101,7 +101,7 @@ export function Publier() {
         ))}
       </section>
       <p className="petit">
-        Même résultat que le bouton « Publier pour les élèves » de Power Apps : les deux apps peuvent publier. Be Happi annonce en plus les remédiations au lieu de « étude ».
+        Même résultat que le bouton « Publier pour les élèves » de Power Apps : les deux apps peuvent publier. La Tour annonce en plus les remédiations au lieu de « étude ».
       </p>
     </section>
   );

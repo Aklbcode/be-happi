@@ -174,7 +174,7 @@ export function Absences({ params }: { params: URLSearchParams }) {
             <button className="bouton bouton--prim" disabled={!prof || envoi || !apercu || apercu.lignes.length === apercu.deja} onClick={() => void encoder()}>
               {envoi ? 'Encodage…' : apercu && apercu.lignes.length > 1 ? `Encoder ${apercu.lignes.length - apercu.deja} jours` : 'Encoder l’absence'}
             </button>
-            <p className="petit">Sans motif : Be Happi n’en demande jamais. Les jours de congé sont sautés.</p>
+            <p className="petit">Sans motif : La Tour n’en demande jamais. Les jours de congé sont sautés.</p>
           </section>
         )}
 

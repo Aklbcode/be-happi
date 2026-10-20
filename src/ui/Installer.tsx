@@ -1,4 +1,4 @@
-// Partager Be Happi : QR code du lien d'installation (ouvre l'app reliée à l'école sur un autre
+// Partager La Tour : QR code du lien d'installation (ouvre l'app reliée à l'école sur un autre
 // appareil) et paquet Teams pour l'IT. Tout est fabriqué sur l'appareil, rien n'est publié.
 
 import { useMemo, useState } from 'react';
@@ -15,8 +15,8 @@ declare const __VERSION__: string;
 export const estMobile = (): boolean => typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 export const TEXTE_QR =
-  'Le plus simple : l’app Teams, où Be Happi est déjà. Sinon, scanne ce code avec l’appareil photo du téléphone : Be Happi s’ouvre relié à l’école, il reste à se connecter.';
-export const TEXTE_QR_MOBILE = 'Envoie ce lien à un collègue : Be Happi s’ouvre relié à l’école, il reste à se connecter avec son compte de l’école.';
+  'Le plus simple : l’app Teams, où La Tour est déjà. Sinon, scanne ce code avec l’appareil photo du téléphone : La Tour s’ouvre relié à l’école, il reste à se connecter.';
+export const TEXTE_QR_MOBILE = 'Envoie ce lien à un collègue : La Tour s’ouvre relié à l’école, il reste à se connecter avec son compte de l’école.';
 
 /** QR code + « Copier le lien » (ou « Partager » sur téléphone). */
 export function QrInstallation({ lien, texte, texteMobile }: { lien: string; texte: string; texteMobile: string }) {
@@ -43,7 +43,7 @@ export function QrInstallation({ lien, texte, texteMobile }: { lien: string; tex
 
   async function partager() {
     try {
-      await navigator.share({ title: 'Be Happi', url: lien });
+      await navigator.share({ title: 'La Tour', url: lien });
     } catch {
       /* partage annulé */
     }
@@ -102,7 +102,7 @@ export function BoutonPaquetTeams({ ecole }: { ecole: ReglagesEcole }) {
         <span className="petit">
           {fait
             ? 'Téléchargé. À importer dans le centre d’administration Teams : Applications Teams → Gérer les applications → Charger une nouvelle application.'
-            : 'Be Happi dans Teams, déjà relié à l’école, pour le personnel et les élèves. L’IT l’importe une fois.'}
+            : 'La Tour dans Teams, déjà relié à l’école, pour le personnel et les élèves. L’IT l’importe une fois.'}
         </span>
       )}
     </div>

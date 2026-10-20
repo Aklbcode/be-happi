@@ -2,7 +2,7 @@
 // Il part des heures libérées (collègues absents) et de ton horaire, et cherche les meilleures
 // combinaisons de déplacements pour toi : commencer plus tard, finir plus tôt, combler une fourche,
 // libérer un jour. Chaque déplacement vient de optionsPour, donc des mêmes règles et des mêmes
-// contrôles que Be Happi et Power Apps (mêmes classes, prof libre, local…) ; le moteur ne fait
+// contrôles que La Tour et Power Apps (mêmes classes, prof libre, local…) ; le moteur ne fait
 // que choisir et combiner, puis expliquer.
 //
 // Ce qu'un déplacement seul ne voit pas et qu'une combinaison voit : avancer tes deux dernières
@@ -17,7 +17,7 @@ import { absentA, classesDe, classesReservation, coursDuProf, coursSansProf, heu
 
 export type Occasion = OptionDeplacement;
 
-// Ce qui compte pour le prof : les mêmes réglages que Be Happi (gardés sur l'appareil).
+// Ce qui compte pour le prof : les mêmes réglages que La Tour (gardés sur l'appareil).
 export { PRIORITES_DEFAUT, type Priorites } from '../logic/priorites';
 
 const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
@@ -738,7 +738,7 @@ export function pourquoiPas(ds: Dataset, moi: string, classes: string[], date: s
   const restant = libere && coursSansProf(ds, date, h).find((x) => x.id === libere.id);
   if (libere && restant && restant.classes.length < libere.classes.length)
     return `Une partie du groupe est déjà reprise (reste ${liste(restant.classes)}) : il faut exactement les mêmes classes.`;
-  // Les contrôles de Be Happi et Power Apps disent le reste.
+  // Les contrôles de La Tour et Power Apps disent le reste.
   const absent = libere?.prof ?? '';
   for (const { d, c } of libres) {
     const v = verifierDeplacement(ds, { absent, date, hVide: h, classe: c.classe, prof: moi, hOrigine: c.h, dateOrigine: d, statut: 'En attente' }, aujourdhui, heurePassee);

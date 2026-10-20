@@ -1,4 +1,4 @@
-// Modèle de données de Be Happi.
+// Modèle de données de La Tour.
 // Il suit les listes SharePoint déjà utilisées par l'app Power Apps (Horaires, Absences, Réservations, Deplacements, Infos…).
 
 /** Les espaces de l'app : chacun voit d'abord ce qui le concerne. */

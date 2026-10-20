@@ -1,6 +1,6 @@
 // « Publier pour les élèves » : ce que chaque classe doit savoir pour une journée.
 // Mêmes textes que le bouton de l'écran Secrétariat de Power Apps (liste Changements), pour que les
-// deux apps publient la même chose. Be Happi ajoute ce que Power Apps ne connaît pas : une classe
+// deux apps publient la même chose. La Tour ajoute ce que Power Apps ne connaît pas : une classe
 // prise en remédiation n'est pas annoncée « à l'étude », et un déplacement dont le local a changé
 // à la validation annonce directement le bon local (au lieu de deux lignes contradictoires).
 

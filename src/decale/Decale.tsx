@@ -158,7 +158,7 @@ export function Decale() {
           <>
             <p>Connexion à SharePoint impossible : {erreur}</p>
             <a className="bouton" href="../#/connexion">
-              Voir les détails dans Be Happi
+              Voir les détails dans La Tour
             </a>
           </>
         ) : (
@@ -175,7 +175,7 @@ export function Decale() {
         <p className="marque">Décale</p>
         <p>Décale est fait pour les profs qui ont un horaire : ton nom n’est pas dans la liste Horaires.</p>
         <a className="bouton" href="../">
-          Ouvrir Be Happi
+          Ouvrir La Tour
         </a>
       </main>
     );
@@ -195,7 +195,7 @@ export function Decale() {
           <p className="crayon qui">
             {prenom}
             {(demo || simulation) && (
-              <a className="pastille" href="../#/connexion" title={demo ? 'Données inventées : relie l’app à ton école dans Be Happi' : 'Copie locale des vraies données'}>
+              <a className="pastille" href="../#/connexion" title={demo ? 'Données inventées : relie l’app à ton école dans La Tour' : 'Copie locale des vraies données'}>
                 {demo ? 'Démo' : 'Simulation'}
               </a>
             )}
@@ -206,7 +206,7 @@ export function Decale() {
             <Icone nom={theme === 'veillee' ? 'soleil' : 'lune'} />
           </button>
           <a className="lien-discret" href="../">
-            Be Happi
+            La Tour
           </a>
         </div>
       </header>
@@ -370,7 +370,7 @@ export function Decale() {
                 <button className="bouton bouton--plein" disabled={envoi || !n} onClick={() => void proposerPlan()}>
                   {envoi ? 'Envoi…' : n > 1 ? `Proposer ces ${n} déplacements` : 'Proposer ce déplacement'}
                 </button>
-                <p className="crayon petit">L’éducateur valide chaque demande, dans Be Happi ou Power Apps. Tant qu’elle attend, tu peux la retirer.</p>
+                <p className="crayon petit">L’éducateur valide chaque demande, dans La Tour ou Power Apps. Tant qu’elle attend, tu peux la retirer.</p>
               </div>
             </div>
           )}
@@ -410,7 +410,7 @@ export function Decale() {
             <p className="crayon petit">
               Des demandes de collègues attendent peut-être ta validation :{' '}
               <a className="lien" href="../#/validations">
-                Validations dans Be Happi
+                Validations dans La Tour
               </a>
             </p>
           )}

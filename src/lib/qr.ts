@@ -1,5 +1,5 @@
 // Petit générateur de QR code (mode octet, correction M, versions 1 à 10), sans dépendance.
-// Assez pour une adresse Be Happi collée sur la porte d'un local (#/signaler?local=BF110).
+// Assez pour une adresse La Tour collée sur la porte d'un local (#/signaler?local=BF110).
 
 /** Blocs de correction M : [codes de correction par bloc, [nombre de blocs, octets de données par bloc]…]. */
 const BLOCS_M: [number, [number, number][]][] = [

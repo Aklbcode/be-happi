@@ -77,7 +77,7 @@ test('Plans : valides, sans doublon, jamais plus longs pour le prof', () => {
     assert.equal(new Set(origines).size, origines.length, 'un cours ne part qu’une fois');
     assert.equal(new Set(cibles).size, cibles.length, 'une heure n’accueille qu’un cours');
     assert.deepEqual(verifierPlan(ds, moi, p, aujourdhui, heurePassee), [], `${titrePlan(p)} passe les contrôles`);
-    // Chaque déplacement, enregistré avec les autres, passe les contrôles de Be Happi et Power Apps.
+    // Chaque déplacement, enregistré avec les autres, passe les contrôles de La Tour et Power Apps.
     const deps = enDeplacements(moi, p);
     for (const d of deps) {
       const avec = { ...ds, deplacements: [...ds.deplacements, ...deps] };

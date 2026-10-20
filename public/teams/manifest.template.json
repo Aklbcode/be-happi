@@ -4,18 +4,18 @@
   "version": "{{VERSION}}",
   "id": "{{ID}}",
   "developer": {
-    "name": "IPES Tubize – Be Happi",
+    "name": "IPES Tubize – La Tour",
     "websiteUrl": "{{URL}}",
     "privacyUrl": "{{URL}}#/ecole",
     "termsOfUseUrl": "{{URL}}#/ecole"
   },
   "name": {
-    "short": "Be Happi",
-    "full": "Be Happi – l'école en direct"
+    "short": "La Tour",
+    "full": "La Tour – l'école en direct"
   },
   "description": {
     "short": "Horaires, locaux, absences, élèves : l'école en direct.",
-    "full": "Be Happi lit les listes SharePoint de l'école et donne à chacun ce qui le concerne. Profs : la journée en direct, les déplacements de cours quand un collègue est absent, la remédiation au lieu de l'étude, les locaux libres. Éducateurs : les classes à l'étude heure par heure, qui peut aider, les validations. Secrétariat : les absences et leur impact, la publication pour les élèves, les infos du jour. Direction : le tableau de bord. Service technique : les signalements. Élèves : leur classe et les changements du jour. Avec Happi, l'assistant de l'école."
+    "full": "La Tour lit les listes SharePoint de l'école et donne à chacun ce qui le concerne. Profs : la journée en direct, les déplacements de cours quand un collègue est absent, la remédiation au lieu de l'étude, les locaux libres. Éducateurs : les classes à l'étude heure par heure, qui peut aider, les validations. Secrétariat : les absences et leur impact, la publication pour les élèves, les infos du jour. Direction : le tableau de bord. Service technique : les signalements. Élèves : leur classe et les changements du jour. Avec Happi, l'assistant de l'école."
   },
   "icons": {
     "color": "color.png",
@@ -25,7 +25,7 @@
   "staticTabs": [
     {
       "entityId": "behappi-accueil",
-      "name": "Be Happi",
+      "name": "La Tour",
       "contentUrl": "{{URL}}?inTeams=1",
       "websiteUrl": "{{URL}}",
       "scopes": ["personal"]

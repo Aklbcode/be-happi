@@ -166,7 +166,7 @@ export function Collab({ params }: { params: URLSearchParams }) {
                       fin: fin.toISOString(),
                       emails: avec.map((p) => email(p)!),
                       noms: avec.map(nomAffiche),
-                      contenu: `Heure commune trouvée par Be Happi${local ? ` · local ${local}` : ''}.`,
+                      contenu: `Heure commune trouvée par La Tour${local ? ` · local ${local}` : ''}.`,
                     })
                   }
                 >

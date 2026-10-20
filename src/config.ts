@@ -72,7 +72,7 @@ export const config = {
   champs: {
     horaires: { prof: 'Title', jour: 'JourNum', heure: 'Heure', classes: 'Classes', local: 'Local', matiere: 'Matiere' },
     profs: { nom: 'Title', mail: 'Email' },
-    /** Motif : toujours « Non précisé » depuis Be Happi (jamais de motif médical). */
+    /** Motif : toujours « Non précisé » depuis La Tour (jamais de motif médical). */
     absences: { prof: 'Title', date: 'DateAbs', deH: 'DeH', aH: 'AH', motif: 'Motif' },
     reservations: { prof: 'Title', date: 'DateRes', heure: 'Heure', local: 'Local', classe: 'Classe', absent: 'Absent' },
     deplacements: {

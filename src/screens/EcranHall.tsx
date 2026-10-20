@@ -4,7 +4,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../data/store';
-import { Icon } from '../ui/Icon';
 import { sansNom } from '../logic/publication';
 import { triClasse } from '../logic/ouest';
 import { titreSignalement } from '../logic/happi';
@@ -12,6 +11,7 @@ import { qrSvg } from '../lib/qr';
 import { lienApp } from '../lib/liens';
 import { dateLongue, estJourDeCours, periode, prochainJourDeCours, iso, situation, deIso } from '../lib/calendar';
 import type { Changement } from '../data/types';
+import { Tour } from '../ui/Marque';
 
 export function EcranHall({ params }: { params: URLSearchParams }) {
   const { ds, demo, maintenant, minutes, recharger } = useStore();
@@ -52,12 +52,10 @@ export function EcranHall({ params }: { params: URLSearchParams }) {
   return (
     <section className="hall" aria-label="Écran du hall">
       <header className="hall-tete">
-        <a className="hall-marque" href="#/" aria-label="Revenir à Be Happi">
-          <span className="hall-logo" aria-hidden="true">
-            <Icon nom="etincelle" taille={28} />
-          </span>
+        <a className="hall-marque" href="#/" aria-label="Revenir à La Tour">
+          <Tour taille={56} fond="#e2efb6" trait="#173f35" />
           <span>
-            <b>Be Happi</b>
+            <b>la tour</b>
             <small>IPES Tubize</small>
           </span>
         </a>

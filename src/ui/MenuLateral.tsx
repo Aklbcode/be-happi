@@ -8,6 +8,7 @@ import { GROUPES } from '../screens/Ecole';
 import { lien } from '../lib/route';
 import { Icon } from './Icon';
 import { initiales, useMoi } from './Moi';
+import { Tour, TourTrait } from './Marque';
 
 export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles?: Partial<Record<Ecran, number>> }) {
   const { ds, profil, profils } = useStore();
@@ -33,7 +34,11 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
   return (
     <aside className="menu-lateral" aria-label="Menu">
       <a className="menu-marque" href={`#/${p.accueil}`}>
-        Be Happi
+        <Tour taille={38} fond="#e2efb6" trait="#173f35" />
+        <span>
+          <b>la tour</b>
+          <small>IPES Tubize</small>
+        </span>
       </a>
       <button className="menu-espace" onClick={ouvrir}>
         <Icon nom={p.icone} taille={20} />
@@ -58,6 +63,7 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
           </div>
         ))}
       </nav>
+      <TourTrait largeur={110} />
       <button className="menu-moi" onClick={ouvrir}>
         <span className="menu-rond">{ds ? initiales(ds.moi.prenom, ds.moi.nom) : '…'}</span>
         <span>{ds?.moi.prenom || 'Moi'}</span>

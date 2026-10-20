@@ -42,7 +42,7 @@ function plier(ligne: string): string {
 }
 
 export function calendrierIcs(nom: string, evenements: Evenement[], maintenant = new Date()): string {
-  const lignes = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Be Happi//IPES Tubize//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${echappe(nom)}`];
+  const lignes = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//La Tour//IPES Tubize//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${echappe(nom)}`];
   for (const e of evenements) {
     const d = deIso(e.date);
     const a = periode(e.hDebut);

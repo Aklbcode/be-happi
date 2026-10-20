@@ -15,7 +15,7 @@ createRoot(document.getElementById('decale')!).render(
   </StrictMode>,
 );
 
-// Hors ligne : le même service worker que Be Happi (il couvre toutes les pages du site).
+// Hors ligne : le même service worker que La Tour (il couvre toutes les pages du site).
 if ('serviceWorker' in navigator && location.protocol === 'https:' && import.meta.env.PROD && !__DEMO_FORCEE__) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {

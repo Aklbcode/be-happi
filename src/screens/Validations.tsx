@@ -118,7 +118,7 @@ export function Validations() {
         <h2 className="titre-m">À valider</h2>
         {attente.length === 0 && (
           <div className="carte">
-            <p className="texte">Aucune proposition en attente. Les profs proposent depuis Be Happi ou Power Apps : elles arrivent ici.</p>
+            <p className="texte">Aucune proposition en attente. Les profs proposent depuis La Tour ou Power Apps : elles arrivent ici.</p>
           </div>
         )}
         {attente.map(({ d, a }) => (

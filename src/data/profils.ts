@@ -1,4 +1,4 @@
-// Les espaces de Be Happi selon le rôle : ce que chacun voit en premier, ses onglets, ses droits.
+// Les espaces de La Tour selon le rôle : ce que chacun voit en premier, ses onglets, ses droits.
 // Les droits de l'app sont un confort : la vraie protection reste celle des listes SharePoint.
 
 import type { Profil } from './types';

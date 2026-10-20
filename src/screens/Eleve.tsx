@@ -46,7 +46,7 @@ export function Eleve({ vue }: { vue: 'jour' | 'semaine' }) {
   const selecteur = (
     <Feuille ouverte={choix || !classe} onFermer={() => setChoix(false)} titre="Choisir ma classe">
       <h2 className="titre-l">Ta classe</h2>
-      <p className="texte">Be Happi s’en souvient sur cet appareil.</p>
+      <p className="texte">La Tour s’en souvient sur cet appareil.</p>
       <div className="grille-classes">
         {classes.map((c) => (
           <button key={c} className="libre libre--classe" aria-pressed={c === classe} onClick={() => choisir(c)}>

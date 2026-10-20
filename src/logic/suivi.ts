@@ -113,11 +113,11 @@ export function bilanDuJour(ds: Dataset, date: string): { absents: string[]; heu
 export function aPrevenir(d: { prof: string; absent: string; classe: string }, statut: Decision['statut']): { qui: string; comment: string; auto: boolean }[] {
   const classes = classesDe(d.classe);
   if (statut === 'Refusé') {
-    return [{ qui: nomAffiche(d.prof), comment: 'voit le refus et ton motif dans Be Happi.', auto: true }];
+    return [{ qui: nomAffiche(d.prof), comment: 'voit le refus et ton motif dans La Tour.', auto: true }];
   }
   return [
-    { qui: nomAffiche(d.prof), comment: 'voit la validation dans Be Happi ; son horaire est à jour.', auto: true },
-    { qui: `Élèves de ${classes.join(', ')}`, comment: 'à prévenir avec « Publier pour les élèves » (Be Happi ou Power Apps).', auto: false },
+    { qui: nomAffiche(d.prof), comment: 'voit la validation dans La Tour ; son horaire est à jour.', auto: true },
+    { qui: `Élèves de ${classes.join(', ')}`, comment: 'à prévenir avec « Publier pour les élèves » (La Tour ou Power Apps).', auto: false },
     { qui: `${nomAffiche(d.absent)} et les collègues concernés`, comment: 'sont prévenus par le message Teams prêt ci-dessous : il suffit de l’envoyer.', auto: false },
   ];
 }

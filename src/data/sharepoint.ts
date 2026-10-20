@@ -565,13 +565,13 @@ export interface DiagListe {
   facultative: boolean;
   /** Colonnes de la liste (nom interne), sans les colonnes système. */
   colonnes: string[];
-  /** Colonnes attendues par Be Happi mais absentes, avec une piste quand une colonne porte ce nom affiché. */
+  /** Colonnes attendues par La Tour mais absentes, avec une piste quand une colonne porte ce nom affiché. */
   manquantes: { attendu: string; piste?: string }[];
 }
 
 const SYSTEME = new Set(['Created', 'Modified', 'Author', 'Editor', 'ID', 'Title']);
 
-/** Pour l'écran Connexion : chaque liste, ses colonnes et celles qui manquent à Be Happi. */
+/** Pour l'écran Connexion : chaque liste, ses colonnes et celles qui manquent à La Tour. */
 export async function diagnostic(): Promise<DiagListe[]> {
   const ids = await listes();
   const s = await site();

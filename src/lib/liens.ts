@@ -33,7 +33,7 @@ export const adresseApp = (): string =>
   typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://aklbcode.github.io/be-happi/';
 
 /**
- * Adresse d'un écran de Be Happi (QR code d'une porte, écran du hall…). Une fois l'école reliée,
+ * Adresse d'un écran de La Tour (QR code d'une porte, écran du hall…). Une fois l'école reliée,
  * elle porte aussi les réglages : un téléphone qui scanne arrive sur les vraies données, pas en démo.
  */
 export function lienApp(chemin: string): string {

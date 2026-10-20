@@ -1,5 +1,5 @@
 // « Ce qui compte pour toi » : ce que le prof veut gagner quand il avance un cours. Les mêmes
-// réglages servent à Be Happi (le cours le plus avantageux, les flèches) et à Décale (les plans).
+// réglages servent à La Tour (le cours le plus avantageux, les flèches) et à Décale (les plans).
 
 export interface Priorites {
   /** Finir plus tôt : une heure gagnée en fin de journée compte pleinement. */

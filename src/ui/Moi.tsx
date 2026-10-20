@@ -135,7 +135,7 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
             </button>
           ))}
         </div>
-        <span className="petit">Dans Teams, Be Happi suit le thème de Teams.</span>
+        <span className="petit">Dans Teams, La Tour suit le thème de Teams.</span>
       </section>
 
       <div className="liens-moi">

@@ -184,7 +184,7 @@ function MiseEnService() {
   return (
     <div className="carte">
       <span className="puce puce--indigo" style={{ alignSelf: 'flex-start' }}>Mise en service</span>
-      <h2 className="titre-m">Relier Be Happi à l’école</h2>
+      <h2 className="titre-m">Relier La Tour à l’école</h2>
       <p className="texte">Les deux identifiants viennent de l’IT ; le site est celui des listes de l’app Power Apps. Tu as reçu un lien d’installation ? Colle-le dans le premier champ.</p>
       <Champ
         libelle="ID de l’annuaire (tenant)"
@@ -254,7 +254,7 @@ function Partage() {
   return (
     <div className="carte">
       <span className="puce puce--indigo" style={{ alignSelf: 'flex-start' }}>Partager</span>
-      <h2 className="titre-m">Be Happi sur un téléphone</h2>
+      <h2 className="titre-m">La Tour sur un téléphone</h2>
       <QrInstallation lien={lienInstallation(adresseApp(), ecole)} texte={TEXTE_QR} texteMobile={TEXTE_QR_MOBILE} />
       <details className="replie">
         <summary>Pour l’IT : le paquet Teams</summary>

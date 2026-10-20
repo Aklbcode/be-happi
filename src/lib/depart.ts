@@ -1,4 +1,4 @@
-// Démarrage commun à Be Happi et à Décale : choisir les réglages de l'école (onglet Teams, lien
+// Démarrage commun à La Tour et à Décale : choisir les réglages de l'école (onglet Teams, lien
 // d'installation, appareil) avant de charger les données. Chaque app affiche sa propre confirmation.
 
 import { useEffect, useState } from 'react';

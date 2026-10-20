@@ -14,6 +14,7 @@ import { moment, suiviDuProf } from '../logic/suivi';
 import { remarquesProf } from '../logic/remarques';
 import { Remarques } from '../ui/Remarques';
 import { BoutonTheme, useMoi } from '../ui/Moi';
+import { Tour } from '../ui/Marque';
 
 const ICONES_INFO: Record<string, string> = { Info: 'note', Retard: 'horloge', 'Éducateur absent': 'gens', 'Changement de local': 'porte' };
 
@@ -166,7 +167,12 @@ export function Aujourdhui() {
     <section className="ecran" aria-label="Aujourd'hui">
       <header className="entete">
         <div className="pile grandit">
-          <p className="sous-titre">{dateLongue(maintenant).replace(/^./, (x) => x.toUpperCase())}</p>
+          <p className="sous-titre sous-titre--marque">
+            <span className="marque-mobile">
+              <Tour taille={22} /> <b>la tour</b>
+            </span>
+            {dateLongue(maintenant).replace(/^./, (x) => x.toUpperCase())}
+          </p>
           <h1 className="salut">Bonjour {ds.moi.prenom || 'à toi'}</h1>
         </div>
         <div className="rangee">
@@ -253,7 +259,7 @@ export function Aujourdhui() {
                 <strong className="fort">{x.classe}</strong> · {x.trajet}
                 {x.local ? ` · local ${x.local}` : ''}
               </span>
-              {x.statut === 'En attente' && <span className="petit">L'éducateur la voit dans Be Happi et dans Power Apps.</span>}
+              {x.statut === 'En attente' && <span className="petit">L'éducateur la voit dans La Tour et dans Power Apps.</span>}
               {x.commentaire && (
                 <span className="texte">
                   « {x.commentaire} »{x.par ? ` · ${x.par}` : ''}
@@ -367,7 +373,7 @@ export function Aujourdhui() {
         </p>
         <p className="texte">Dès que l'école aura activé la connexion, l'app lira directement les listes SharePoint (horaires, absences, réservations…).</p>
         <a className="lien-action" href={lien('connexion')} onClick={() => setInfoDemo(false)}>
-          Relier Be Happi à l’école (mise en service)
+          Relier La Tour à l’école (mise en service)
         </a>
         <div className="rangee">
           <button

@@ -1,7 +1,7 @@
-// Démo de Décale : la démo de Be Happi (données inventées), avec deux absences de plus pour que
+// Démo de Décale : la démo de La Tour (données inventées), avec deux absences de plus pour que
 // la semaine de Camille Moreau montre ce que le moteur sait faire : plusieurs plans possibles, dont
 // un qui combine ses deux dernières heures du vendredi, et une heure libérée déjà reprise par un
-// collègue. Rien de réel : mêmes noms inventés que la démo de Be Happi.
+// collègue. Rien de réel : mêmes noms inventés que la démo de La Tour.
 
 import type { Dataset } from '../data/types';
 import { iso, plusJoursIso } from '../lib/calendar';

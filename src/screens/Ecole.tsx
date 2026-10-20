@@ -125,7 +125,7 @@ export function Ecole() {
             <Icon nom="qr" />
           </span>
           <span className="pile grandit">
-            <span className="titre-s">Be Happi sur ton téléphone</span>
+            <span className="titre-s">La Tour sur ton téléphone</span>
             <span className="petit">Un QR code à scanner, déjà relié à l’école</span>
           </span>
           <Icon nom="droite" />
@@ -145,10 +145,10 @@ export function Ecole() {
         </a>
       )}
 
-      <p className="petit" style={{ textAlign: 'center' }}>Be Happi · version {__VERSION__} · IPES Tubize</p>
+      <p className="petit" style={{ textAlign: 'center' }}>La Tour · version {__VERSION__} · IPES Tubize</p>
 
       {ecole && (
-        <Feuille ouverte={telephone} onFermer={() => setTelephone(false)} titre="Be Happi sur ton téléphone">
+        <Feuille ouverte={telephone} onFermer={() => setTelephone(false)} titre="La Tour sur ton téléphone">
           <h2 className="titre-l">Sur ton téléphone</h2>
           <QrInstallation lien={lienInstallation(adresseApp(), ecole)} texte={TEXTE_QR} texteMobile={TEXTE_QR_MOBILE} />
           <button className="bouton bouton--sec" onClick={() => setTelephone(false)}>

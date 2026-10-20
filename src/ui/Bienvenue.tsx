@@ -52,11 +52,11 @@ export function Bienvenue() {
   const espaces = PROFILS.filter((p) => profils.includes(p.id));
   const liste = !demo && profils.length === 1 && profils[0] === 'eleve' ? NOUVEAUTES_ELEVE : NOUVEAUTES;
   return (
-    <Feuille ouverte onFermer={fermer} titre="Bienvenue dans Be Happi 1.0">
+    <Feuille ouverte onFermer={fermer} titre="Bienvenue dans La Tour">
       <span className="bulle-chargement" aria-hidden="true">
         <Icon nom="etincelle" taille={30} />
       </span>
-      <span className="sous-titre">Be Happi 1.0 · IPES Tubize</span>
+      <span className="sous-titre">La Tour · IPES Tubize</span>
       <h2 className="titre-l">Le cerveau de l’école, dans ta poche</h2>
       <ul className="nouveautes">
         {liste.map((n) => (
