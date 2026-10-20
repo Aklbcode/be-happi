@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 export const ECRANS = [
   'aujourdhui', 'horaire', 'happi', 'locaux', 'ecole', 'deplacer', 'connexion', 'validations',
   'pilotage', 'ouest', 'collab', 'absences', 'publier', 'infos', 'direction', 'technique', 'signaler',
-  'materiel', 'eleve', 'semaine', 'ecran', 'qr',
+  'materiel', 'eleve', 'semaine', 'ecran', 'qr', 'cap',
 ] as const;
 
 export type Ecran = (typeof ECRANS)[number];

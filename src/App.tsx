@@ -32,6 +32,7 @@ import { Materiel } from './screens/Materiel';
 import { Eleve } from './screens/Eleve';
 import { EcranHall } from './screens/EcranHall';
 import { QrPortes } from './screens/QrPortes';
+import { CapReussite } from './screens/CapReussite';
 
 function Coquille() {
   const route = useRoute();
@@ -73,6 +74,7 @@ function Coquille() {
       case 'semaine': vue = <Eleve vue="semaine" />; break;
       case 'ecran': vue = <EcranHall params={p} />; break;
       case 'qr': vue = <QrPortes />; break;
+      case 'cap': vue = <CapReussite />; break;
       default: vue = <Aujourdhui />;
     }
 

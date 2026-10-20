@@ -97,7 +97,7 @@ test('SharePoint · Un prof reconnu par la colonne Email.', async () => {
   assert.equal(prof.coursEleves.length, 2, 'horaire élève déduit de l’horaire');
   assert.equal(prof.profs.find((p) => p.nom === 'LAMBERT')?.email, 'luc.lambert@ecole.example');
   assert.ok(!JSON.stringify(prof.absences).includes('Maladie'), 'le motif n’est jamais lu');
-  assert.deepEqual(prof.absentes, ['decisions']);
+  assert.deepEqual(prof.absentes, ['decisions', 'capReussite', 'resultats']);
 });
 
 test('SharePoint · Une éducatrice (liste Roles), sans horaire.', async () => {

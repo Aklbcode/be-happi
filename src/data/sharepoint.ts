@@ -5,7 +5,7 @@ import { config } from '../config';
 import { jeton } from '../lib/auth';
 import { LOCAUX } from './locaux';
 import { jour, localDans, num, profilsAvec, reconnaitre, rolesDe, sansAccents, txt, val, versUtcMidi, ALIAS, type Champs } from './champs';
-import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Signalement } from './types';
+import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement } from './types';
 import { iso, plusJoursIso } from '../lib/calendar';
 import { repondreSimulation, simulationActive } from './simulation';
 
@@ -146,6 +146,40 @@ const versSignalement = (it: Item): Signalement => {
  * D'abord les listes Profs et Roles : elles disent si c'est un membre du personnel. Un élève ne
  * charge ensuite que l'horaire des classes (sans nom de prof), les changements publiés et ses signalements.
  */
+function versSeance(it: Item): SeanceCR {
+  const C = config.champs.capReussite;
+  const o = txt(val(it.fields, C.origine));
+  const st = txt(val(it.fields, C.statut));
+  return {
+    id: it.id,
+    etag: it.eTag,
+    classe: txt(val(it.fields, C.classe)),
+    eleve: txt(val(it.fields, C.eleve)) || undefined,
+    eleveMail: txt(val(it.fields, C.eleveMail)) || undefined,
+    date: jour(val(it.fields, C.date)),
+    h: num(val(it.fields, C.heure)),
+    matiere: txt(val(it.fields, C.matiere)),
+    origine: /chec/i.test(o) ? 'Échec' : /prof/i.test(o) ? 'Prof' : 'Élève',
+    statut: /pris/i.test(st) ? 'Prise' : /annul/i.test(st) ? 'Annulée' : 'Disponible',
+    prof: txt(val(it.fields, C.prof)) || undefined,
+    local: txt(val(it.fields, C.local)) || undefined,
+    creeLe: it.createdDateTime,
+  };
+}
+
+function versResultat(it: Item): Resultat {
+  const C = config.champs.resultats;
+  const e = val(it.fields, C.echec);
+  return {
+    eleve: txt(val(it.fields, C.eleve)),
+    eleveMail: txt(val(it.fields, C.eleveMail)) || undefined,
+    classe: txt(val(it.fields, C.classe)),
+    matiere: txt(val(it.fields, C.matiere)),
+    periode: txt(val(it.fields, C.periode)) || undefined,
+    echec: e === true || /^(oui|true|1|x|échec|echec)$/i.test(txt(e)),
+  };
+}
+
 export async function chargerSharePoint(email: string, prenom: string): Promise<Dataset> {
   const C = config.champs;
   const L = config.listes;
@@ -181,7 +215,7 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
 
   if (!personnel) {
     // Pas de liste du personnel pour un élève : l'horaire des classes, les changements publiés, ses signalements.
-    const [hel, chg, sig] = await Promise.all([itemsDe(L.horairesEleves), itemsDe(L.changements), itemsDe(L.signalements)]);
+    const [hel, chg, sig, cr] = await Promise.all([itemsDe(L.horairesEleves), itemsDe(L.changements), itemsDe(L.signalements), itemsDe(L.capReussite)]);
     const coursEleves: CoursEleve[] = hel.map((it) => {
       const classe = txt(val(it.fields, C.horairesEleves.classes));
       return {
@@ -209,13 +243,16 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
       profs: [],
       changements: changementsDe(chg),
       materiel: [],
+      // Cap Réussite : seulement ses propres lignes (la liste ne devrait d'ailleurs montrer que celles-là).
+      capReussite: cr.map(versSeance).filter((x) => (x.eleveMail ?? '').toLowerCase() === mail && x.date >= plusJoursIso(iso(new Date()), -14)),
+      resultats: [],
       absentes,
     };
   }
 
-  const [hor, abs, res, dep, inf, sig, dec, mat, chg] = await Promise.all([
+  const [hor, abs, res, dep, inf, sig, dec, mat, chg, cr, rsl] = await Promise.all([
     itemsDe(L.horaires), itemsDe(L.absences), itemsDe(L.reservations), itemsDe(L.deplacements), itemsDe(L.infos),
-    itemsDe(L.signalements), itemsDe(L.decisions), itemsDe(L.materiel), itemsDe(L.changements),
+    itemsDe(L.signalements), itemsDe(L.decisions), itemsDe(L.materiel), itemsDe(L.changements), itemsDe(L.capReussite), itemsDe(L.resultats),
   ]);
 
   const cours: Cours[] = hor.map((it) => {
@@ -316,6 +353,8 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
     profs,
     changements: changementsDe(chg),
     materiel,
+    capReussite: cr.map(versSeance).filter((x) => x.date >= depuis),
+    resultats: rsl.map(versResultat).filter((x) => x.eleve && x.matiere),
     absentes,
   };
 }
@@ -359,6 +398,32 @@ async function supprimer(nomListe: string, idItem: string): Promise<void> {
   } catch (e) {
     // Déjà supprimée ailleurs : le résultat voulu est atteint.
     if (!(e instanceof ErreurGraph && e.status === 404)) throw e;
+  }
+}
+
+/** Cap Réussite : une ligne (disponibilité d'un élève, ou séance prise par un prof). */
+export async function enregistrerSeance(x: SeanceCR): Promise<string> {
+  const C = config.champs.capReussite;
+  return creer(config.listes.capReussite, {
+    [C.classe]: x.classe, [C.date]: versUtcMidi(x.date), [C.heure]: x.h, [C.matiere]: x.matiere, [C.origine]: x.origine, [C.statut]: x.statut,
+    ...(x.eleve ? { [C.eleve]: x.eleve } : {}), ...(x.eleveMail ? { [C.eleveMail]: x.eleveMail } : {}),
+    ...(x.prof ? { [C.prof]: x.prof } : {}), ...(x.local ? { [C.local]: x.local } : {}),
+  });
+}
+
+/** Cap Réussite : prendre une disponibilité (prof, local) ou l'annuler, sans écraser un autre prof. */
+export async function modifierSeance(x: SeanceCR, champs: Partial<Pick<SeanceCR, 'statut' | 'prof' | 'local'>>): Promise<void> {
+  if (!x.id) throw new Error('Ligne sans identifiant.');
+  const C = config.champs.capReussite;
+  const f: Champs = {};
+  if (champs.statut) f[C.statut] = champs.statut;
+  if (champs.prof !== undefined) f[C.prof] = champs.prof;
+  if (champs.local !== undefined) f[C.local] = champs.local;
+  try {
+    await modifier(config.listes.capReussite, x.id, f, x.etag);
+  } catch (e) {
+    if (e instanceof ErreurGraph && e.status === 412) throw new Error('Un autre prof vient de prendre cet élève.');
+    throw e;
   }
 }
 

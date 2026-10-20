@@ -3,13 +3,15 @@
 // un local en panne, un déplacement déjà validé, des propositions de collègues à valider
 // (dont une qui ne passe plus les contrôles) et un refus récent avec son motif.
 
-import type { Absence, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Signalement } from './types';
+import type { Absence, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement } from './types';
 import { LOCAUX } from './locaux';
 import { MIDI, conge, deIso, estJourDeCours, iso, jourSemaine, jourSemaineIso, minutesDe, plusJours, plusJoursIso, prochainJourDeCours } from '../lib/calendar';
 import { memesClasses } from '../logic/horaire';
 import { changementsDuJour } from '../logic/publication';
 
 export const MOI_DEMO = 'MOREAU';
+/** L'élève de la démo (vue élève de Cap Réussite) : adresse inventée. */
+export const ELEVE_DEMO_MAIL = 'eleve.demo@eleves.ecole.example';
 
 /** Le lundi de cours qui sert de décor à la démo, et l'heure simulée. */
 export function momentDemo(reel: Date): Date {
@@ -290,6 +292,30 @@ export function datasetDemo(moment: Date): Dataset {
     vus.add(cle);
     coursEleves.push({ jour: c.jour, h: c.h, classes: c.classes, matiere: c.matiere, local: c.local });
   }
+  // Cap Réussite (élèves inventés). Lundi H6, la 3TQA (Delvaux absent) et la 1CA (Mertens absente)
+  // sont à l'étude ; Camille est en fourche et donne Sciences.
+  const mailEl = (n: string) => `${n.toLowerCase().replace(/[^a-z.]/g, '')}@eleves.ecole.example`;
+  const ilYa3 = jourOuvre(moment, -3);
+  const capReussite: SeanceCR[] = [
+    { id: 'cr-1', classe: '3TQA', eleve: 'Léa D.', eleveMail: mailEl('lea.d'), date: lundi, h: 6, matiere: SC, origine: 'Élève', statut: 'Disponible', creeLe: `${lundi}T08:02:00` },
+    { id: 'cr-2', classe: '3TQA', eleve: 'Tom V.', eleveMail: mailEl('tom.v'), date: lundi, h: 6, matiere: SC, origine: 'Élève', statut: 'Disponible', creeLe: `${lundi}T09:40:00` },
+    { id: 'cr-3', classe: '1CA', eleve: 'Yasmine A.', eleveMail: mailEl('yasmine.a'), date: lundi, h: 6, matiere: 'Français', origine: 'Élève', statut: 'Disponible', creeLe: `${lundi}T08:15:00` },
+    // Déjà données (elles remplissent la feuille de prestations).
+    { id: 'cr-4', classe: '3TQA', eleve: 'Élève (démo)', eleveMail: ELEVE_DEMO_MAIL, date: ilYa3, h: 6, matiere: SC, origine: 'Élève', statut: 'Prise', prof: MOI_DEMO, local: 'BF108' },
+    { id: 'cr-5', classe: '3TQA', eleve: 'Noah K.', eleveMail: mailEl('noah.k'), date: ilYa3, h: 6, matiere: SC, origine: 'Échec', statut: 'Prise', prof: MOI_DEMO, local: 'BF108' },
+    { id: 'cr-6', classe: '2SD', date: jourOuvre(moment, -8), h: 3, matiere: SC, origine: 'Prof', statut: 'Prise', prof: MOI_DEMO, local: 'BC206' },
+    { id: 'cr-7', classe: '1CA', eleve: 'Inès B.', eleveMail: mailEl('ines.b'), date: jourOuvre(moment, -2), h: 4, matiere: SC, origine: 'Échec', statut: 'Prise', prof: 'KABONGO', local: 'BT006' },
+    { id: 'cr-8', classe: '5TQB', date: jourOuvre(moment, -5), h: 8, matiere: 'Géographie', origine: 'Prof', statut: 'Prise', prof: 'LAMBERT', local: 'BF110' },
+    { id: 'cr-9', classe: '1CA', eleve: 'Sam R.', eleveMail: mailEl('sam.r'), date: jourOuvre(moment, -4), h: 2, matiere: 'Français', origine: 'Élève', statut: 'Prise', prof: 'DUMONT', local: 'BF211' },
+  ];
+  // Export des bulletins (inventé) : seulement « en échec » ou non, jamais de note.
+  const resultats: Resultat[] = [
+    { eleve: 'Noah K.', eleveMail: mailEl('noah.k'), classe: '3TQA', matiere: SC, periode: 'Bulletin de Toussaint', echec: true },
+    { eleve: 'Inès B.', eleveMail: mailEl('ines.b'), classe: '1CA', matiere: SC, periode: 'Bulletin de Toussaint', echec: true },
+    { eleve: 'Sam R.', eleveMail: mailEl('sam.r'), classe: '1CA', matiere: 'Français', periode: 'Bulletin de Toussaint', echec: true },
+    { eleve: 'Léa D.', eleveMail: mailEl('lea.d'), classe: '3TQA', matiere: 'Mathématiques', periode: 'Bulletin de Toussaint', echec: true },
+    { eleve: 'Tom V.', eleveMail: mailEl('tom.v'), classe: '3TQA', matiere: SC, periode: 'Bulletin de Toussaint', echec: false },
+  ];
   const ds: Dataset = {
     moi: { nom: MOI_DEMO, prenom: 'Camille', email: moiMail, roles: [], profils: ['prof', 'educateur', 'secretariat', 'direction', 'technique', 'eleve'] },
     cours,
@@ -305,6 +331,8 @@ export function datasetDemo(moment: Date): Dataset {
     profs,
     changements: [],
     materiel,
+    capReussite,
+    resultats,
     absentes: [],
   };
   // Publiée à 8h05 par le secrétariat, avant les propositions du matin.

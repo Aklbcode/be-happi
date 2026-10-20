@@ -30,6 +30,7 @@ export const GROUPES: { titre: string; services: Service[] }[] = [
       { ecran: 'locaux', titre: 'Locaux libres', sous: 'Rangés comme sur le terrain', icone: 'porte' },
       { ecran: 'materiel', titre: 'Matériel', sous: 'Tablettes, PC, projecteurs', icone: 'tablette' },
       { ecran: 'ouest', titre: 'Où est ?', sous: 'Un collègue, une classe, un local', icone: 'loupe' },
+      { ecran: 'cap', titre: 'Cap Réussite', sous: 'Une remédiation au lieu de l’étude', icone: 'drapeau' },
       { ecran: 'collab', titre: 'Collab', sous: 'Une heure commune pour se réunir', icone: 'agenda' },
       { ecran: 'signaler', titre: 'Signaler', sous: 'Un problème dans un local', icone: 'outil' },
     ],

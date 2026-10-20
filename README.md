@@ -57,6 +57,8 @@ L'app lit et écrit directement les listes SharePoint de l'app Power Apps : Hora
 | Materiel | réserver un rack | Title (prof), DateRes, Heure, Rack, Classe |
 | Changements | « Publier pour les élèves » : les lignes du jour sont retirées puis réécrites | Title, DateChg, Heure, Classe, TypeChg |
 | Decisions | journal des validations et refus (facultative) | voir plus bas |
+| CapReussite | Cap Réussite : disponibilités des élèves et séances prises (facultative) | voir « Cap Réussite » |
+| Resultats | Cap Réussite : export des bulletins, matières en échec (facultative, personnel seulement) | voir « Cap Réussite » |
 
 **Colonne facultative « Reponse »** (Signalements, texte) : si elle existe, le service technique peut laisser un mot que la personne qui a signalé voit dans l'app.
 
@@ -88,6 +90,25 @@ L'écran **École → Connexion → Vérifier les listes** contrôle toutes les 
 Sans réglages, l'app démarre en **mode démo** (données fictives, noms inventés, adresses en `@ecole.example`) ; les messages et réunions Teams y sont montrés en aperçu au lieu d'ouvrir Teams.
 
 Ce dépôt est public et ne contient ni donnée personnelle ni réglage de l'école : la démo utilise un horaire et des noms inventés, et les seules données de l'école présentes sont la liste des locaux et leur équipement. L'adresse du site SharePoint et les identifiants Microsoft de l'école n'y sont jamais écrits (voir « Mise en service »).
+
+## Cap Réussite : une remédiation au lieu de l'étude
+
+Onglet **Réussite** (prof, élève, direction ; dans École pour les autres).
+
+- **Élève** : à une heure d'étude publiée pour sa classe, il se dit **disponible** dans une matière. Il voit si un prof l'a pris (prof, local) et peut retirer sa demande tant que personne ne l'a prise.
+- **Prof** : ses heures **en fourche** des 5 prochains jours où des élèves sont à l'étude : d'abord ceux qui se sont dits disponibles dans sa matière, puis ceux que l'app propose parce qu'ils sont **en échec** dans sa matière (liste Resultats), ou une classe entière. « Prendre » réserve un local libre près de ses cours ; un message Teams aux élèves est prêt. Des élèves pris seuls ne changent rien pour leur classe, qui reste à l'étude ; une classe entière est annoncée « remédiation » à la publication.
+- **Feuille de prestations** : chaque séance prise (50 min) s'y ajoute toute seule, par mois, avec téléchargement pour Excel. La direction et le secrétariat voient les totaux de tous les profs ; l'éducateur voit où sont les élèves en remédiation aujourd'hui. Le fichier compte les heures et le nombre d'élèves, **sans noms ni résultats**.
+
+**Deux listes facultatives à créer** (noms de colonnes écrits exactement ainsi) :
+
+| Liste | Colonnes |
+| --- | --- |
+| CapReussite | Title (classe), Eleve, EleveMail, DateCR (date), Heure (nombre), Matiere, Origine (Élève / Prof / Échec), Statut (Disponible / Prise / Annulée), Prof, Local |
+| Resultats | Title (élève), EleveMail, Classe, Matiere, Periode, EnEchec (oui/non) |
+
+**Droits conseillés** :
+- **CapReussite** : *Paramètres de la liste → Paramètres avancés* : lecture « **éléments créés par l'utilisateur** » et modification « **éléments créés par l'utilisateur** ». Élèves : *Collaboration* (ils ne voient que leurs lignes). Personnel : un niveau d'autorisation qui comprend « **Remplacer le comportement de la liste** » (par ex. *Création*), sinon les profs ne verraient pas les demandes des élèves : à vérifier par l'IT.
+- **Resultats** : **personnel seulement** (aucun accès élève). Elle est remplie par un export des bulletins fait par la direction ou l'IT (une ligne par élève et matière, seulement « en échec » oui/non, jamais de note). Sans elle, Cap Réussite marche, sans les propositions automatiques.
 
 ## Décale : le meilleur plan de déplacements de ta semaine
 
@@ -149,6 +170,7 @@ En ligne de commande, même résultat : `python3 scripts/teams_zip.py https://ak
 2. **Envoyer** l'*ID de l'annuaire (locataire)* et l'*ID d'application (client)* (page *Vue d'ensemble* de l'application) à la personne qui fait la mise en service.
 3. **Importer le paquet Teams** reçu (`be-happi-teams.zip`) dans le centre d'administration Teams, puis le rendre disponible.
 4. Vérifier que les élèves n'ont **pas** accès en lecture aux listes du personnel (voir « Qui voit quoi »).
+5. Pour **Cap Réussite** (facultatif) : créer les listes CapReussite et Resultats avec leurs droits (voir « Cap Réussite »).
 
 Les messages et réunions Teams passent par des **liens Teams** (la conversation ou la réunion s'ouvre déjà remplie, la personne n'a plus qu'à envoyer) : aucune autorisation supplémentaire.
 

@@ -45,6 +45,8 @@ const P: Record<string, string[]> = {
   partage: ['M12 15V4', 'M8 7.5L12 3.5l4 4', 'M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12'],
   sablier: ['M7 3.5h10', 'M7 20.5h10', 'M8 3.5c0 4 8 5 8 8.5s-8 4.5-8 8.5', 'M16 3.5c0 4-8 5-8 8.5s8 4.5 8 8.5'],
   bouclier: ['M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z', 'M9 12l2 2 4-4'],
+  // Cap Réussite : un fanion planté sur un sommet.
+  drapeau: ['M6 21V3.5', 'M6 4h11.5l-2.5 4 2.5 4H6', 'M3.5 21h7'],
   // La tour de l'IPES : toit conique, couronne de fenêtres, fût en briques et l'enseigne.
   tour: ['M5.5 8.5L12 3.5l6.5 5', 'M12 3.5V2', 'M6 8.5h12v3H6z', 'M9 8.5v3', 'M12 8.5v3', 'M15 8.5v3', 'M6.5 11.5V21h11v-9.5', 'M9.5 15.5h5'],
 };

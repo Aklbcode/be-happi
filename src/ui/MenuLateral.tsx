@@ -49,7 +49,7 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
         {profils.length > 1 && <Icon nom="echange" taille={18} />}
       </button>
       <nav className="menu-nav">
-        {p.onglets.map((o) => lienMenu(o.ecran, o.libelle, o.icone))}
+        {p.onglets.map((o) => lienMenu(o.ecran, o.long ?? o.libelle, o.icone))}
         {profils.includes('prof') && profil !== 'eleve' && (
           <a href="./decale/" className="menu-lien">
             <Icon nom="echange" taille={20} />

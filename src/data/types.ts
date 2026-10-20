@@ -145,6 +145,40 @@ export interface CoursEleve {
   local: string;
 }
 
+/**
+ * Cap Réussite : une remédiation pendant une heure d'étude (liste « CapReussite »).
+ * - « Disponible » : un élève à l'étude se dit prêt pour une remédiation dans une matière ;
+ * - « Prise » : un prof (dans sa fourche) le prend, avec un local réservé ;
+ * - « Annulée » : retirée par l'élève ou le prof.
+ * Une ligne « Prise » sans élève = toute la classe. Les lignes « Prise » font la feuille de prestations.
+ */
+export interface SeanceCR {
+  id?: string;
+  classe: string;
+  eleve?: string;
+  eleveMail?: string;
+  date: string;
+  h: number;
+  matiere: string;
+  /** Qui l'a demandée : l'élève, le prof, ou l'app (élève en échec dans la matière). */
+  origine: 'Élève' | 'Prof' | 'Échec';
+  statut: 'Disponible' | 'Prise' | 'Annulée';
+  prof?: string;
+  local?: string;
+  creeLe?: string;
+  etag?: string;
+}
+
+/** Résultat d'un élève dans une matière (liste « Resultats », export des bulletins ; personnel seulement). */
+export interface Resultat {
+  eleve: string;
+  eleveMail?: string;
+  classe: string;
+  matiere: string;
+  periode?: string;
+  echec: boolean;
+}
+
 export interface Moi {
   nom: string;         // nom dans Horaires (vide pour un élève)
   prenom: string;
@@ -171,6 +205,10 @@ export interface Dataset {
   profs: FicheProf[];
   changements: Changement[];
   materiel: ResaMateriel[];
+  /** Cap Réussite : remédiations (facultatif, liste « CapReussite »). */
+  capReussite?: SeanceCR[];
+  /** Résultats des bulletins (facultatif, liste « Resultats », personnel seulement). */
+  resultats?: Resultat[];
   /** Listes absentes du site (clés de config.listes) : leurs écrans l'expliquent au lieu d'échouer. */
   absentes: string[];
 }

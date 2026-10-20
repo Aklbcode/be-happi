@@ -35,10 +35,18 @@ export const config = {
     changements: 'Changements',
     /** Horaire des élèves, sans nom de prof (lu seulement en vue élève). */
     horairesEleves: 'HorairesEleves',
+    /**
+     * FACULTATIVE (Cap Réussite) : les remédiations. Les élèves y écrivent leurs disponibilités ;
+     * réglage conseillé : « lecture et modification : seulement leurs éléments » ; le personnel
+     * a un niveau qui « remplace le comportement de la liste » (voir README, Cap Réussite).
+     */
+    capReussite: 'CapReussite',
+    /** FACULTATIVE (Cap Réussite) : export des bulletins, matières en échec. Personnel seulement. */
+    resultats: 'Resultats',
   },
 
   /** Listes dont l'absence n'est pas une erreur. */
-  listesFacultatives: ['decisions'] as string[],
+  listesFacultatives: ['decisions', 'capReussite', 'resultats'] as string[],
   /** Colonnes dont l'absence n'est pas une erreur (liste → champs de config.champs). */
   colonnesFacultatives: { signalements: ['reponse', 'urgence'], absences: ['motif'], reservations: ['absent'] } as Record<string, string[]>,
 
@@ -91,6 +99,11 @@ export const config = {
     materiel: { prof: 'Title', date: 'DateRes', heure: 'Heure', rack: 'Rack', classe: 'Classe' },
     changements: { titre: 'Title', date: 'DateChg', heure: 'Heure', classe: 'Classe', type: 'TypeChg' },
     horairesEleves: { jour: 'JourNum', heure: 'Heure', classes: 'Classes', matiere: 'Matiere', local: 'Local' },
+    capReussite: {
+      classe: 'Title', eleve: 'Eleve', eleveMail: 'EleveMail', date: 'DateCR', heure: 'Heure', matiere: 'Matiere',
+      origine: 'Origine', statut: 'Statut', prof: 'Prof', local: 'Local',
+    },
+    resultats: { eleve: 'Title', eleveMail: 'EleveMail', classe: 'Classe', matiere: 'Matiere', periode: 'Periode', echec: 'EnEchec' },
   },
 };
 

@@ -1,15 +1,16 @@
 // État global : données (démo ou SharePoint), heure courante, espace choisi, actions et messages.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Absence, Dataset, Decision, Deplacement, Info, Profil, Reservation, ResaMateriel, Signalement } from './types';
-import { datasetDemo, momentDemo } from './demo';
+import type { Absence, Dataset, Decision, Deplacement, Info, Profil, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement } from './types';
+import { ELEVE_DEMO_MAIL, datasetDemo, momentDemo } from './demo';
 import { peutValiderAvec, peutVoirAvec } from './champs';
 import { RACKS } from './materiel';
 import { sharepointConfigure } from '../config';
 import { simulationActive } from './simulation';
 import { dernierePeriodeFinie, deIso, estJourDeCours, iso, jourSemaineIso, minutesDe, plusJoursIso, situation } from '../lib/calendar';
-import { memeDeplacement, nomAffiche } from '../logic/horaire';
-import { verifierDeplacement } from '../logic/deplacements';
+import { coursDuProf, memeDeplacement, nomAffiche } from '../logic/horaire';
+import { choisirLocal, verifierDeplacement } from '../logic/deplacements';
+import { nomEleve, texteReservation, type Seance } from '../logic/capreussite';
 import { changementsDuJour } from '../logic/publication';
 import { priorites as lirePriorites, type Priorites } from '../logic/priorites';
 import { lienChatTeams, lienReunionTeams, type MessageTeams } from '../lib/liens';
@@ -60,6 +61,16 @@ export interface Store {
   annulerMateriel: (m: ResaMateriel) => Promise<void>;
   /** « Publier pour les élèves » pour une journée : renvoie le nombre de lignes publiées. */
   publier: (date: string) => Promise<number>;
+  /** Cap Réussite : l'adresse de l'élève connecté (en démo, un élève inventé). */
+  mailEleve: string;
+  /** Cap Réussite (élève) : « je suis disponible pour une remédiation » à cette heure d'étude. */
+  dispoRemediation: (x: { classe: string; date: string; h: number; matiere: string }) => Promise<void>;
+  /** Cap Réussite (élève) : retirer sa disponibilité tant qu'aucun prof ne l'a prise. */
+  annulerDispo: (x: SeanceCR) => Promise<void>;
+  /** Cap Réussite (prof) : prendre des élèves (ou des classes entières) dans un local libre ; renvoie le local. */
+  prendreRemediation: (x: { date: string; h: number; matiere: string; demandes: SeanceCR[]; echecs: Resultat[]; classes: string[] }) => Promise<string>;
+  /** Cap Réussite (prof) : annuler une séance prise (les élèves qui l'avaient demandée redeviennent disponibles). */
+  annulerSeance: (s: Seance) => Promise<void>;
   /** Ouvre Teams (message ou réunion préremplis) ; en démo, montre l'aperçu. */
   ouvrirTeams: (m: MessageTeams) => void;
   apercuTeams: MessageTeams | null;
@@ -433,6 +444,105 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
     [demo],
   );
 
+  // ——— Cap Réussite ———
+  const mailEleve = demo ? ELEVE_DEMO_MAIL : (ds?.moi.email ?? '').toLowerCase();
+  const memeLigne = (a: SeanceCR, b: SeanceCR) => a === b || (!!a.id && a.id === b.id);
+
+  const dispoRemediation = useCallback(
+    async (x: { classe: string; date: string; h: number; matiere: string }) => {
+      if (!ds) return;
+      if (!x.classe) throw new Error('Choisis d’abord ta classe.');
+      const deja = (ds.capReussite ?? []).some((y) => (y.eleveMail ?? '').toLowerCase() === mailEleve && y.date === x.date && y.h === x.h && y.statut !== 'Annulée');
+      if (deja) throw new Error('Tu es déjà inscrit·e à cette heure.');
+      const ligne: SeanceCR = {
+        ...x,
+        eleve: demo ? 'Élève (démo)' : nomEleve(ds.moi.prenom, ds.moi.email),
+        eleveMail: mailEleve,
+        origine: 'Élève',
+        statut: 'Disponible',
+        creeLe: horodatage(),
+      };
+      ligne.id = demo ? `demo-cr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` : await (await sp()).enregistrerSeance(ligne);
+      maj((d) => ({ ...d, capReussite: [...(d.capReussite ?? []), ligne] }));
+    },
+    [demo, ds, horodatage, mailEleve, maj, sp],
+  );
+
+  const annulerDispo = useCallback(
+    async (x: SeanceCR) => {
+      if (x.statut !== 'Disponible') throw new Error('Un prof l’a déjà prise : parle-lui directement.');
+      if (!demo) await (await sp()).modifierSeance(x, { statut: 'Annulée' });
+      maj((d) => ({ ...d, capReussite: (d.capReussite ?? []).map((y) => (memeLigne(y, x) ? { ...y, statut: 'Annulée' } : y)) }));
+    },
+    [demo, maj, sp],
+  );
+
+  const prendreRemediation = useCallback(
+    async (x: { date: string; h: number; matiere: string; demandes: SeanceCR[]; echecs: Resultat[]; classes: string[] }) => {
+      if (!ds) throw new Error('Données pas encore chargées.');
+      const moi = ds.moi.nom;
+      const nb = x.demandes.length + x.echecs.length;
+      if (!nb && !x.classes.length) throw new Error('Choisis au moins un élève ou une classe.');
+      // Le local : d'abord ceux où je donne cours ce jour-là (le plus proche de l'heure d'abord).
+      const preferes = coursDuProf(ds, moi, x.date, true)
+        .sort((a, b) => Math.abs(a.h - x.h) - Math.abs(b.h - x.h))
+        .map((c) => c.local)
+        .filter(Boolean);
+      const local = choisirLocal(ds, moi, x.date, x.h, preferes);
+      if (!local) throw new Error('Aucun local libre à cette heure.');
+      const classeEntiere = x.classes.length > 0;
+      const classes = classeEntiere ? x.classes : [...new Set([...x.demandes.map((d) => d.classe), ...x.echecs.map((e) => e.classe)])];
+      const nouvelles: SeanceCR[] = [
+        ...x.echecs.map((e): SeanceCR => ({
+          classe: e.classe, eleve: e.eleve, eleveMail: e.eleveMail, date: x.date, h: x.h, matiere: x.matiere, origine: 'Échec', statut: 'Prise', prof: moi, local, creeLe: horodatage(),
+        })),
+        ...(classeEntiere ? x.classes.map((k): SeanceCR => ({ classe: k, date: x.date, h: x.h, matiere: x.matiere, origine: 'Prof', statut: 'Prise', prof: moi, local, creeLe: horodatage() })) : []),
+      ];
+      if (!demo) {
+        const api = await sp();
+        // D'abord les demandes : si un collègue vient d'en prendre une, on s'arrête avant de réserver.
+        for (const d of x.demandes) await api.modifierSeance(d, { statut: 'Prise', prof: moi, local });
+        for (const n of nouvelles) n.id = await api.enregistrerSeance(n);
+      } else nouvelles.forEach((n, i) => (n.id = `demo-cr-${Date.now()}-${i}`));
+      await reserver({ date: x.date, h: x.h, local, classe: texteReservation(classeEntiere, classes, nb), note: 'remédiation' });
+      maj((d) => ({
+        ...d,
+        capReussite: [
+          ...(d.capReussite ?? []).map((y) => (x.demandes.some((z) => memeLigne(y, z)) ? { ...y, statut: 'Prise' as const, prof: moi, local } : y)),
+          ...nouvelles,
+        ],
+      }));
+      if (!demo) await charger();
+      return local;
+    },
+    [demo, ds, charger, horodatage, maj, reserver, sp],
+  );
+
+  const annulerSeance = useCallback(
+    async (s: Seance) => {
+      if (!ds) return;
+      if (s.prof !== ds.moi.nom) throw new Error('Seul le prof de la séance peut l’annuler.');
+      // Une demande d'élève redevient disponible ; ce que le prof avait ajouté est annulé.
+      const retour = (y: SeanceCR): Partial<SeanceCR> => (y.origine === 'Élève' ? { statut: 'Disponible', prof: '', local: '' } : { statut: 'Annulée' });
+      if (!demo) {
+        const api = await sp();
+        for (const y of s.lignes) await api.modifierSeance(y, retour(y));
+      }
+      const resa = ds.reservations.find((r) => r.prof === s.prof && r.date === s.date && r.h === s.h && (r.note === 'remédiation' || /remédiation/i.test(r.classe)));
+      if (resa) await annulerReservation(resa);
+      maj((d) => ({
+        ...d,
+        capReussite: (d.capReussite ?? []).map((y) => {
+          if (!s.lignes.some((z) => memeLigne(y, z))) return y;
+          const r = retour(y);
+          return { ...y, ...r, prof: r.prof === '' ? undefined : y.prof, local: r.local === '' ? undefined : y.local };
+        }),
+      }));
+      if (!demo) await charger();
+    },
+    [demo, ds, annulerReservation, charger, maj, sp],
+  );
+
   const peutValider = demo ? profil === 'educateur' || profil === 'secretariat' : peutValiderAvec(ds?.moi.roles);
   const peutVoirValidations = demo || peutVoirAvec(ds?.moi.roles);
 
@@ -473,13 +583,18 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
       reserverMateriel,
       annulerMateriel,
       publier,
+      mailEleve,
+      dispoRemediation,
+      annulerDispo,
+      prendreRemediation,
+      annulerSeance,
       ouvrirTeams,
       apercuTeams,
       fermerApercuTeams: () => setApercuTeams(null),
       toast,
       montrerToast,
     }),
-    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, priorites, changerPriorites, reserver, annulerReservation, proposer, retirer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, ouvrirTeams, apercuTeams, toast, montrerToast],
+    [ds, demo, simulation, maintenant, aujourdhui, minutes, heureFinie, heurePassee, chargement, erreur, charger, profil, profils, changerProfil, classeEleve, changerClasseEleve, priorites, changerPriorites, reserver, annulerReservation, proposer, retirer, decider, peutValider, peutVoirValidations, encoderAbsences, modifierAbsence, supprimerAbsence, publierInfo, supprimerInfo, signaler, traiterSignalement, reserverMateriel, annulerMateriel, publier, mailEleve, dispoRemediation, annulerDispo, prendreRemediation, annulerSeance, ouvrirTeams, apercuTeams, toast, montrerToast],
   );
 
   return <Ctx.Provider value={valeur}>{children}</Ctx.Provider>;

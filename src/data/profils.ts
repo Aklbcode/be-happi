@@ -15,11 +15,12 @@ export interface DescriptionProfil {
   icone: string;
   accueil: Ecran;
   /** Les 5 onglets du bas (Happi toujours au milieu). */
-  onglets: { ecran: Ecran; libelle: string; icone: string }[];
+  onglets: { ecran: Ecran; libelle: string; icone: string; /** Libellé complet (menu sur ordinateur). */ long?: string }[];
 }
 
 const HAPPI = { ecran: 'happi' as Ecran, libelle: 'Happi', icone: 'etincelle' };
 const ECOLE = { ecran: 'ecole' as Ecran, libelle: 'École', icone: 'grille' };
+const CAP = { ecran: 'cap' as Ecran, libelle: 'Réussite', long: 'Cap Réussite', icone: 'drapeau' };
 
 export const PROFILS: DescriptionProfil[] = [
   {
@@ -33,7 +34,7 @@ export const PROFILS: DescriptionProfil[] = [
       { ecran: 'aujourdhui', libelle: "Aujourd'hui", icone: 'soleil' },
       { ecran: 'horaire', libelle: 'Horaire', icone: 'calendrier' },
       HAPPI,
-      { ecran: 'locaux', libelle: 'Locaux', icone: 'porte' },
+      CAP,
       ECOLE,
     ],
   },
@@ -78,7 +79,7 @@ export const PROFILS: DescriptionProfil[] = [
       { ecran: 'direction', libelle: 'Tableau', icone: 'graphe' },
       { ecran: 'pilotage', libelle: 'Pilotage', icone: 'pouls' },
       HAPPI,
-      { ecran: 'ouest', libelle: 'Où est ?', icone: 'loupe' },
+      CAP,
       ECOLE,
     ],
   },
@@ -108,7 +109,7 @@ export const PROFILS: DescriptionProfil[] = [
       { ecran: 'eleve', libelle: 'Ma classe', icone: 'chapeau' },
       { ecran: 'semaine', libelle: 'Semaine', icone: 'calendrier' },
       HAPPI,
-      { ecran: 'signaler', libelle: 'Signaler', icone: 'outil' },
+      CAP,
       ECOLE,
     ],
   },
