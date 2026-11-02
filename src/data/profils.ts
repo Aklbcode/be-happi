@@ -32,10 +32,11 @@ export const PROFILS: DescriptionProfil[] = [
     qui: 'Professeur',
     apport: 'Ta journée, tes déplacements de cours, les locaux libres',
     icone: 'livre',
-    accueil: 'aujourdhui',
+    // Version de test : on ouvre sur la semaine.
+    accueil: 'horaire',
     onglets: [
-      { ecran: 'aujourdhui', libelle: "Aujourd'hui", icone: 'soleil' },
       { ecran: 'horaire', libelle: 'Horaire', icone: 'calendrier' },
+      { ecran: 'aujourdhui', libelle: "Aujourd'hui", icone: 'soleil' },
       HAPPI,
       CAP,
       ECOLE,

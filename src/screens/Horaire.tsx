@@ -46,7 +46,8 @@ const lireMode = (): 'semaine' | 'jour' => {
 };
 const flechesVisibles = (): boolean => {
   try {
-    return localStorage.getItem(CLE_FLECHES) !== '0';
+    // Par défaut, pas de flèches : la semaine reste lisible ; un toucher sur une case les montre.
+    return localStorage.getItem(CLE_FLECHES) === '1';
   } catch {
     return true;
   }
@@ -340,25 +341,55 @@ export function Horaire() {
   }
 
   return (
-    <section className="ecran ecran--large" aria-label="Horaire">
+    <section className="ecran ecran--large ecran--horaire" aria-label="Horaire">
       <Entete
-        titre="Horaire"
-        sous="Ta semaine et les heures libérées"
+        titre={libelleSemaine}
+        sous={vue === 'moi' ? 'Mon horaire' : vue === 'classe' ? `Horaire de la ${classeVue}` : `Occupation de ${salleVue}`}
         droite={
+          <>
+            <button className="rond rond--petit" aria-label="Semaine précédente" onClick={() => changerSemaine(-1)}>
+              <Icon nom="gauche" taille={18} />
+            </button>
+            <button className="rond rond--petit" aria-label="Semaine suivante" onClick={() => changerSemaine(1)}>
+              <Icon nom="droite" taille={18} />
+            </button>
+          </>
+        }
+        apres={
           decalage !== depart ? (
-            <button className="bouton bouton--sec bouton--petit" onClick={() => { setDecalage(depart); setSel(null); }}>
-              Cette semaine
+            <button className="puce puce--indigo puce--bouton" onClick={() => { setDecalage(depart); setSel(null); }}>
+              Revenir à cette semaine
             </button>
           ) : undefined
         }
       />
 
-      <div className="seg" role="group" aria-label="Afficher l'horaire de">
-        {(['moi', 'classe', 'local'] as Vue[]).map((v) => (
-          <button key={v} aria-pressed={vue === v} onClick={() => { setVue(v); setSel(null); }}>
-            {v === 'moi' ? 'Moi' : v === 'classe' ? 'Une classe' : 'Un local'}
-          </button>
-        ))}
+      <div className="horaire-choix">
+        <div className="seg" role="group" aria-label="Afficher l'horaire de">
+          {(['moi', 'classe', 'local'] as Vue[]).map((v) => (
+            <button key={v} aria-pressed={vue === v} onClick={() => { setVue(v); setSel(null); }}>
+              {v === 'moi' ? 'Moi' : v === 'classe' ? 'Classe' : 'Local'}
+            </button>
+          ))}
+        </div>
+        <div className="seg" role="group" aria-label="Affichage">
+          {(['semaine', 'jour'] as const).map((m) => (
+            <button
+              key={m}
+              aria-pressed={mode === m}
+              onClick={() => {
+                setMode(m);
+                try {
+                  localStorage.setItem(CLE_MODE, m);
+                } catch {
+                  /* rien */
+                }
+              }}
+            >
+              {m === 'semaine' ? 'Semaine' : 'Jour'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {vue === 'classe' && (
@@ -381,40 +412,6 @@ export function Horaire() {
           </select>
         </label>
       )}
-
-      <div className="rangee rangee--entre">
-        <button className="rond" aria-label="Semaine précédente" onClick={() => changerSemaine(-1)}>
-          <Icon nom="gauche" />
-        </button>
-        <div className="pile" style={{ alignItems: 'center' }}>
-          <span className="titre-m">{libelleSemaine}</span>
-          <span className="petit">
-            {vue === 'moi' ? 'Mon horaire' : vue === 'classe' ? `Horaire de la ${classeVue}` : `Occupation de ${salleVue}`}
-          </span>
-        </div>
-        <button className="rond" aria-label="Semaine suivante" onClick={() => changerSemaine(1)}>
-          <Icon nom="droite" />
-        </button>
-      </div>
-
-      <div className="seg seg--mode" role="group" aria-label="Affichage">
-        {(['semaine', 'jour'] as const).map((m) => (
-          <button
-            key={m}
-            aria-pressed={mode === m}
-            onClick={() => {
-              setMode(m);
-              try {
-                localStorage.setItem(CLE_MODE, m);
-              } catch {
-                /* rien */
-              }
-            }}
-          >
-            {m === 'semaine' ? 'Semaine' : 'Jour'}
-          </button>
-        ))}
-      </div>
 
       {mode === 'jour' && (() => {
         const idx = jourIdx ?? (colonneAuj >= 0 ? colonneAuj : Math.max(0, dates.findIndex((d) => !conge(deIso(d)))));
@@ -461,6 +458,9 @@ export function Horaire() {
                   } else if (c.type === 'possible' || c.type === 'etoile') {
                     titre = `${c.nb} cours ${c.nb && c.nb > 1 ? 'peuvent' : 'peut'} venir ici`;
                     sous = meilleure ? `Le plus avantageux : ${meilleure.classe}, ${JOURS[jourSemaineIso(meilleure.dateO)].toLowerCase()} H${meilleure.hO} · ${meilleure.resume.split(' · ')[0]}` : '';
+                  } else if (c.type === 'perdue' && c.bas === 'en stage') {
+                    titre = `${c.haut} en stage`;
+                    sous = 'Pas de cours : heure libre';
                   } else if (c.type === 'perdue') {
                     titre = c.haut ? `Cours parti ${c.haut.replace('→ ', 'vers ')}` : 'Heure passée';
                     sous = c.haut ? '' : `${c.nb} classe${c.nb && c.nb > 1 ? 's' : ''} à toi à l’étude`;
@@ -598,7 +598,7 @@ export function Horaire() {
       )}
 
       <button className="bouton bouton--sec" onClick={exporterAgenda}>
-        <Icon nom="agenda" taille={18} /> Mettre mon horaire dans mon agenda (4 semaines)
+        <Icon nom="agenda" taille={18} /> Ajouter à mon agenda
       </button>
       <div className="legende">
         {vue === 'moi' ? (

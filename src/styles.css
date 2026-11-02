@@ -853,3 +853,28 @@ a.puce--demo { text-decoration: none; }
 .marque-mobile { display: inline-flex; align-items: center; gap: 8px; color: var(--indigo-encre); }
 .marque-mobile b { font-weight: 750; font-size: 17px; line-height: 1.3; letter-spacing: -0.01em; }
 @media (min-width: 1040px) { .marque-mobile { display: none; } }
+
+/* Horaire : la semaine en titre, flèches à droite, une seule rangée de choix. */
+.ecran--horaire .entete .titre-xl { font-size: 28px; white-space: nowrap; }
+@media (max-width: 400px) { .ecran--horaire .entete .titre-xl { font-size: 24px; } }
+.ecran--horaire .entete .rond--petit { margin-top: 2px; }
+.horaire-choix { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px; }
+.horaire-choix .seg button { min-height: 36px; font-size: 13.5px; }
+
+/* Dans Teams sur téléphone : nos onglets en haut, à plat, comme les onglets de Teams
+   (Teams a déjà sa barre en bas : pas de deuxième barre flottante). */
+@media (max-width: 1039px) {
+  html[data-teams] .onglets {
+    top: 0; bottom: auto; left: 0; transform: none; width: 100%; height: 46px; padding: 0 4px;
+    display: flex; justify-content: space-around; overflow-x: auto; scrollbar-width: none;
+    border: 0; border-bottom: 1px solid var(--trait); border-radius: 0; box-shadow: none; background: var(--fond);
+  }
+  html[data-teams] .onglet { position: relative; flex: 1 0 auto; flex-direction: row; gap: 4px; min-height: 46px; padding: 0 8px; border-radius: 0; font-size: 13px; white-space: nowrap; }
+  html[data-teams] .onglet-icone svg { display: none; }
+  html[data-teams] .onglet-icone .pastille { position: static; }
+  html[data-teams] .onglet[aria-current='page'] { color: var(--encre); }
+  html[data-teams] .onglet[aria-current='page']::after { content: ''; position: absolute; left: 14%; right: 14%; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--indigo); }
+  html[data-teams] .ecran { padding-top: calc(46px + 16px); padding-bottom: 40px; }
+  html[data-teams] .toast:not(.toast--haut) { bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+  html[data-teams] .toast--haut { top: 54px; }
+}

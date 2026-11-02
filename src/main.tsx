@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
+import { indiceTeams } from './lib/reglages';
+
+// Dans Teams, la barre d'onglets passe en haut (Teams a déjà sa propre barre en bas).
+if (indiceTeams()) document.documentElement.dataset.teams = '1';
 
 declare const __DEMO_FORCEE__: boolean;
 
