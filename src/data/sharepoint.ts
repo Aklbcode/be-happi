@@ -8,6 +8,7 @@ import { jour, localDans, num, profilsAvec, reconnaitre, rolesDe, sansAccents, t
 import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement } from './types';
 import { iso, plusJoursIso } from '../lib/calendar';
 import { repondreSimulation, simulationActive } from './simulation';
+import { googleActif, repondreGoogle } from './google';
 
 export { localDans, reconnaitre } from './champs';
 
@@ -37,6 +38,12 @@ async function appel(url: string, init: RequestInit = {}): Promise<any> {
   if (simulationActive()) {
     const r = await repondreSimulation(url, init);
     if (r.status >= 400) throw new ErreurGraph(r.status, `Simulation ${r.status} : ${String(r.corps)}`);
+    return r.corps;
+  }
+  // Version Google Sheets : le script Google répond à la place de Microsoft.
+  if (googleActif()) {
+    const r = await repondreGoogle(url, init);
+    if (r.status >= 400) throw new ErreurGraph(r.status, String(r.corps));
     return r.corps;
   }
   const t = await jeton();

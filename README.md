@@ -110,6 +110,17 @@ Onglet **Réussite** (prof, élève, direction ; dans École pour les autres).
 - **CapReussite** : *Paramètres de la liste → Paramètres avancés* : lecture « **éléments créés par l'utilisateur** » et modification « **éléments créés par l'utilisateur** ». Élèves : *Collaboration* (ils ne voient que leurs lignes). Personnel : un niveau d'autorisation qui comprend « **Remplacer le comportement de la liste** » (par ex. *Création*), sinon les profs ne verraient pas les demandes des élèves : à vérifier par l'IT.
 - **Resultats** : **personnel seulement** (aucun accès élève). Elle est remplie par un export des bulletins fait par la direction ou l'IT (une ligne par élève et matière, seulement « en échec » oui/non, jamais de note). Sans elle, Cap Réussite marche, sans les propositions automatiques.
 
+## Version Google Sheets (sans inscription Microsoft)
+
+En attendant l'inscription de l'app par l'IT, La Tour peut lire un **Google Sheet privé** au lieu de SharePoint.
+
+- Un onglet par liste, mêmes noms et mêmes colonnes que les listes SharePoint (Horaires, Profs, Absences, Réservations…). Les colonnes ID, Version, Created, CreePar, Modified et ModifiePar sont gérées par le script.
+- Le script `google/Code.gs` est collé dans le Sheet (Extensions → Apps Script), avec une clé secrète à la place de `__CLE__`. Il est déployé en **application Web** : exécuter en tant que « moi », accès « tout le monde ».
+- Le paquet Teams porte l'adresse du script et la clé : `python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/ --google "https://script.google.com/macros/s/<ID>/exec~<clé>"`. **À ne partager qu'avec les profs.**
+- Dans Teams, l'app demande à Teams l'adresse du prof connecté. Le script la reconnaît (colonne Email, sinon prenom.nom@ comme Power Apps) ; sinon le prof choisit son nom une fois, et l'adresse est écrite dans l'onglet Profs. Hors de Teams, personne n'est reconnu.
+- Horaires, Profs, Roles, HorairesEleves et Resultats ne sont jamais modifiés par l'app. Les absences peuvent être tapées directement dans le Sheet : elles reçoivent leur ID au chargement suivant.
+- Limites : l'adresse donnée par Teams n'est pas vérifiée par Microsoft (la clé protège l'accès) ; Power Apps ne voit pas ces données.
+
 ## Décale : le meilleur plan de déplacements de ta semaine
 
 **https://aklbcode.github.io/be-happi/decale/** : une app centrée sur une seule chose, les déplacements de cours des profs, sur le même moteur que Be Happi (mêmes données : démo, simulation ou SharePoint ; mêmes règles que Power Apps ; mêmes écritures dans la liste Deplacements).

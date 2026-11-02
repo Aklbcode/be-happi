@@ -11,6 +11,8 @@ import { MoiProvider, appliquerTheme, themeEnregistre } from './ui/Moi';
 import { ApercuTeams } from './ui/ApercuTeams';
 import { Bienvenue } from './ui/Bienvenue';
 import { ConfirmerEcole } from './ui/ConfirmerEcole';
+import { ChoisirProf } from './ui/ChoisirProf';
+import { choixEnAttente, googleActif } from './data/google';
 import { Aujourdhui } from './screens/Aujourdhui';
 import { Horaire } from './screens/Horaire';
 import { Deplacer } from './screens/Deplacer';
@@ -50,7 +52,8 @@ function Coquille() {
   const autorise = peutOuvrir(ecran, profils) || (ecran === 'connexion' && (!ds || !!erreur));
 
   let vue: ReactNode;
-  if (!autorise) vue = <NonAutorise />;
+  if (googleActif() && choixEnAttente()) vue = <ChoisirProf />;
+  else if (!autorise) vue = <NonAutorise />;
   else
     switch (ecran) {
       case 'horaire': vue = <Horaire />; break;
@@ -80,13 +83,14 @@ function Coquille() {
 
   const aValider = ds ? ds.deplacements.filter((d) => d.statut === 'En attente').length : 0;
   const nouveaux = ds ? ds.signalements.filter((s) => !s.resolu && s.statut === 'Nouveau').length : 0;
-  const sansBarre = ecran === 'deplacer' || ecran === 'ecran';
+  const sansBarre = ecran === 'deplacer' || ecran === 'ecran' || (googleActif() && !!choixEnAttente());
 
   return (
     <>
-      {erreur && ecran !== 'connexion' && (
+      {erreur && ecran !== 'connexion' && !(googleActif() && choixEnAttente()) && (
         <div role="alert" className="toast toast--haut">
-          <Icon nom="attention" /> Connexion SharePoint impossible : <a href="#/connexion">détails</a>
+          <Icon nom="attention" />{' '}
+          {googleActif() ? erreur : <>Connexion SharePoint impossible : <a href="#/connexion">détails</a></>}
         </div>
       )}
       {chargement && !ds ? (
@@ -100,7 +104,7 @@ function Coquille() {
         vue
       )}
       {!sansBarre && <Onglets actif={ecran} profil={profil} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
-      {ecran !== 'ecran' && <MenuLateral actif={ecran} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
+      {ecran !== 'ecran' && !(googleActif() && choixEnAttente()) && <MenuLateral actif={ecran} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
       <ApercuTeams />
       {ecran !== 'ecran' && <Bienvenue />}
       {toast && (

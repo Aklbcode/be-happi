@@ -56,6 +56,8 @@ def main() -> None:
     p.add_argument('--tenant', help="ID de l'annuaire (locataire) Microsoft de l'école")
     p.add_argument('--client', help="ID d'application (client) enregistrée par l'IT")
     p.add_argument('--site', help='adresse du site SharePoint des listes')
+    p.add_argument('--google', help="version Google Sheets : adresse du script (…/macros/s/<ID>/exec) suivie de ~<clé>")
+    p.add_argument('--sortie', help='fichier zip à écrire (par défaut : be-happi-teams.zip à la racine)')
     a = p.parse_args()
 
     url = re.sub(r'[?#].*$', '', a.url).rstrip('/') + '/'
@@ -72,13 +74,20 @@ def main() -> None:
         .replace('{{ID}}', str(ID_FIXE))
         .replace('{{VERSION}}', version)
     )
+    if a.google:
+        m = re.fullmatch(r'(?:https://script\.google\.com/macros/s/)?([A-Za-z0-9_-]{20,})(?:/exec)?~([A-Za-z0-9_-]{16,})', a.google.strip())
+        if not m:
+            sys.exit('--google : attendu https://script.google.com/macros/s/<ID>/exec~<clé>')
+        for onglet in manifeste.get('staticTabs', []):
+            onglet['contentUrl'] += f'&g={m.group(1)}~{m.group(2)}'
+            onglet.pop('websiteUrl', None)
     if parametre:
         for onglet in manifeste.get('staticTabs', []):
             onglet['contentUrl'] = avec_ecole(onglet['contentUrl'], parametre)
             if onglet.get('websiteUrl'):
                 onglet['websiteUrl'] = avec_ecole(onglet['websiteUrl'], parametre)
 
-    sortie = RACINE / 'be-happi-teams.zip'
+    sortie = Path(a.sortie) if a.sortie else RACINE / 'be-happi-teams.zip'
     with zipfile.ZipFile(sortie, 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('manifest.json', json.dumps(manifeste, ensure_ascii=False, indent=2) + '\n')
         z.write(MODELE / 'color.png', 'color.png')
@@ -86,6 +95,8 @@ def main() -> None:
     print(f'Paquet Teams prêt : {sortie}')
     if parametre:
         print(f"Lien d'installation (téléphones, navigateurs) : {avec_ecole(url, parametre)}")
+    elif a.google:
+        print('Version Google Sheets : ne partage ce paquet qu’avec les profs (il contient la clé).')
     else:
         print("Sans réglages d'école : l'onglet s'ouvrira en démo.")
 

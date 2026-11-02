@@ -7,6 +7,7 @@ import { peutValiderAvec, peutVoirAvec } from './champs';
 import { RACKS } from './materiel';
 import { sharepointConfigure } from '../config';
 import { simulationActive } from './simulation';
+import { googleActif } from './google';
 import { dernierePeriodeFinie, deIso, estJourDeCours, iso, jourSemaineIso, minutesDe, plusJoursIso, situation } from '../lib/calendar';
 import { coursDuProf, memeDeplacement, nomAffiche } from '../logic/horaire';
 import { choisirLocal, verifierDeplacement } from '../logic/deplacements';
@@ -119,7 +120,7 @@ const TOUS: Profil[] = ['prof', 'educateur', 'secretariat', 'direction', 'techni
 
 export function StoreProvider({ children, scenario }: { children: ReactNode; /** Démo : données en plus pour une app (Décale). */ scenario?: (ds: Dataset, moment: Date) => Dataset }) {
   const simulation = !__DEMO_FORCEE__ && simulationActive();
-  const demo = __DEMO_FORCEE__ || (!sharepointConfigure() && !simulation);
+  const demo = __DEMO_FORCEE__ || (!sharepointConfigure() && !simulation && !googleActif());
   const [maintenant, setMaintenant] = useState<Date>(() => (demo ? momentDemo(new Date()) : new Date()));
   const fabriquerDemo = useCallback(() => {
     const m = momentDemo(new Date());
