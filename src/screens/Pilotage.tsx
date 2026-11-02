@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../data/store';
+import { ecranActif } from '../options';
 import { Entete } from '../ui/Entete';
 import { Icon } from '../ui/Icon';
 import { Regle, type CaseRegle } from '../ui/Regle';
@@ -183,7 +184,7 @@ export function Pilotage() {
               <Icon nom="droite" />
             </a>
           )}
-          <a className={`carte carte--lien${pub.dejaPublie && !pub.aJour ? ' carte--alerte' : ''}`} href={lien('publier')}>
+          {ecranActif('publier') && <a className={`carte carte--lien${pub.dejaPublie && !pub.aJour ? ' carte--alerte' : ''}`} href={lien('publier')}>
             <span className="vignette">
               <Icon nom="haut_parleur" />
             </span>
@@ -196,7 +197,7 @@ export function Pilotage() {
               </span>
             </span>
             <Icon nom="droite" />
-          </a>
+          </a>}
           {fermes.map((f) => (
             <div key={f.local} className="carte carte--alerte">
               <div className="rangee">
@@ -209,7 +210,7 @@ export function Pilotage() {
                 </span>
               </div>
               <span className="texte">Cours prévus : {f.cours.map((c) => `H${c.h} ${c.classe} (${nomAffiche(c.prof)})`).join(', ')}.</span>
-              <a className="lien-action" href={lien('infos', { local: f.local })}>Prévenir avec une info du jour</a>
+              {ecranActif('infos') && <a className="lien-action" href={lien('infos', { local: f.local })}>Prévenir avec une info du jour</a>}
             </div>
           ))}
         </section>

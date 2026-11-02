@@ -8,6 +8,7 @@ import { RACKS } from './materiel';
 import { sharepointConfigure } from '../config';
 import { simulationActive } from './simulation';
 import { googleActif } from './google';
+import { profilsActifs } from '../options';
 import { dernierePeriodeFinie, deIso, estJourDeCours, iso, jourSemaineIso, minutesDe, plusJoursIso, situation } from '../lib/calendar';
 import { coursDuProf, memeDeplacement, nomAffiche } from '../logic/horaire';
 import { choisirLocal, verifierDeplacement } from '../logic/deplacements';
@@ -187,7 +188,7 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
 
   const profilsDs = ds?.moi.profils;
   // En simulation, les six espaces sont ouverts pour tout essayer sur les vraies données.
-  const profils: Profil[] = useMemo(() => (demo || simulation ? TOUS : profilsDs?.length ? profilsDs : ['eleve']), [demo, simulation, profilsDs]);
+  const profils: Profil[] = useMemo(() => profilsActifs(demo || simulation ? TOUS : profilsDs?.length ? profilsDs : ['eleve']), [demo, simulation, profilsDs]);
   const profil: Profil = profilChoisi && profils.includes(profilChoisi) ? profilChoisi : profils[0];
   const changerProfil = useCallback((p: Profil) => {
     setProfilChoisi(p);

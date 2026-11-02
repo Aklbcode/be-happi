@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../data/store';
+import { ecranActif } from '../options';
 import type { Deplacement } from '../data/types';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
@@ -118,7 +119,7 @@ export function Validations() {
         <h2 className="titre-m">À valider</h2>
         {attente.length === 0 && (
           <div className="carte">
-            <p className="texte">Aucune proposition en attente. Les profs proposent depuis La Tour ou Power Apps : elles arrivent ici.</p>
+            <p className="texte">Aucune proposition en attente. Les profs proposent depuis IPES App ou Power Apps : elles arrivent ici.</p>
           </div>
         )}
         {attente.map(({ d, a }) => (
@@ -260,7 +261,7 @@ export function Validations() {
                       </button>
                     );
                   })()}
-                  {fait.statut === 'Validé' && (
+                  {fait.statut === 'Validé' && ecranActif('publier') && (
                     <a className="bouton bouton--sec bouton--petit" href="#/publier" onClick={fermer}>
                       <Icon nom="haut_parleur" taille={16} /> Publier pour les élèves
                     </a>

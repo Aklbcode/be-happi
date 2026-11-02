@@ -29,8 +29,8 @@ export function ConfirmerEcole({ propose, actuels, onOui, onNon }: Props) {
         <Icon nom="etincelle" taille={30} />
       </span>
       <div className="pile">
-        <span className="sous-titre">La Tour · IPES Tubize</span>
-        <h1 id="titre-relier" className="titre-l">Relier La Tour à ton école ?</h1>
+        <span className="sous-titre">IPES App · IPES Tubize</span>
+        <h1 id="titre-relier" className="titre-l">Relier IPES App à ton école ?</h1>
       </div>
       <div className="carte">
         <div className="pile">

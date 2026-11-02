@@ -7,7 +7,7 @@ import { Feuille } from './Feuille';
 import { Icon } from './Icon';
 import { useMoi } from './Moi';
 
-const CLE = 'behappi-bienvenue-1.0';
+const CLE = 'ipesapp-bienvenue-1';
 
 function dejaVu(): boolean {
   try {
@@ -27,10 +27,10 @@ function marquer() {
 }
 
 const NOUVEAUTES: { icone: string; titre: string; texte: string }[] = [
-  { icone: 'etincelle', titre: 'Happi répond', texte: 'Où est un collègue ou une classe, un local libre, une heure commune… à l’écrit ou à la voix.' },
-  { icone: 'pouls', titre: 'L’école en direct', texte: 'Les classes à l’étude heure par heure, qui peut aider, et un message Teams prêt.' },
-  { icone: 'haut_parleur', titre: 'Les élèves à jour', texte: 'Absences encodées avec leur impact, publication élèves vérifiée, écran du hall.' },
-  { icone: 'graphe', titre: 'Le tableau de bord', texte: 'Heures récupérées, classes touchées, locaux, signalements : la direction voit tout.' },
+  { icone: 'soleil', titre: 'Ta journée en direct', texte: 'Le cours en ce moment, le suivant, les collègues absents et ce que ça change pour toi.' },
+  { icone: 'calendrier', titre: 'Ton horaire', texte: 'La semaine, les heures libérées par un absent, et la flèche quand avancer un cours t’arrange.' },
+  { icone: 'echange', titre: 'Déplacer un cours', texte: 'Tout est vérifié avant d’envoyer : classe libre, local, temps de midi. L’éducateur valide.' },
+  { icone: 'porte', titre: 'Locaux et collègues', texte: 'Un local libre, où est un collègue ou une classe, une heure commune pour se réunir.' },
 ];
 
 const NOUVEAUTES_ELEVE: { icone: string; titre: string; texte: string }[] = [
@@ -52,11 +52,11 @@ export function Bienvenue() {
   const espaces = PROFILS.filter((p) => profils.includes(p.id));
   const liste = !demo && profils.length === 1 && profils[0] === 'eleve' ? NOUVEAUTES_ELEVE : NOUVEAUTES;
   return (
-    <Feuille ouverte onFermer={fermer} titre="Bienvenue dans La Tour">
+    <Feuille ouverte onFermer={fermer} titre="Bienvenue dans IPES App">
       <span className="bulle-chargement" aria-hidden="true">
         <Icon nom="etincelle" taille={30} />
       </span>
-      <span className="sous-titre">La Tour · IPES Tubize</span>
+      <span className="sous-titre">IPES App · IPES Tubize</span>
       <h2 className="titre-l">Le cerveau de l’école, dans ta poche</h2>
       <ul className="nouveautes">
         {liste.map((n) => (

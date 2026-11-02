@@ -245,7 +245,7 @@ function PrendreFeuille({ occasion: o, onFermer }: { occasion: Occasion; onFerme
       <button className="bouton bouton--prim" disabled={envoi || (!classe && !nb)} onClick={() => void prendre()}>
         {envoi ? 'Un instant…' : classe ? `Prendre la ${classe}` : nb ? `Prendre ${nb > 1 ? `ces ${nb} élèves` : 'cet élève'}` : 'Choisis qui tu prends'}
       </button>
-      <p className="petit">La Tour réserve un local libre près de tes cours et note la séance sur ta feuille. Des élèves seuls ne changent rien pour le reste de leur classe, qui reste à l’étude.</p>
+      <p className="petit">IPES App réserve un local libre près de tes cours et note la séance sur ta feuille. Des élèves seuls ne changent rien pour le reste de leur classe, qui reste à l’étude.</p>
     </Feuille>
   );
 }

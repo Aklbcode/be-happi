@@ -632,7 +632,7 @@ function collab(a: Analyse, cx: Contexte, r: Fabrique): Reponse {
   // Invitation : les autres participants (on ne s'invite pas soi-même).
   const invites = meilleur.presents.filter((p) => p !== cx.moi && emailDe(ds, p));
   const reunion: Action | null = invites.length
-    ? { type: 'teams-reunion', libelle: 'Créer la réunion Teams', sujet: a.groupe ? `Réunion · ${a.groupe.nom}` : 'Réunion', debut: debut.toISOString(), fin: fin.toISOString(), emails: invites.map((p) => emailDe(ds, p)!), noms: invites.map(nomAffiche), contenu: 'Heure commune trouvée par La Tour.' }
+    ? { type: 'teams-reunion', libelle: 'Créer la réunion Teams', sujet: a.groupe ? `Réunion · ${a.groupe.nom}` : 'Réunion', debut: debut.toISOString(), fin: fin.toISOString(), emails: invites.map((p) => emailDe(ds, p)!), noms: invites.map(nomAffiche), contenu: 'Heure commune trouvée par IPES App.' }
     : null;
   return r(
     `${tolere ? 'Personne n’est libre en même temps ; en acceptant une absence, le' : 'Le'} meilleur moment avec ${qui} : ${dateLongue(deIso(meilleur.date))}, ${plage(meilleur)}.`,
@@ -743,7 +743,7 @@ function deplacer(cx: Contexte, r: Fabrique): Reponse {
 
 function horaire(a: Analyse, cx: Contexte, r: Fabrique): Reponse {
   const { ds } = cx;
-  if (!cx.moi) return r("Tu n'as pas d'horaire de cours dans La Tour.");
+  if (!cx.moi) return r("Tu n'as pas d'horaire de cours dans IPES App.");
   const t = a.texte;
   // « Quand ai-je la 3TQA ? » / « Quand ai-je sciences ? » : les prochaines fois.
   if (/\bquand\b/.test(t) && (a.classes.length || a.matieres.length)) {

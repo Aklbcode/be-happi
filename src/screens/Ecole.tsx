@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useStore } from '../data/store';
+import { OPTIONS } from '../options';
 import { Entete } from '../ui/Entete';
 import { Icon } from '../ui/Icon';
 import { useMoi } from '../ui/Moi';
@@ -79,12 +80,12 @@ export function Ecole() {
         <span className="pile grandit">
           <span className="petit">Espace affiché</span>
           <span className="titre-s">{p.nom}</span>
-          <span className="petit">{demo ? 'Démo : essaie les 6 espaces (prof, éducateur, secrétariat, direction, technique, élève)' : p.apport}</span>
+          <span className="petit">{demo ? `Démo : essaie les ${profils.length} espaces` : p.apport}</span>
         </span>
         {profils.length > 1 && <span className="puce puce--indigo">Changer</span>}
       </button>
 
-      {profils.includes('prof') && (
+      {profils.includes('prof') && OPTIONS.decale && (
         <a className="carte carte--lien" href="./decale/">
           <span className="vignette" aria-hidden="true">
             <img src="./decale/favicon.svg" alt="" width="30" height="30" />
@@ -126,7 +127,7 @@ export function Ecole() {
             <Icon nom="qr" />
           </span>
           <span className="pile grandit">
-            <span className="titre-s">La Tour sur ton téléphone</span>
+            <span className="titre-s">IPES App sur ton téléphone</span>
             <span className="petit">Un QR code à scanner, déjà relié à l’école</span>
           </span>
           <Icon nom="droite" />
@@ -146,10 +147,10 @@ export function Ecole() {
         </a>
       )}
 
-      <p className="petit" style={{ textAlign: 'center' }}>La Tour · version {__VERSION__} · IPES Tubize</p>
+      <p className="petit" style={{ textAlign: 'center' }}>IPES App · version {__VERSION__} · IPES Tubize</p>
 
       {ecole && (
-        <Feuille ouverte={telephone} onFermer={() => setTelephone(false)} titre="La Tour sur ton téléphone">
+        <Feuille ouverte={telephone} onFermer={() => setTelephone(false)} titre="IPES App sur ton téléphone">
           <h2 className="titre-l">Sur ton téléphone</h2>
           <QrInstallation lien={lienInstallation(adresseApp(), ecole)} texte={TEXTE_QR} texteMobile={TEXTE_QR_MOBILE} />
           <button className="bouton bouton--sec" onClick={() => setTelephone(false)}>

@@ -52,10 +52,10 @@ export function EcranHall({ params }: { params: URLSearchParams }) {
   return (
     <section className="hall" aria-label="Écran du hall">
       <header className="hall-tete">
-        <a className="hall-marque" href="#/" aria-label="Revenir à La Tour">
+        <a className="hall-marque" href="#/" aria-label="Revenir à IPES App">
           <Tour taille={56} />
           <span>
-            <b>la tour</b>
+            <b>IPES App</b>
             <small>IPES Tubize</small>
           </span>
         </a>

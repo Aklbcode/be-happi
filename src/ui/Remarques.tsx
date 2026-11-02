@@ -2,13 +2,14 @@
 
 import type { Remarque } from '../logic/remarques';
 import { Icon } from './Icon';
+import { OPTIONS, lienActif } from '../options';
 
 export function Remarques({ remarques }: { remarques: Remarque[] }) {
   if (!remarques.length) return null;
   return (
-    <section className="pile pile--8" aria-label="Happi a remarqué">
+    <section className="pile pile--8" aria-label={OPTIONS.happi ? 'Happi a remarqué' : 'À remarquer'}>
       <h2 className="titre-happi">
-        <Icon nom="etincelle" taille={18} epaisseur={2} /> Happi a remarqué
+        <Icon nom="etincelle" taille={18} epaisseur={2} /> {OPTIONS.happi ? 'Happi a remarqué' : 'À remarquer'}
       </h2>
       {remarques.map((r) => (
         <article key={r.id} className={`remarque remarque--${r.ton}`}>
@@ -18,7 +19,7 @@ export function Remarques({ remarques }: { remarques: Remarque[] }) {
           <div className="pile grandit">
             <h3 className="titre-s">{r.titre}</h3>
             <p className="texte">{r.texte}</p>
-            {r.action && (
+            {r.action && lienActif(r.action.href) && (
               <a className="lien-action" href={r.action.href}>
                 {r.action.libelle}
               </a>

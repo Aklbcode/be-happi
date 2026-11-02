@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../data/store';
+import { ecranActif } from '../options';
 import { Entete } from '../ui/Entete';
 import { Icon } from '../ui/Icon';
 import { Regle, type TonRegle } from '../ui/Regle';
@@ -262,9 +263,11 @@ function Fiche({ t, date, hNow, onAide }: { t: Trouve; date: string; hNow?: numb
             <Icon nom="porte" taille={16} /> Réserver un local
           </a>
         )}
-        <a className="bouton bouton--sec bouton--petit" href={lien('signaler', { local: t.nom })}>
-          <Icon nom="outil" taille={16} /> Signaler un problème
-        </a>
+        {ecranActif('signaler') && (
+          <a className="bouton bouton--sec bouton--petit" href={lien('signaler', { local: t.nom })}>
+            <Icon nom="outil" taille={16} /> Signaler un problème
+          </a>
+        )}
       </div>
     </section>
   );

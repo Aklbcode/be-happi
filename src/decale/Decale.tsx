@@ -182,7 +182,7 @@ export function Decale() {
           <>
             <p>Connexion à SharePoint impossible : {erreur}</p>
             <a className="bouton" href="../#/connexion">
-              Voir les détails dans La Tour
+              Voir les détails dans IPES App
             </a>
           </>
         ) : (
@@ -199,7 +199,7 @@ export function Decale() {
         <p className="marque">Décale</p>
         <p>Décale est fait pour les profs qui ont un horaire : ton nom n’est pas dans la liste Horaires.</p>
         <a className="bouton" href="../">
-          Ouvrir La Tour
+          Ouvrir IPES App
         </a>
       </main>
     );
@@ -219,13 +219,13 @@ export function Decale() {
             <Tour taille={34} />
             <div>
               <p className="marque">Décale</p>
-              <a className="par-la-tour" href="../">par la tour · IPES Tubize</a>
+              <a className="par-la-tour" href="../">par IPES App</a>
             </div>
           </div>
           <p className="crayon qui">
             {prenom}
             {(demo || simulation) && (
-              <a className="pastille" href="../#/connexion" title={demo ? 'Données inventées : relie l’app à ton école dans La Tour' : 'Copie locale des vraies données'}>
+              <a className="pastille" href="../#/connexion" title={demo ? 'Données inventées : relie l’app à ton école dans IPES App' : 'Copie locale des vraies données'}>
                 {demo ? 'Démo' : 'Simulation'}
               </a>
             )}
@@ -236,7 +236,7 @@ export function Decale() {
             <Icone nom={theme === 'veillee' ? 'soleil' : 'lune'} />
           </button>
           <a className="lien-discret" href="../">
-            La Tour
+            IPES App
           </a>
         </div>
       </header>
@@ -401,7 +401,7 @@ export function Decale() {
                 <button className="bouton bouton--plein" disabled={envoi || !n} onClick={() => void proposerPlan()}>
                   {envoi ? 'Envoi…' : n > 1 ? `Proposer ces ${n} déplacements` : 'Proposer ce déplacement'}
                 </button>
-                <p className="crayon petit">L’éducateur valide chaque demande, dans La Tour ou Power Apps. Tant qu’elle attend, tu peux la retirer.</p>
+                <p className="crayon petit">L’éducateur valide chaque demande, dans IPES App ou Power Apps. Tant qu’elle attend, tu peux la retirer.</p>
               </div>
             </div>
           )}
@@ -448,7 +448,7 @@ export function Decale() {
             <p className="crayon petit">
               Des demandes de collègues attendent peut-être ta validation :{' '}
               <a className="lien" href="../#/validations">
-                Validations dans La Tour
+                Validations dans IPES App
               </a>
             </p>
           )}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { useStore } from '../data/store';
+import { ecranActif } from '../options';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { coursDuProf, coursSansProf, nomAffiche, peutPrendre, type CoursJour } from '../logic/horaire';
@@ -169,7 +170,7 @@ export function Aujourdhui() {
         <div className="pile grandit">
           <p className="sous-titre sous-titre--marque">
             <span className="marque-mobile">
-              <Tour taille={22} /> <b>la tour</b>
+              <Tour taille={22} /> <b>IPES App</b>
             </span>
             {dateLongue(maintenant).replace(/^./, (x) => x.toUpperCase())}
           </p>
@@ -259,7 +260,7 @@ export function Aujourdhui() {
                 <strong className="fort">{x.classe}</strong> · {x.trajet}
                 {x.local ? ` · local ${x.local}` : ''}
               </span>
-              {x.statut === 'En attente' && <span className="petit">L'éducateur la voit dans La Tour et dans Power Apps.</span>}
+              {x.statut === 'En attente' && <span className="petit">L'éducateur la voit dans IPES App et dans Power Apps.</span>}
               {x.commentaire && (
                 <span className="texte">
                   « {x.commentaire} »{x.par ? ` · ${x.par}` : ''}
@@ -318,7 +319,7 @@ export function Aujourdhui() {
         </section>
       )}
 
-      <section className="pile pile--12" aria-label="Infos du jour">
+      {ecranActif('infos') && <section className="pile pile--12" aria-label="Infos du jour">
         <div className="rangee rangee--entre">
           <h2 className="titre-m">Infos du jour</h2>
           <a href={lien('infos')} className="petit fort" style={{ color: 'var(--indigo-encre)', textDecoration: 'none' }}>
@@ -341,7 +342,7 @@ export function Aujourdhui() {
           <span className="petit fort">Blague du jour</span>
           <p className="texte" style={{ color: 'var(--encre)' }}>{blagueDuJour(maintenant)}</p>
         </div>
-      </section>
+      </section>}
 
       <Feuille ouverte={remedOuverte} onFermer={() => setRemedOuverte(false)} titre="Classes à l'étude">
         <h2 className="titre-l">Remédiation au lieu de l'étude</h2>
@@ -373,7 +374,7 @@ export function Aujourdhui() {
         </p>
         <p className="texte">Dès que l'école aura activé la connexion, l'app lira directement les listes SharePoint (horaires, absences, réservations…).</p>
         <a className="lien-action" href={lien('connexion')} onClick={() => setInfoDemo(false)}>
-          Relier La Tour à l’école (mise en service)
+          Relier IPES App à l’école (mise en service)
         </a>
         <div className="rangee">
           <button

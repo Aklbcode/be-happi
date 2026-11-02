@@ -3,6 +3,7 @@
 
 import type { Profil } from './types';
 import type { Ecran } from '../lib/route';
+import { ecranActif } from '../options';
 
 export type { Profil } from './types';
 
@@ -16,6 +17,8 @@ export interface DescriptionProfil {
   accueil: Ecran;
   /** Les 5 onglets du bas (Happi toujours au milieu). */
   onglets: { ecran: Ecran; libelle: string; icone: string; /** Libellé complet (menu sur ordinateur). */ long?: string }[];
+  /** Onglets de remplacement quand une option est coupée (version de test). */
+  secours?: { ecran: Ecran; libelle: string; icone: string; long?: string }[];
 }
 
 const HAPPI = { ecran: 'happi' as Ecran, libelle: 'Happi', icone: 'etincelle' };
@@ -36,6 +39,10 @@ export const PROFILS: DescriptionProfil[] = [
       HAPPI,
       CAP,
       ECOLE,
+    ],
+    secours: [
+      { ecran: 'locaux', libelle: 'Locaux', icone: 'porte' },
+      { ecran: 'ouest', libelle: 'Où est ?', icone: 'loupe' },
     ],
   },
   {
@@ -66,6 +73,11 @@ export const PROFILS: DescriptionProfil[] = [
       HAPPI,
       { ecran: 'infos', libelle: 'Infos', icone: 'note' },
       ECOLE,
+    ],
+    secours: [
+      { ecran: 'validations', libelle: 'Valider', icone: 'echange' },
+      { ecran: 'pilotage', libelle: 'Pilotage', icone: 'pouls' },
+      { ecran: 'ouest', libelle: 'Où est ?', icone: 'loupe' },
     ],
   },
   {
@@ -115,7 +127,19 @@ export const PROFILS: DescriptionProfil[] = [
   },
 ];
 
-export const profil = (id: Profil): DescriptionProfil => PROFILS.find((p) => p.id === id) ?? PROFILS[0];
+/** L'espace, avec ses onglets ouverts dans cette version (les onglets coupés sont remplacés). */
+export function profil(id: Profil): DescriptionProfil {
+  const p = PROFILS.find((x) => x.id === id) ?? PROFILS[0];
+  const onglets = p.onglets.filter((o) => ecranActif(o.ecran));
+  const ecole = onglets.filter((o) => o.ecran === 'ecole');
+  const autres = onglets.filter((o) => o.ecran !== 'ecole');
+  for (const s of p.secours ?? []) {
+    if (autres.length + ecole.length >= 5) break;
+    if (ecranActif(s.ecran) && !autres.some((o) => o.ecran === s.ecran)) autres.push(s);
+  }
+  const accueil = ecranActif(p.accueil) ? p.accueil : (autres[0]?.ecran ?? 'ecole');
+  return { ...p, accueil, onglets: [...autres, ...ecole] };
+}
 
 const PERSONNEL: Profil[] = ['prof', 'educateur', 'secretariat', 'direction', 'technique'];
 
@@ -140,6 +164,7 @@ const ACCES: Partial<Record<Ecran, Profil[]>> = {
 };
 
 export function peutOuvrir(ecran: Ecran, profils: Profil[]): boolean {
+  if (!ecranActif(ecran)) return false;
   const qui = ACCES[ecran];
   return !qui || qui.some((p) => profils.includes(p));
 }

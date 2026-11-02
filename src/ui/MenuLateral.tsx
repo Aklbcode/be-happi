@@ -7,6 +7,7 @@ import { peutOuvrir, profil as descProfil } from '../data/profils';
 import { GROUPES } from '../screens/Ecole';
 import { lien } from '../lib/route';
 import { Icon } from './Icon';
+import { OPTIONS } from '../options';
 import { initiales, useMoi } from './Moi';
 import { Tour, TourTrait } from './Marque';
 
@@ -36,7 +37,7 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
       <a className="menu-marque" href={`#/${p.accueil}`}>
         <Tour taille={38} />
         <span>
-          <b>la tour</b>
+          <b>IPES App</b>
           <small>IPES Tubize</small>
         </span>
       </a>
@@ -50,7 +51,7 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
       </button>
       <nav className="menu-nav">
         {p.onglets.map((o) => lienMenu(o.ecran, o.long ?? o.libelle, o.icone))}
-        {profils.includes('prof') && profil !== 'eleve' && (
+        {profils.includes('prof') && profil !== 'eleve' && OPTIONS.decale && (
           <a href="./decale/" className="menu-lien">
             <Icon nom="echange" taille={20} />
             <span>Décale</span>

@@ -3,7 +3,7 @@
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { useStore } from '../data/store';
-import { PROFILS } from '../data/profils';
+import { PROFILS, profil as descProfil } from '../data/profils';
 import type { Profil } from '../data/types';
 import { Feuille } from './Feuille';
 import { Icon } from './Icon';
@@ -84,7 +84,7 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
   const choisir = (p: Profil) => {
     changerProfil(p);
     fermer();
-    aller(PROFILS.find((x) => x.id === p)!.accueil);
+    aller(descProfil(p).accueil);
   };
   return (
     <Feuille ouverte={ouverte} onFermer={fermer} titre="Moi">
@@ -135,7 +135,7 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
             </button>
           ))}
         </div>
-        <span className="petit">Dans Teams, La Tour suit le thème de Teams.</span>
+        <span className="petit">Dans Teams, IPES App suit le thème de Teams.</span>
       </section>
 
       <div className="liens-moi">

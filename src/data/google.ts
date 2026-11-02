@@ -85,7 +85,7 @@ export class ErreurScript extends Error {
 }
 
 async function script(action: string, donnees: Record<string, unknown> = {}): Promise<any> {
-  if (!reglages) throw new ErreurScript(400, 'La Tour n’est pas reliée à un Google Sheet.');
+  if (!reglages) throw new ErreurScript(400, 'IPES App n’est pas reliée à un Google Sheet.');
   const mail = await adresse();
   const r = await envoyer(`https://script.google.com/macros/s/${reglages.script}/exec`, JSON.stringify({ action, cle: reglages.cle, mail, ...donnees }));
   const status = Number(r?.status ?? 200);
@@ -105,7 +105,7 @@ async function adresse(): Promise<string> {
   const m = await identite;
   if (!m) {
     identite = null;
-    throw new ErreurScript(401, 'Ouvre La Tour dans Teams : c’est Teams qui dit à l’app qui tu es.');
+    throw new ErreurScript(401, 'Ouvre IPES App dans Teams : c’est Teams qui dit à l’app qui tu es.');
   }
   return m;
 }

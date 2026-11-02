@@ -38,7 +38,7 @@ export function ChoisirProf() {
         <p className="sous-titre">Première ouverture</p>
         <h1 className="titre-xl">Qui es-tu ?</h1>
         <p className="texte">
-          La Tour n’a pas reconnu l’adresse <b>{choix.mail}</b>. Choisis ton nom tel qu’il est écrit dans l’horaire : c’est à faire une seule fois.
+          IPES App n’a pas reconnu l’adresse <b>{choix.mail}</b>. Choisis ton nom tel qu’il est écrit dans l’horaire : c’est à faire une seule fois.
         </p>
         <input className="champ" style={{ minHeight: 48 }} type="search" placeholder="Chercher ton nom" value={filtre} onChange={(e) => setFiltre(e.target.value)} aria-label="Chercher ton nom" />
         <div className="liste-choix" role="radiogroup" aria-label="Ton nom">
@@ -48,13 +48,13 @@ export function ChoisirProf() {
               <span className="fort">{nomAffiche(n)}</span>
             </button>
           ))}
-          {!liste.length && <p className="texte">Aucun nom libre ne correspond. Demande à la personne qui gère La Tour.</p>}
+          {!liste.length && <p className="texte">Aucun nom libre ne correspond. Demande à la personne qui gère IPES App.</p>}
         </div>
         {erreur && <p className="texte texte--alerte">{erreur}</p>}
         <button className="bouton bouton--prim" disabled={!nom || envoi} onClick={() => void valider()}>
           {envoi ? 'Un instant…' : nom ? `Je suis ${nomAffiche(nom)}` : 'Choisis ton nom'}
         </button>
-        <p className="petit">Ton adresse sera reliée à ce nom. Une erreur ? La personne qui gère La Tour peut la corriger.</p>
+        <p className="petit">Ton adresse sera reliée à ce nom. Une erreur ? La personne qui gère IPES App peut la corriger.</p>
       </div>
     </section>
   );
