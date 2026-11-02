@@ -35,6 +35,37 @@ const SYSTEME = ['ID', 'Version', 'Created', 'CreePar', 'Modified', 'ModifiePar'
  */
 const STAGES_DEPART = [];
 
+/**
+ * Un lot à importer une seule fois (absences connues, sorties) : ajouté au premier chargement,
+ * sans doublon (même prof et même jour ; même classe et mêmes dates). Si on supprime ensuite une
+ * ligne dans le Sheet, elle ne revient pas : le lot est marqué « importé ».
+ * Le modèle public est vide ; la copie collée dans le Sheet porte les vraies lignes.
+ */
+const LOT = { id: '', absences: [], stages: [] };
+
+function ajouterLignes(nom, lignesLot, cle) {
+  const f = SpreadsheetApp.getActive().getSheetByName(nom);
+  if (!f || !lignesLot.length) return 0;
+  const t = tableau(f);
+  const deja = new Set(lignes(nom).map(cle));
+  const nouvelles = lignesLot.filter((o) => !deja.has(cle(o)));
+  if (!nouvelles.length) return 0;
+  const valeurs = nouvelles.map((o) => t.entetes.map((h) => (o[h] === undefined ? '' : o[h])));
+  f.getRange(f.getLastRow() + 1, 1, valeurs.length, t.entetes.length).setValues(valeurs);
+  return nouvelles.length;
+}
+
+function importerLot() {
+  if (!LOT.id || typeof PropertiesService === 'undefined') return;
+  const props = PropertiesService.getScriptProperties();
+  const marque = `lot-${LOT.id}`;
+  if (props.getProperty(marque)) return;
+  const jour = (v) => String(valeur(v) || '').slice(0, 10);
+  ajouterLignes('Absences', LOT.absences.map(([p, d, de, a]) => ({ Title: p, DateAbs: d, DeH: de, AH: a })), (o) => `${String(o.Title).trim().toUpperCase()}|${jour(o.DateAbs)}`);
+  ajouterLignes('Stages', LOT.stages.map(([c, du, au, s]) => ({ Title: c, Du: du, Au: au, Stage: s })), (o) => `${String(o.Title).trim().toUpperCase()}|${jour(o.Du)}|${jour(o.Au)}`);
+  props.setProperty(marque, new Date().toISOString());
+}
+
 function preparerStages() {
   const classeur = SpreadsheetApp.getActive();
   if (classeur.getSheetByName('Stages')) return;
@@ -176,7 +207,7 @@ function texteDate(v) {
 }
 
 function valeur(v) {
-  if (v instanceof Date) return texteDate(v);
+  if (Object.prototype.toString.call(v) === '[object Date]') return texteDate(v);
   if (typeof v === 'string') {
     const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v.trim());
     if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
@@ -232,6 +263,7 @@ function toutLire() {
   const sortie = {};
   ecrire(() => {
     if (classeur.insertSheet) preparerStages();
+    importerLot();
     LISTES.forEach((nom) => { const f = classeur.getSheetByName(nom); if (f) numeroter(f); });
   });
   LISTES.forEach((nom) => {
