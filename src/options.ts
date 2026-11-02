@@ -23,6 +23,8 @@ export const OPTIONS = {
   educateur: false,
   /** Espace et vue élève. */
   eleve: false,
+  /** Message d'accueil à la première ouverture. */
+  bienvenue: false,
 };
 
 const COUPES: [boolean, Ecran[]][] = [

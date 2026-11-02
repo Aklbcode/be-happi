@@ -12,6 +12,7 @@ import { ApercuTeams } from './ui/ApercuTeams';
 import { Bienvenue } from './ui/Bienvenue';
 import { ConfirmerEcole } from './ui/ConfirmerEcole';
 import { ChoisirProf } from './ui/ChoisirProf';
+import { OPTIONS } from './options';
 import { choixEnAttente, googleActif } from './data/google';
 import { Aujourdhui } from './screens/Aujourdhui';
 import { Horaire } from './screens/Horaire';
@@ -106,7 +107,7 @@ function Coquille() {
       {!sansBarre && <Onglets actif={ecran} profil={profil} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
       {ecran !== 'ecran' && !(googleActif() && choixEnAttente()) && <MenuLateral actif={ecran} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
       <ApercuTeams />
-      {ecran !== 'ecran' && <Bienvenue />}
+      {ecran !== 'ecran' && OPTIONS.bienvenue && <Bienvenue />}
       {toast && (
         <div role="status" className="toast">
           <Icon nom="coche" epaisseur={2.4} /> {toast}
