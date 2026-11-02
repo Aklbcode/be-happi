@@ -5,6 +5,7 @@
 import { useStore } from '../data/store';
 import { LIBELLES_PRIORITES } from '../logic/priorites';
 import { Icon } from './Icon';
+import { OPTIONS } from '../options';
 
 export function CeQuiCompte({ explication = true }: { explication?: boolean }) {
   const { priorites, changerPriorites } = useStore();
@@ -21,7 +22,7 @@ export function CeQuiCompte({ explication = true }: { explication?: boolean }) {
           </button>
         ))}
       </div>
-      {explication && <p className="petit">Le cours le plus avantageux et les flèches suivent ces choix, ici et dans Décale.</p>}
+      {explication && <p className="petit">Le cours le plus avantageux et les flèches suivent ces choix{OPTIONS.decale ? ', ici et dans Décale' : ''}.</p>}
     </section>
   );
 }

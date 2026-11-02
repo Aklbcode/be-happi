@@ -1,6 +1,7 @@
 // Feuille qui monte du bas de l'écran (détails, choix).
 
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Feuille({ ouverte, onFermer, titre, children }: { ouverte: boolean; onFermer: () => void; titre: string; children: ReactNode }) {
   useEffect(() => {
@@ -13,7 +14,8 @@ export function Feuille({ ouverte, onFermer, titre, children }: { ouverte: boole
   }, [ouverte, onFermer]);
 
   if (!ouverte) return null;
-  return (
+  // Rendue à la racine de la page : un écran animé (transform) ne doit pas l'emporter avec lui.
+  return createPortal(
     <>
       <div className="voile" onClick={onFermer} aria-hidden="true" />
       <div role="dialog" aria-modal="true" aria-label={titre} className="feuille">
@@ -22,6 +24,7 @@ export function Feuille({ ouverte, onFermer, titre, children }: { ouverte: boole
           {children}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

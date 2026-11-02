@@ -878,3 +878,10 @@ a.puce--demo { text-decoration: none; }
   html[data-teams] .toast:not(.toast--haut) { bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
   html[data-teams] .toast--haut { top: 54px; }
 }
+
+/* Ordinateur : la feuille devient une fenêtre au centre (à droite du menu). */
+@media (min-width: 1040px) {
+  .feuille { top: 0; bottom: 0; left: 0; right: 0; margin: auto; width: min(640px, calc(100vw - 48px)); height: fit-content; max-height: 84vh; border-radius: 24px; padding: 18px 26px 26px; }
+  body:has(.menu-lateral) .feuille { left: 244px; }
+  .feuille .poignee { display: none; }
+}
