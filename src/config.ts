@@ -43,10 +43,12 @@ export const config = {
     capReussite: 'CapReussite',
     /** FACULTATIVE (Cap Réussite) : export des bulletins, matières en échec. Personnel seulement. */
     resultats: 'Resultats',
+    /** FACULTATIVE : les classes en stage (une ligne par classe et par période). */
+    stages: 'Stages',
   },
 
   /** Listes dont l'absence n'est pas une erreur. */
-  listesFacultatives: ['decisions', 'capReussite', 'resultats'] as string[],
+  listesFacultatives: ['decisions', 'capReussite', 'resultats', 'stages'] as string[],
   /** Colonnes dont l'absence n'est pas une erreur (liste → champs de config.champs). */
   colonnesFacultatives: { signalements: ['reponse', 'urgence'], absences: ['motif'], reservations: ['absent'] } as Record<string, string[]>,
 
@@ -104,6 +106,7 @@ export const config = {
       origine: 'Origine', statut: 'Statut', prof: 'Prof', local: 'Local',
     },
     resultats: { eleve: 'Title', eleveMail: 'EleveMail', classe: 'Classe', matiere: 'Matiere', periode: 'Periode', echec: 'EnEchec' },
+    stages: { classe: 'Title', du: 'Du', au: 'Au', titre: 'Stage' },
   },
 };
 

@@ -3,7 +3,7 @@
 
 import type { Changement, CoursEleve, Dataset } from '../data/types';
 import { MIDI, conge, deIso, jourSemaineIso, periode } from '../lib/calendar';
-import { absentA, classesDe, classesReservation, coursDuProf, nomAffiche } from './horaire';
+import { absentA, classesDe, classesReservation, coursDuProf, nomAffiche, stageDe } from './horaire';
 import { etatLocal, type InfoLocal } from './occupation';
 import { sansAccents } from '../data/champs';
 
@@ -69,6 +69,8 @@ export interface PositionClasse {
 /** Où est cette classe à cette heure ? */
 export function positionClasse(ds: Dataset, classe: string, date: string, h: number): PositionClasse {
   if (conge(deIso(date))) return { h, statut: 'conge', texte: 'Congé' };
+  const stage = stageDe(ds, classe, date);
+  if (stage) return { h, statut: 'libre', note: 'stage', texte: stage.titre ? `En stage (${stage.titre})` : 'En stage' };
   const jour = jourSemaineIso(date);
   // Un cours déplacé vers cette heure (validé).
   const arrive = ds.deplacements.find((d) => d.statut !== 'En attente' && d.date === date && d.hVide === h && classesDe(d.classe).includes(classe));

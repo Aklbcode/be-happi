@@ -33,6 +33,21 @@ export const memeDeplacement = (a: Deplacement, b: Deplacement): boolean =>
   (!!a.id && a.id === b.id) ||
   (a.prof === b.prof && a.date === b.date && a.hVide === b.hVide && a.dateOrigine === b.dateOrigine && a.hOrigine === b.hOrigine);
 
+/** La classe est-elle en stage ce jour-là ? (pas de cours pour elle) */
+export const enStage = (ds: Dataset, classe: string, date: string): boolean =>
+  !!ds.stages?.some((s) => s.classe === classe && s.du <= date && date <= s.au);
+
+/** Le stage en cours pour cette classe à cette date (ou undefined). */
+export const stageDe = (ds: Dataset, classe: string, date: string) => ds.stages?.find((s) => s.classe === classe && s.du <= date && date <= s.au);
+
+/** Un cours sans ses classes en stage (null si toutes le sont). */
+export function sansStage<T extends { classes: string[]; classe: string }>(ds: Dataset, c: T, date: string): T | null {
+  if (!ds.stages?.length) return c;
+  const restantes = c.classes.filter((k) => !enStage(ds, k, date));
+  if (!restantes.length) return null;
+  return restantes.length === c.classes.length ? c : { ...c, classes: restantes, classe: restantes.join(', ') };
+}
+
 export const absentA = (ds: Dataset, prof: string, date: string, h: number): boolean =>
   ds.absences.some((a) => a.prof === prof && a.date === date && h >= a.deH && h <= a.aH);
 
@@ -50,6 +65,8 @@ export function coursDuProf(ds: Dataset, prof: string, date: string, avecAttente
   const base: CoursJour[] = ds.cours
     .filter((c) => c.prof === prof && c.jour === jour)
     .filter((c) => !deps.some((d) => d.dateOrigine === date && d.hOrigine === c.h))
+    .map((c) => sansStage(ds, c, date))
+    .filter((c): c is Cours => !!c)
     .map((c) => ({ ...c, date }));
   const entrants: CoursJour[] = deps
     .filter((d) => d.date === date)
@@ -76,7 +93,7 @@ export function coursDuProf(ds: Dataset, prof: string, date: string, avecAttente
 
 /** Heures où une classe a réellement cours ce jour-là (prof présent ou cours déplacé validé). */
 export function heuresDeLaClasse(ds: Dataset, classe: string, date: string): number[] {
-  if (enConge(date)) return [];
+  if (enConge(date) || enStage(ds, classe, date)) return [];
   const jour = jourSemaineIso(date);
   const valides = ds.deplacements.filter((d) => d.statut === 'Validé' && classesDe(d.classe).includes(classe));
   const hs = new Set<number>();
@@ -105,7 +122,7 @@ export function coursSansProf(ds: Dataset, date: string, h: number): Cours[] {
   const sortie: Cours[] = [];
   for (const c of ds.cours) {
     if (c.jour !== jour || c.h !== h || !absentA(ds, c.prof, date, h)) continue;
-    const restantes = c.classes.filter((cl) => !recuperees.has(cl));
+    const restantes = c.classes.filter((cl) => !recuperees.has(cl) && !enStage(ds, cl, date));
     if (!restantes.length) continue;
     sortie.push(restantes.length === c.classes.length ? c : { ...c, classes: restantes, classe: restantes.join(', ') });
   }
@@ -117,6 +134,7 @@ export function coursSansProf(ds: Dataset, date: string, h: number): Cours[] {
  * ou proposé, réservation pour la classe). `sauf` : le déplacement qu'on est en train de vérifier.
  */
 export function classeOccupee(ds: Dataset, classe: string, date: string, h: number, sauf?: Deplacement): boolean {
+  if (enStage(ds, classe, date)) return true;
   if (heuresDeLaClasse(ds, classe, date).includes(h)) return true;
   const autreDeplacement = ds.deplacements.some(
     (d) => d.statut !== 'Refusé' && d.date === date && d.hVide === h && classesDe(d.classe).includes(classe) && !(sauf && memeDeplacement(d, sauf)),

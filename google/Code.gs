@@ -22,11 +22,26 @@ const CLE = '__CLE__';
 /** Les onglets lisibles et modifiables par l'app (mêmes noms que les listes SharePoint). */
 const LISTES = [
   'Horaires', 'Profs', 'Absences', 'Réservations', 'Deplacements', 'Infos', 'Signalements', 'Roles',
-  'Decisions', 'Materiel', 'Changements', 'HorairesEleves', 'CapReussite', 'Resultats',
+  'Decisions', 'Materiel', 'Changements', 'HorairesEleves', 'CapReussite', 'Resultats', 'Stages',
 ];
 /** Ce que l'app ne peut jamais modifier. */
-const LECTURE_SEULE = ['Horaires', 'Profs', 'Roles', 'HorairesEleves', 'Resultats'];
+const LECTURE_SEULE = ['Horaires', 'Profs', 'Roles', 'HorairesEleves', 'Resultats', 'Stages'];
 const SYSTEME = ['ID', 'Version', 'Created', 'CreePar', 'Modified', 'ModifiePar'];
+
+/**
+ * Les stages de départ : l'onglet « Stages » est créé avec ces lignes s'il n'existe pas encore
+ * (classe, du, au, nom du stage). Ensuite, on le complète directement dans le Sheet.
+ * Le modèle public est vide ; la copie collée dans le Sheet porte les vraies périodes.
+ */
+const STAGES_DEPART = [];
+
+function preparerStages() {
+  const classeur = SpreadsheetApp.getActive();
+  if (classeur.getSheetByName('Stages')) return;
+  const f = classeur.insertSheet('Stages');
+  f.appendRow(['Title', 'Du', 'Au', 'Stage']);
+  STAGES_DEPART.forEach((l) => f.appendRow(l));
+}
 
 function doGet() {
   return json({ ok: true, app: 'La Tour', message: 'Le script répond. Ouvre La Tour dans Teams.' });
@@ -215,7 +230,10 @@ function item(o) {
 function toutLire() {
   const classeur = SpreadsheetApp.getActive();
   const sortie = {};
-  ecrire(() => LISTES.forEach((nom) => { const f = classeur.getSheetByName(nom); if (f) numeroter(f); }));
+  ecrire(() => {
+    if (classeur.insertSheet) preparerStages();
+    LISTES.forEach((nom) => { const f = classeur.getSheetByName(nom); if (f) numeroter(f); });
+  });
   LISTES.forEach((nom) => {
     const f = classeur.getSheetByName(nom);
     if (!f) return;

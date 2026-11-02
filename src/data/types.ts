@@ -179,6 +179,15 @@ export interface Resultat {
   echec: boolean;
 }
 
+/** Une classe en stage (liste « Stages », facultative) : pas de cours pour elle du … au … inclus. */
+export interface Stage {
+  id?: string;
+  classe: string;
+  du: string;          // AAAA-MM-JJ
+  au: string;          // AAAA-MM-JJ, inclus
+  titre?: string;
+}
+
 export interface Moi {
   nom: string;         // nom dans Horaires (vide pour un élève)
   prenom: string;
@@ -207,6 +216,8 @@ export interface Dataset {
   materiel: ResaMateriel[];
   /** Cap Réussite : remédiations (facultatif, liste « CapReussite »). */
   capReussite?: SeanceCR[];
+  /** Classes en stage (facultatif, liste « Stages »). */
+  stages?: Stage[];
   /** Résultats des bulletins (facultatif, liste « Resultats », personnel seulement). */
   resultats?: Resultat[];
   /** Listes absentes du site (clés de config.listes) : leurs écrans l'expliquent au lieu d'échouer. */

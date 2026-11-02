@@ -6,7 +6,7 @@
 
 import type { Changement, Dataset, Reservation } from '../data/types';
 import { JOURS, deIso, jourSemaineIso } from '../lib/calendar';
-import { classesDe, classesReservation } from './horaire';
+import { classesDe, classesReservation, enStage } from './horaire';
 
 /** « jeudi 12/11 », comme Text(date, "dddd dd/mm", "fr-FR") dans Power Apps. */
 export function jourEtDate(date: string): string {
@@ -32,7 +32,7 @@ export function changementsDuJour(ds: Dataset, date: string): Changement[] {
   for (const a of ds.absences.filter((x) => x.date === date)) {
     for (const c of ds.cours.filter((x) => x.prof === a.prof && x.jour === jour && x.h >= a.deH && x.h <= a.aH)) {
       const d = depDuJour.find((x) => x.absent === c.prof && x.hVide === c.h);
-      for (const k of c.classes) {
+      for (const k of c.classes.filter((x) => !enStage(ds, x, date))) {
         if (d) {
           const resa = resaDuJour.find((r) => r.prof === d.prof && r.h === d.hVide && !estRemediation(r));
           if (resa) dejaDites.add(resa);

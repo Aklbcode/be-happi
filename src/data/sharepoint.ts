@@ -5,7 +5,7 @@ import { config } from '../config';
 import { jeton } from '../lib/auth';
 import { LOCAUX } from './locaux';
 import { jour, localDans, num, profilsAvec, reconnaitre, rolesDe, sansAccents, txt, val, versUtcMidi, ALIAS, type Champs } from './champs';
-import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement } from './types';
+import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement, Stage } from './types';
 import { iso, plusJoursIso } from '../lib/calendar';
 import { repondreSimulation, simulationActive } from './simulation';
 import { googleActif, repondreGoogle } from './google';
@@ -153,6 +153,19 @@ const versSignalement = (it: Item): Signalement => {
  * D'abord les listes Profs et Roles : elles disent si c'est un membre du personnel. Un élève ne
  * charge ensuite que l'horaire des classes (sans nom de prof), les changements publiés et ses signalements.
  */
+/** Une ligne « Stages » ; « 6TQEDA, 6TQEDB » sur une ligne donne un stage par classe. */
+function versStages(it: Item): Stage[] {
+  const C = config.champs.stages;
+  const du = jour(val(it.fields, C.du));
+  const au = jour(val(it.fields, C.au)) || du;
+  const titre = txt(val(it.fields, C.titre)) || undefined;
+  return txt(val(it.fields, C.classe))
+    .split(/[,;]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((classe) => ({ id: it.id, classe, du, au, titre }));
+}
+
 function versSeance(it: Item): SeanceCR {
   const C = config.champs.capReussite;
   const o = txt(val(it.fields, C.origine));
@@ -257,9 +270,9 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
     };
   }
 
-  const [hor, abs, res, dep, inf, sig, dec, mat, chg, cr, rsl] = await Promise.all([
+  const [hor, abs, res, dep, inf, sig, dec, mat, chg, cr, rsl, stg] = await Promise.all([
     itemsDe(L.horaires), itemsDe(L.absences), itemsDe(L.reservations), itemsDe(L.deplacements), itemsDe(L.infos),
-    itemsDe(L.signalements), itemsDe(L.decisions), itemsDe(L.materiel), itemsDe(L.changements), itemsDe(L.capReussite), itemsDe(L.resultats),
+    itemsDe(L.signalements), itemsDe(L.decisions), itemsDe(L.materiel), itemsDe(L.changements), itemsDe(L.capReussite), itemsDe(L.resultats), itemsDe(L.stages),
   ]);
 
   const cours: Cours[] = hor.map((it) => {
@@ -361,6 +374,7 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
     changements: changementsDe(chg),
     materiel,
     capReussite: cr.map(versSeance).filter((x) => x.date >= depuis),
+    stages: stg.flatMap(versStages).filter((x) => x.du && x.au >= depuis),
     resultats: rsl.map(versResultat).filter((x) => x.eleve && x.matiere),
     absentes,
   };

@@ -119,6 +119,7 @@ En attendant l'inscription de l'app par l'IT, La Tour peut lire un **Google Shee
 - Le paquet Teams porte l'adresse du script et la clé : `python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/ --google "https://script.google.com/macros/s/<ID>/exec~<clé>"`. **À ne partager qu'avec les profs.**
 - Dans Teams, l'app demande à Teams l'adresse du prof connecté. Le script la reconnaît (colonne Email, sinon prenom.nom@ comme Power Apps) ; sinon le prof choisit son nom une fois, et l'adresse est écrite dans l'onglet Profs. Hors de Teams, personne n'est reconnu.
 - Horaires, Profs, Roles, HorairesEleves et Resultats ne sont jamais modifiés par l'app. Les absences peuvent être tapées directement dans le Sheet : elles reçoivent leur ID au chargement suivant.
+- Onglet **Stages** (Title = classe, Du, Au, Stage) : une classe en stage n'a plus cours ; ses heures deviennent libres pour le prof (horaire, locaux, déplacements). Créé par le script s'il manque.
 - Limites : l'adresse donnée par Teams n'est pas vérifiée par Microsoft (la clé protège l'accès) ; Power Apps ne voit pas ces données.
 
 ## Décale : le meilleur plan de déplacements de ta semaine

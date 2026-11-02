@@ -7,7 +7,7 @@ import { Feuille } from '../ui/Feuille';
 import { CeQuiCompte } from '../ui/CeQuiCompte';
 import { Entete } from '../ui/Entete';
 import { calendrierIcs, joursDeCours, telecharger, type Evenement } from '../lib/ics';
-import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour } from '../logic/horaire';
+import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStage, sansStage } from '../logic/horaire';
 import { opportunitesSemaine, optionsPour } from '../logic/deplacements';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
 import { aller, lien } from '../lib/route';
@@ -196,12 +196,13 @@ export function Horaire() {
           const jour = jourSemaineIso(date);
           const c = ds.cours.find((x) => x.jour === jour && x.h === p.h && x.classes.includes(classeVue));
           if (!c) return { cle, date, h: p.h, type: 'vide' };
+          if (enStage(ds, classeVue, date)) return { cle, date, h: p.h, type: 'perdue', haut: 'Stage' };
           if (absentA(ds, c.prof, date, p.h)) return { cle, date, h: p.h, type: 'sansprof', haut: c.matiere.slice(0, 10) || 'Cours', bas: 'sans prof' };
           return { cle, date, h: p.h, type: passe ? 'passe' : 'cours', haut: c.matiere.slice(0, 10) || c.classe, bas: nomAffiche(c.prof).slice(0, 9) };
         }
         if (vue === 'local') {
           const jour = jourSemaineIso(date);
-          const c = ds.cours.find((x) => x.jour === jour && x.h === p.h && x.local === salleVue && !absentA(ds, x.prof, date, p.h));
+          const c = ds.cours.find((x) => x.jour === jour && x.h === p.h && x.local === salleVue && !absentA(ds, x.prof, date, p.h) && !!sansStage(ds, x, date));
           const r = ds.reservations.find((x) => x.date === date && x.h === p.h && x.local === salleVue);
           if (r) return { cle, date, h: p.h, type: 'attente', haut: r.classe.split(' ')[0], bas: 'réservé' };
           if (!c) return { cle, date, h: p.h, type: 'vide' };
@@ -220,6 +221,9 @@ export function Horaire() {
         if (date === aujourdhui && sit.enCours && p.h === sit.h) return { cle, date, h: p.h, type: 'libre-maint', haut: 'Libre', bas: 'en cours', nb: o?.nb };
         if (o && o.passe) return { cle, date, h: p.h, type: 'perdue', nb: o.nb };
         if (o) return { cle, date, h: p.h, type: o.etoile ? 'etoile' : 'possible', nb: o.nb };
+        // Un cours qui saute parce que la classe est en stage : l'heure est libre, on dit pourquoi.
+        const enStageIci = ds.cours.find((x) => x.prof === moi && x.jour === jourSemaineIso(date) && x.h === p.h && !sansStage(ds, x, date));
+        if (enStageIci) return { cle, date, h: p.h, type: 'perdue', haut: enStageIci.classe, bas: 'en stage' };
         return { cle, date, h: p.h, type: 'vide' };
       }),
     );

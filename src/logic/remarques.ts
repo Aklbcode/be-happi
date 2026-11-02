@@ -3,7 +3,7 @@
 
 import type { Dataset } from '../data/types';
 import { JOURS, MIDI, deIso, dureeTxt, estJourDeCours, iso, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso } from '../lib/calendar';
-import { coursDuProf, coursSansProf, nomAffiche } from './horaire';
+import { coursDuProf, coursSansProf, nomAffiche, sansStage, stageDe } from './horaire';
 import { etatLocal } from './occupation';
 import { optionsPour, opportunitesSemaine } from './deplacements';
 import { PRIORITES_DEFAUT, type Priorites } from './priorites';
@@ -32,6 +32,31 @@ export function remarquesProf(ds: Dataset, moi: string, maintenant: Date, heureP
   const auj = iso(maintenant);
   const lundi = iso(lundiDe(maintenant));
   const jours = [0, 1, 2, 3, 4].map((n) => plusJoursIso(lundi, n)).filter((d) => d >= auj && estJourDeCours(deIso(d)));
+
+  // 0. Des classes en stage : leurs cours sautent, ces heures sont libres.
+  const libres = new Map<string, number>();
+  let fin = '';
+  for (const d of jours) {
+    for (const c of ds.cours.filter((x) => x.prof === moi && x.jour === jourSemaineIso(d) && !(d === auj && x.h <= heurePassee))) {
+      if (sansStage(ds, c, d)) continue;
+      libres.set(c.classe, (libres.get(c.classe) ?? 0) + 1);
+      const s = stageDe(ds, c.classes[0], d);
+      if (s && s.au > fin) fin = s.au;
+    }
+  }
+  if (libres.size) {
+    const n = [...libres.values()].reduce((a, b) => a + b, 0);
+    const classes = [...libres.keys()];
+    const quand = fin ? ` jusqu'au ${deIso(fin).getDate()}/${deIso(fin).getMonth() + 1}` : '';
+    sortie.push({
+      id: 'stage',
+      icone: 'horloge',
+      ton: 'indigo',
+      titre: `${classes.join(', ')} en stage${quand}`,
+      texte: `${pluriel(n, 'heure libre', 'heures libres')} cette semaine dans ton horaire. Ces heures peuvent recevoir un cours avancé.`,
+      action: { libelle: 'Voir ma semaine', href: '#/horaire' },
+    });
+  }
 
   // 1. Du temps à gagner en avançant des cours cette semaine.
   let gain = 0;

@@ -2,7 +2,7 @@
 
 import type { Dataset } from '../data/types';
 import { jourSemaineIso } from '../lib/calendar';
-import { absentA, nomAffiche } from './horaire';
+import { absentA, nomAffiche, sansStage } from './horaire';
 
 export type EtatLocal = 'libre' | 'occupe' | 'moi' | 'indispo';
 
@@ -30,7 +30,7 @@ export function etatLocal(ds: Dataset, moi: string, code: string, date: string, 
 
   for (const c of ds.cours.filter((x) => x.local === code && x.jour === jour && x.h === h)) {
     const parti = ds.deplacements.some((d) => d.statut === 'Validé' && d.prof === c.prof && d.dateOrigine === date && d.hOrigine === h);
-    if (parti || absentA(ds, c.prof, date, h)) continue;
+    if (parti || absentA(ds, c.prof, date, h) || !sansStage(ds, c, date)) continue;
     return { etat: c.prof === moi ? 'moi' : 'occupe', detail: c.prof === moi ? `Ton cours · ${c.classe}` : `${c.classe} · ${nomAffiche(c.prof)}` };
   }
   return { etat: 'libre', detail: 'Libre' };
