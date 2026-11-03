@@ -9,7 +9,7 @@ import { Icon } from './Icon';
 const PARENT: Partial<Record<Ecran, Ecran>> = {
   deplacer: 'horaire',
   connexion: 'ecole',
-  collab: 'ecole',
+  collab: 'ouest',
   materiel: 'ecole',
   signaler: 'ecole',
   qr: 'ecole',

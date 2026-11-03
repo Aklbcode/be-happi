@@ -25,6 +25,8 @@ export const OPTIONS = {
   eleve: false,
   /** Message d'accueil à la première ouverture. */
   bienvenue: false,
+  /** Onglet « École » (tous les services) dans la barre. */
+  ongletEcole: false,
 };
 
 const COUPES: [boolean, Ecran[]][] = [

@@ -49,7 +49,7 @@ export function Collab({ params }: { params: URLSearchParams }) {
 
   return (
     <section className="ecran" aria-label="Collab">
-      <Entete titre="Collab" sous="Une heure commune pour se réunir" retour="#/ecole" />
+      <Entete titre="Collab" sous="Une heure commune pour se réunir" retour="#/ouest" />
 
       <section className="carte" aria-label="Participants">
         <h2 className="titre-s">Avec qui ?</h2>

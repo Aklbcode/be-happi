@@ -3,7 +3,7 @@
 
 import type { Profil } from './types';
 import type { Ecran } from '../lib/route';
-import { ecranActif } from '../options';
+import { OPTIONS, ecranActif } from '../options';
 
 export type { Profil } from './types';
 
@@ -39,10 +39,11 @@ export const PROFILS: DescriptionProfil[] = [
       { ecran: 'horaire', libelle: 'Horaire', icone: 'calendrier' },
       HAPPI,
       CAP,
-      ECOLE,
     ],
+    // Version de test : pas d'onglet École ; Matériel à côté de Locaux.
     secours: [
       { ecran: 'locaux', libelle: 'Locaux', icone: 'porte' },
+      { ecran: 'materiel', libelle: 'Matériel', icone: 'tablette' },
       { ecran: 'ouest', libelle: 'Où est ?', icone: 'loupe' },
     ],
   },
@@ -76,9 +77,9 @@ export const PROFILS: DescriptionProfil[] = [
       ECOLE,
     ],
     secours: [
-      { ecran: 'validations', libelle: 'Valider', icone: 'echange' },
       { ecran: 'pilotage', libelle: 'Pilotage', icone: 'pouls' },
       { ecran: 'ouest', libelle: 'Où est ?', icone: 'loupe' },
+      { ecran: 'locaux', libelle: 'Locaux', icone: 'porte' },
     ],
   },
   {
@@ -131,7 +132,7 @@ export const PROFILS: DescriptionProfil[] = [
 /** L'espace, avec ses onglets ouverts dans cette version (les onglets coupés sont remplacés). */
 export function profil(id: Profil): DescriptionProfil {
   const p = PROFILS.find((x) => x.id === id) ?? PROFILS[0];
-  const onglets = p.onglets.filter((o) => ecranActif(o.ecran));
+  const onglets = p.onglets.filter((o) => ecranActif(o.ecran) && (OPTIONS.ongletEcole || o.ecran !== 'ecole'));
   const ecole = onglets.filter((o) => o.ecran === 'ecole');
   const autres = onglets.filter((o) => o.ecran !== 'ecole');
   for (const s of p.secours ?? []) {

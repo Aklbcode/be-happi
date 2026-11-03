@@ -80,7 +80,7 @@ export function MoiProvider({ children }: { children: ReactNode }) {
 }
 
 function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void }) {
-  const { ds, demo, profil, profils, changerProfil } = useStore();
+  const { ds, demo, profil, profils, changerProfil, peutVoirValidations } = useStore();
   const [theme, setTheme] = useState<Theme>(themeEnregistre);
   if (!ds) return null;
   const nom = ds.moi.nom ? `${ds.moi.prenom} ${nomAffiche(ds.moi.nom)}` : ds.moi.prenom || 'Élève';
@@ -120,6 +120,22 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
           </div>
           {demo && <p className="petit">En vrai, chacun ne voit que ses espaces : ils viennent de la liste Roles et de l’horaire.</p>}
         </section>
+      )}
+
+      {peutVoirValidations && profil !== 'eleve' && (
+        <a className="carte carte--lien" href={lien('validations')} onClick={fermer}>
+          <span className="vignette" style={{ position: 'relative' }}>
+            <Icon nom="echange" />
+            {ds.deplacements.some((d) => d.statut === 'En attente') && (
+              <span className="pastille">{ds.deplacements.filter((d) => d.statut === 'En attente').length}</span>
+            )}
+          </span>
+          <span className="pile grandit">
+            <span className="titre-s">Validations</span>
+            <span className="petit">Les déplacements proposés par les profs</span>
+          </span>
+          <Icon nom="droite" />
+        </a>
       )}
 
       {profils.includes('prof') && <CeQuiCompte />}

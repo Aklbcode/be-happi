@@ -11,7 +11,7 @@ import { ChoixJour, prochainsJours } from '../ui/Choix';
 import { FeuilleAide } from '../ui/FeuilleAide';
 import { journeeClasse, journeeLocal, journeeProf, profsLibres, rechercher, toutesLesClasses, triClasse, type Trouve } from '../logic/ouest';
 import { nomAffiche } from '../logic/horaire';
-import { MIDI, estJourDeCours, periode, situation } from '../lib/calendar';
+import { JOURS, MIDI, PERIODES, deIso, estJourDeCours, jourSemaineIso, periode, situation } from '../lib/calendar';
 import { lien } from '../lib/route';
 
 const CLE_RECENTS = 'behappi-ouest-recents';
@@ -38,6 +38,7 @@ export function OuEst({ params }: { params: URLSearchParams }) {
   const jours = useMemo(() => prochainsJours(maintenant, 5), [maintenant]);
   const [date, setDate] = useState(params.get('date') ?? (estJourDeCours(maintenant) ? aujourdhui : jours[0]));
   const [texte, setTexte] = useState('');
+  const [hChoisie, setHChoisie] = useState<number | null>(null);
   const [aide, setAide] = useState<{ h: number; classe?: string } | null>(null);
   const q = params.get('q') ?? '';
 
@@ -57,12 +58,16 @@ export function OuEst({ params }: { params: URLSearchParams }) {
     setTexte('');
     window.location.hash = lien('ouest', { q: t.nom, date }).slice(1);
   };
-  const libres = hNow ? profsLibres(ds, date, hNow, profil === 'prof' ? [ds.moi.nom] : []) : [];
+  // Qui est libre : l'heure choisie, sinon l'heure en cours, sinon H1.
+  const hLibre = hChoisie ?? hNow ?? 1;
+  const sauf = profil === 'prof' ? [ds.moi.nom] : [];
+  const libres = profsLibres(ds, date, hLibre, sauf);
+  const parHeure = PERIODES.map((p) => profsLibres(ds, date, p.h, sauf).filter((l) => l.fourche).length);
   const recents = lireRecents();
 
   return (
     <section className="ecran" aria-label="Où est ?">
-      <Entete titre="Où est ?" sous="Un collègue, une classe, un local" retour={choisi ? lien('ouest') : undefined} />
+      {choisi ? <Entete titre="Où est ?" titreCache retour={lien('ouest')} droite={<span />} /> : <h1 className="visuellement-cache">Où est ?</h1>}
 
       <div className="recherche">
         <Icon nom="loupe" />
@@ -120,24 +125,41 @@ export function OuEst({ params }: { params: URLSearchParams }) {
                 </div>
               </section>
             )}
-            {hNow && (
-              <section className="carte" aria-label="Libres maintenant">
-                <div className="rangee rangee--entre">
-                  <h2 className="titre-m">Libres maintenant · H{hNow}</h2>
-                  <span className="puce puce--indigo">{libres.filter((l) => l.fourche).length} à l’école</span>
-                </div>
-                <div className="rangee enrouler">
-                  {libres.slice(0, 14).map((l) => (
-                    <button key={l.prof} className={`filtre${l.fourche ? '' : ' filtre--pale'}`} onClick={() => ouvrir({ type: 'prof', nom: l.prof })}>
-                      {nomAffiche(l.prof)}
-                    </button>
-                  ))}
-                </div>
-                <button className="bouton bouton--prim" onClick={() => setAide({ h: hNow })}>
-                  <Icon nom="message" taille={18} /> Demander un coup de main
-                </button>
-              </section>
-            )}
+            <section className="carte" aria-label="Qui est libre ?">
+              <div className="rangee rangee--entre">
+                <h2 className="titre-m">Qui est libre ?</h2>
+                <span className="puce puce--indigo">{libres.filter((l) => l.fourche).length} en fourche</span>
+              </div>
+              <div className="heures-9" role="group" aria-label="Choisir l'heure (profs en fourche)">
+                {PERIODES.map((p, i) => (
+                  <button key={p.h} aria-pressed={p.h === hLibre} onClick={() => setHChoisie(p.h)} aria-label={`H${p.h}, ${parHeure[i]} profs en fourche`}>
+                    <b>H{p.h}</b>
+                    <small>{parHeure[i]}</small>
+                  </button>
+                ))}
+              </div>
+              <span className="petit">
+                {JOURS[jourSemaineIso(date)]} {deIso(date).getDate()}/{deIso(date).getMonth() + 1} · H{hLibre} · {periode(hLibre).debut}. En plein : en fourche (à l’école). En pointillé : avant ou après leurs cours.
+              </span>
+              <div className="rangee enrouler">
+                {libres.slice(0, 30).map((l) => (
+                  <button key={l.prof} className={`filtre${l.fourche ? '' : ' filtre--pale'}`} onClick={() => ouvrir({ type: 'prof', nom: l.prof })}>
+                    {nomAffiche(l.prof)}
+                  </button>
+                ))}
+                {!libres.length && <span className="petit">Personne de libre à cette heure.</span>}
+              </div>
+              <div className="rangee enrouler">
+                <a className="bouton bouton--sec" href={lien('collab')}>
+                  <Icon nom="agenda" taille={18} /> Trouver une heure commune
+                </a>
+                {estAuj && hLibre >= (hNow ?? 1) && (
+                  <button className="bouton bouton--prim" onClick={() => setAide({ h: hLibre })}>
+                    <Icon nom="message" taille={18} /> Demander un coup de main
+                  </button>
+                )}
+              </div>
+            </section>
             <section className="pile pile--8" aria-label="Classes">
               <h2 className="titre-s">Les classes</h2>
               <div className="grille-classes">
