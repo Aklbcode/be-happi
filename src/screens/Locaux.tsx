@@ -126,19 +126,16 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
       <section className="carte carte--serree" aria-label="Locaux libres">
         <div className="rangee rangee--entre">
-          <div className="pile">
-            <h2 className="titre-m">{libres.length > 1 ? `${libres.length} locaux libres` : libres.length === 1 ? '1 local libre' : 'Aucun local libre'}</h2>
-            <span className="petit fort">
-              H{h} · {periode(h).debut} – {periode(h).fin}
-            </span>
-          </div>
+          <h2 className="titre-s">
+            H{h} · {periode(h).debut} – {periode(h).fin}
+          </h2>
           <MiniPlan />
         </div>
 
         {/* Au nord, le long des terrains de sport. */}
         <div className="bande">
           <span className="bande-tete">
-            <b>PR</b> préfabriqués, le long des terrains
+            <b>PR</b>
           </span>
           {salles(dans('PR'))}
         </div>
@@ -152,7 +149,6 @@ export function Locaux({ params }: { params: URLSearchParams }) {
                 {b === 'T' && <Icon nom="tour" taille={15} epaisseur={2} />}
                 {batiment(b).sigle}
               </b>
-              <small>{b === 'C' ? 'rue Papleux' : b === 'F' ? 'au milieu' : 'ch. de Mons'}</small>
             </div>
           ))}
           {ETAGES.map((e) => (
@@ -169,12 +165,12 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
         <div className="bande">
           <span className="bande-tete">
-            <b>+</b> sport, atelier, cuisines
+            <b>Autres</b>
           </span>
           {salles(dans('Autres'), true)}
         </div>
 
-        <p className="petit">{libres.length ? (profil === 'prof' ? 'Touche un local pour le réserver.' : 'Touche un local pour voir son équipement.') : 'Aucun local libre à cette heure avec ces filtres.'}</p>
+        {!libres.length && <p className="petit">Aucun local libre à cette heure avec ces filtres.</p>}
       </section>
 
       <Feuille ouverte={!!local} onFermer={() => setChoisi(null)} titre={local ? `Local ${local.code}` : 'Local'}>
