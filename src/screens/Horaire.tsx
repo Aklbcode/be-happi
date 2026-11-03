@@ -4,7 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
-import { CeQuiCompte } from '../ui/CeQuiCompte';
 import { Entete } from '../ui/Entete';
 import { calendrierIcs, joursDeCours, telecharger, type Evenement } from '../lib/ics';
 import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStage, sansStage } from '../logic/horaire';
@@ -36,14 +35,6 @@ interface Fleche {
 }
 
 const CLE_FLECHES = 'behappi-fleches';
-const CLE_MODE = 'behappi-horaire-mode';
-const lireMode = (): 'semaine' | 'jour' => {
-  try {
-    return localStorage.getItem(CLE_MODE) === 'jour' ? 'jour' : 'semaine';
-  } catch {
-    return 'semaine';
-  }
-};
 const flechesVisibles = (): boolean => {
   try {
     // Par défaut, pas de flèches : la semaine reste lisible ; un toucher sur une case les montre.
@@ -63,11 +54,12 @@ export function Horaire() {
   });
   const [decalage, setDecalage] = useState(depart);
   const [toutesFleches, setToutesFleches] = useState(flechesVisibles);
-  const [mode, setMode] = useState(lireMode);
+  // Version de test : toujours la semaine, toujours « Moi » (une classe ou un local : « Où est ? »).
+  const mode = 'semaine' as 'semaine' | 'jour';
   const [jourIdx, setJourIdx] = useState<number | null>(null);
-  const [vue, setVue] = useState<Vue>('moi');
-  const [classe, setClasse] = useState('');
-  const [salle, setSalle] = useState('');
+  const vue = 'moi' as Vue;
+  const classe = '';
+  const salle = '';
   const [sel, setSel] = useState<{ date: string; h: number } | null>(null);
   const [detail, setDetail] = useState<CoursJour | null>(null);
   const [passee, setPassee] = useState<Case | null>(null);
@@ -83,7 +75,6 @@ export function Horaire() {
   const moi = ds?.moi.nom ?? '';
   const mesClasses = useMemo(() => (ds ? [...new Set(ds.cours.filter((c) => c.prof === moi).flatMap((c) => c.classes))].sort() : []), [ds, moi]);
   const classeVue = classe || mesClasses[0] || '';
-  const sallesConnues = useMemo(() => (ds ? ds.locaux.map((l) => l.code) : []), [ds]);
   const salleVue = salle || 'BT004';
 
   const opps = useMemo(() => (ds && vue === 'moi' ? opportunitesSemaine(ds, moi, lundi, aujourdhui, finieEff, priorites) : new Map()), [ds, vue, moi, lundi, aujourdhui, finieEff, priorites]);
@@ -364,55 +355,6 @@ export function Horaire() {
         }
       />
 
-      <div className="horaire-choix">
-        <div className="seg" role="group" aria-label="Afficher l'horaire de">
-          {(['moi', 'classe', 'local'] as Vue[]).map((v) => (
-            <button key={v} aria-pressed={vue === v} onClick={() => { setVue(v); setSel(null); }}>
-              {v === 'moi' ? 'Moi' : v === 'classe' ? 'Classe' : 'Local'}
-            </button>
-          ))}
-        </div>
-        <div className="seg" role="group" aria-label="Affichage">
-          {(['semaine', 'jour'] as const).map((m) => (
-            <button
-              key={m}
-              aria-pressed={mode === m}
-              onClick={() => {
-                setMode(m);
-                try {
-                  localStorage.setItem(CLE_MODE, m);
-                } catch {
-                  /* rien */
-                }
-              }}
-            >
-              {m === 'semaine' ? 'Semaine' : 'Jour'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {vue === 'classe' && (
-        <label className="rangee">
-          <span className="petit">Classe</span>
-          <select className="bouton bouton--sec bouton--petit grandit" value={classeVue} onChange={(e) => setClasse(e.target.value)}>
-            {mesClasses.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-      )}
-      {vue === 'local' && (
-        <label className="rangee">
-          <span className="petit">Local</span>
-          <select className="bouton bouton--sec bouton--petit grandit" value={salleVue} onChange={(e) => setSalle(e.target.value)}>
-            {sallesConnues.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-      )}
-
       {mode === 'jour' && (() => {
         const idx = jourIdx ?? (colonneAuj >= 0 ? colonneAuj : Math.max(0, dates.findIndex((d) => !conge(deIso(d)))));
         const dateJ = dates[idx];
@@ -639,7 +581,6 @@ export function Horaire() {
           )}
         </div>
       )}
-      {vue === 'moi' && <CeQuiCompte />}
 
       <Feuille ouverte={!!sel && options.length > 0} onFermer={() => setSel(null)} titre="Déplacements possibles">
         {sel && (

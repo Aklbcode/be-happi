@@ -65,7 +65,7 @@ export const PROFILS: DescriptionProfil[] = [
     id: 'secretariat',
     nom: 'Secrétariat',
     qui: 'Service administratif',
-    apport: 'Absences et leur impact, publication élèves, infos du jour',
+    apport: 'Absences et leur impact, validation des déplacements',
     icone: 'note',
     accueil: 'absences',
     onglets: [

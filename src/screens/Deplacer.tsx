@@ -7,7 +7,6 @@ import { optionsPour, type OptionDeplacement } from '../logic/deplacements';
 import { coursSansProf, nomAffiche } from '../logic/horaire';
 import { JOURS, deIso, jourSemaineIso, periode, situation } from '../lib/calendar';
 import { lien } from '../lib/route';
-import { CeQuiCompte } from '../ui/CeQuiCompte';
 
 export function Deplacer({ params }: { params: URLSearchParams }) {
   const { ds, aujourdhui, minutes, heureFinie, priorites, proposer, montrerToast, demo } = useStore();
@@ -98,7 +97,6 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
             {options.length > 1 ? `${options.length} options, la meilleure pour toi d'abord` : 'Une option'}
             {options[0].semaineSuivante ? ' · semaine prochaine' : ''}
           </h2>
-          {options.length > 1 && !envoye && <CeQuiCompte explication={false} />}
           {options.map((o) => (
             <button key={o.cle} role="radio" aria-checked={sel?.cle === o.cle} className="option" disabled={envoye} onClick={() => setChoix(o.cle)}>
               <span className="radio" aria-hidden="true" />

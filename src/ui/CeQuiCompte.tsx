@@ -22,7 +22,7 @@ export function CeQuiCompte({ explication = true }: { explication?: boolean }) {
           </button>
         ))}
       </div>
-      {explication && <p className="petit">Le cours le plus avantageux et les flèches suivent ces choix{OPTIONS.decale ? ', ici et dans Décale' : ''}.</p>}
+      {explication && <p className="petit">Quand une heure se libère, l’app te propose d’abord le cours qui respecte ces choix{OPTIONS.decale ? ' (ici et dans Décale)' : ''}.</p>}
     </section>
   );
 }

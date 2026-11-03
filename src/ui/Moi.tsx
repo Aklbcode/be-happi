@@ -10,6 +10,9 @@ import { Icon } from './Icon';
 import { aller, lien } from '../lib/route';
 import { nomAffiche } from '../logic/horaire';
 import { indiceTeams } from '../lib/reglages';
+import { CeQuiCompte } from './CeQuiCompte';
+import { ecranActif } from '../options';
+import { googleActif } from '../data/google';
 
 const Ctx = createContext<{ ouvrir: () => void }>({ ouvrir: () => {} });
 
@@ -119,6 +122,8 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
         </section>
       )}
 
+      {profils.includes('prof') && <CeQuiCompte />}
+
       <section className="pile pile--8" aria-label="Thème">
         <h3 className="titre-s">Thème</h3>
         <div className="seg" role="group" aria-label="Thème">
@@ -142,10 +147,12 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
         <a href={lien('ecole')} onClick={fermer}>
           <Icon nom="grille" /> Tous les services
         </a>
-        <a href={lien('ecran')} onClick={fermer}>
-          <Icon nom="tv" /> Écran du hall
-        </a>
-        {profil !== 'eleve' && (
+        {ecranActif('ecran') && (
+          <a href={lien('ecran')} onClick={fermer}>
+            <Icon nom="tv" /> Écran du hall
+          </a>
+        )}
+        {profil !== 'eleve' && !googleActif() && (
           <a href={lien('connexion')} onClick={fermer}>
             <Icon nom="lien" /> Connexion SharePoint
           </a>
