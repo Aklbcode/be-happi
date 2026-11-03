@@ -80,7 +80,7 @@ const contexte = vm.createContext({
     },
   },
 });
-vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8').replace('__CLE__', CLE), contexte);
+vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8').replace('__CLE__', CLE).replace("const DESTINATAIRE_NOTIF = '';", "const DESTINATAIRE_NOTIF = 'flow@ecole.example';"), contexte);
 const doPost = contexte.doPost as (e: unknown) => string;
 const envoi = async (_url: string, corps: string) => JSON.parse(doPost({ postData: { contents: corps } }));
 
@@ -280,9 +280,13 @@ test('une absence encodée libère une heure : le prof qui a la classe plus tard
   (contexte.onEdit as () => void)();
   mailsEnvoyes.length = 0;
   assert.equal(creerX(educ, 'Absences', { Title: 'MARTIN (sport)', DateAbs: `${lundi}T12:00:00Z`, DeH: 1, AH: 9 }).status, 201);
+  // Un seul mail technique, vers la boîte du flow Teams : objet « code | adresse du prof | texte ».
   assert.equal(mailsEnvoyes.length, 1);
-  assert.equal(mailsEnvoyes[0].to, prof);
-  assert.match(mailsEnvoyes[0].body, /H2 est libérée pour la 5TQB : tu peux y avancer ton cours du lundi .* H3/);
+  assert.equal(mailsEnvoyes[0].to, 'flow@ecole.example');
+  const [code, a, texte] = mailsEnvoyes[0].subject.split(' | ');
+  assert.equal(code, `IPES-APP-NOTIF ${CLE.slice(0, 8)}`);
+  assert.equal(a, prof);
+  assert.match(texte, /lundi .* H2 pour ta 5TQB \(ton cours du lundi .* H3\)/);
   // La même heure encore : pas de deuxième mail.
   creerX(educ, 'Absences', { Title: 'MARTIN (sport)', DateAbs: `${lundi}T12:00:00Z`, DeH: 2, AH: 2 });
   assert.equal(mailsEnvoyes.length, 1);

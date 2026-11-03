@@ -954,15 +954,22 @@ function appliquerAbsencesExcel(classeur, maintenant) {
 }
 
 // =====================================================================================
-// Prévenir les profs : une nouvelle absence libère des heures ; les profs qui ont la même classe
-// plus tard dans la semaine, et qui sont libres à cette heure-là, reçoivent un mail (une seule fois
-// par heure libérée). Mêmes règles de base que l'app : mêmes classes, prof libre, jamais H5,
-// pas de classe en stage, pas d'heure déjà passée. L'app revérifie tout avant de proposer.
+// Prévenir les profs dans Teams : une nouvelle absence libère des heures ; les profs qui ont la même
+// classe plus tard dans la semaine, et qui sont libres à cette heure-là, reçoivent une notification
+// Teams (une seule fois par heure libérée). Mêmes règles de base que l'app : mêmes classes, prof
+// libre, jamais H5, pas de classe en stage, pas d'heure déjà passée. L'app revérifie tout.
+//
+// Comment : le script envoie UN mail technique par prof à l'adresse DESTINATAIRE_NOTIF (la boîte
+// de l'école de la personne qui gère l'app), objet « IPES-APP-NOTIF <code> | <adresse du prof> | <texte> ».
+// Un flow Power Automate (« When a new email arrives ») poste le texte au prof dans Teams (Flow bot)
+// puis supprime le mail. Les profs ne reçoivent aucun mail.
 // Il faut l'adresse du prof (colonne Email de l'onglet Profs, remplie à sa première ouverture).
-// Pour couper : mettre NOTIFIER à false.
+// Pour couper : mettre NOTIFIER à false. Le modèle public laisse DESTINATAIRE_NOTIF vide.
 // =====================================================================================
 
 const NOTIFIER = true;
+const DESTINATAIRE_NOTIF = '';
+const OBJET_NOTIF = 'IPES-APP-NOTIF';
 const FINS_MIN = [0, 555, 610, 675, 725, 775, 825, 875, 935, 985];
 const MAX_MAILS = 60;
 const JOURS_NOMS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -1011,7 +1018,7 @@ function occasionsDe(nouvelles, maintenant) {
 
 /** Envoie un mail aux profs concernés (une fois par heure libérée et par prof). Renvoie le nombre de profs prévenus. */
 function notifierDeplacements(nouvelles, maintenant) {
-  if (!NOTIFIER || typeof MailApp === 'undefined') return 0;
+  if (!NOTIFIER || !DESTINATAIRE_NOTIF || typeof MailApp === 'undefined') return 0;
   const parProf = occasionsDe(nouvelles, maintenant);
   const noms = Object.keys(parProf);
   if (!noms.length) return 0;
@@ -1027,19 +1034,11 @@ function notifierDeplacements(nouvelles, maintenant) {
     const neuves = parProf[prof].filter((o) => !deja.has(`${prof}|${o.date}|${o.h}`));
     if (!neuves.length) return;
     const quand = (d, h) => `${JOURS_NOMS[jourIso(d)]} ${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))} H${h}`;
-    const lignesTexte = neuves.map((o) => `• ${quand(o.date, o.h)} est libérée pour la ${o.classes} : tu peux y avancer ton cours du ${quand(o.depuisDate, o.depuisH)}.`);
-    const corps = [
-      'Bonjour,',
-      '',
-      'Une nouvelle absence libère une heure que tu pourrais utiliser :',
-      ...lignesTexte,
-      '',
-      'Ouvre IPES App dans Teams (onglet Horaire) : l\'app revérifie tout et te propose le déplacement. Rien n\'est fait sans toi, et l\'éducateur valide.',
-      '',
-      'IPES App',
-    ].join('\n');
+    const liste = neuves.slice(0, 3).map((o) => `${quand(o.date, o.h)} pour ta ${o.classes} (ton cours du ${quand(o.depuisDate, o.depuisH)})`).join(' ; ');
+    const plus = neuves.length > 3 ? ` et ${neuves.length - 3} autre(s)` : '';
+    const texte = `IPES App : une heure libérée que tu peux utiliser, ${liste}${plus}. Ouvre IPES App (onglet Horaire) pour proposer le déplacement.`.replace(/\|/g, '/');
     try {
-      MailApp.sendEmail({ to: mails[prof], subject: `IPES App · une heure libérée pour ta ${neuves[0].classes}`, body: corps, name: 'IPES App' });
+      MailApp.sendEmail({ to: DESTINATAIRE_NOTIF, subject: `${OBJET_NOTIF} ${CLE.slice(0, 8)} | ${mails[prof]} | ${texte}`.slice(0, 250), body: texte, name: 'IPES App' });
       neuves.forEach((o) => journal.appendRow([`${prof}|${o.date}|${o.h}`, prof, new Date().toISOString()]));
       neuves.forEach((o) => deja.add(`${prof}|${o.date}|${o.h}`));
       envoyes++;
