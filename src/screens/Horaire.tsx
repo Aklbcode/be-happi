@@ -1,6 +1,6 @@
 // Écran « Horaire » : la semaine, les heures libérées et les flèches de déplacement.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as EvPointeur } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as EvPointeur, type CSSProperties } from 'react';
 import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
@@ -10,6 +10,7 @@ import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStag
 import { opportunitesSemaine, optionsPour } from '../logic/deplacements';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
 import { aller, lien } from '../lib/route';
+import { couleurMatiere } from '../logic/couleurs';
 
 type Vue = 'moi' | 'classe' | 'local';
 const MOIS = ['janv.', 'févr.', 'mars', 'avril', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -738,8 +739,11 @@ function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol }
     default: {
       const classe =
         c.type === 'cours' ? 'case--cours' : c.type === 'passe' ? 'case--passe' : c.type === 'deplace' ? 'case--deplace' : c.type === 'sansprof' ? 'case--possible' : 'case--attente';
+      // La couleur de la matière, comme sur l'horaire de l'école.
+      const mat = c.type !== 'sansprof' ? couleurMatiere(c.cours?.matiere) : undefined;
+      const style = { ...(c.type === 'sansprof' ? { flexDirection: 'column' } : {}), ...(mat ? { '--mat': mat } : {}) } as CSSProperties;
       return (
-        <button className={`case ${classe}${extra}`} onClick={onClick} aria-label={`${c.haut ?? ''} ${c.bas ?? ''}`} {...commun} style={c.type === 'sansprof' ? { flexDirection: 'column' } : undefined}>
+        <button className={`case ${classe}${mat ? ' case--mat' : ''}${extra}`} onClick={onClick} aria-label={`${c.cours?.matiere ?? ''} ${c.haut ?? ''} ${c.bas ?? ''}`} {...commun} style={style}>
           <b>{c.haut}</b>
           <span>{c.bas}</span>
         </button>

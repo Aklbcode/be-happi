@@ -1,6 +1,6 @@
 // Écran « Aujourd'hui » : ce qui se passe maintenant, la meilleure suggestion, la journée, les infos.
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../data/store';
 import { ecranActif } from '../options';
 import { Icon } from '../ui/Icon';
@@ -11,6 +11,7 @@ import { etatLocal } from '../logic/occupation';
 import { JOURS, MIDI, RECRES, conge, dateLongue, estJourDeCours, jourSemaineIso, periode, prochainJourDeCours, situation, iso } from '../lib/calendar';
 import { blagueDuJour } from '../data/blagues';
 import { lien } from '../lib/route';
+import { couleurMatiere } from '../logic/couleurs';
 import { moment, suiviDuProf } from '../logic/suivi';
 import { remarquesProf } from '../logic/remarques';
 import { Remarques } from '../ui/Remarques';
@@ -292,7 +293,7 @@ export function Aujourdhui() {
                 <li key={`h${l.h}`}>
                   <span className="heure">{periode(l.h).debut}</span>
                   {l.type === 'cours' ? (
-                    <div className={`creneau ${l.style}`}>
+                    <div className={`creneau ${l.style}${couleurMatiere(l.c.matiere) && !/deplace|attente|possible/.test(l.style) ? ' creneau--mat' : ''}`} style={{ '--mat': couleurMatiere(l.c.matiere) } as CSSProperties} title={l.c.matiere || undefined}>
                       {l.style === 'creneau--passe' && <Icon nom="coche" taille={16} epaisseur={2.2} />}
                       {l.style === 'creneau--maintenant' && <span className="point point--vivant" />}
                       <span className="fort" style={{ color: 'inherit' }}>{l.c.classe}</span>

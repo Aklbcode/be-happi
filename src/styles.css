@@ -907,3 +907,19 @@ a.puce--demo { text-decoration: none; }
 .carte--collab { background: var(--indigo); border-color: transparent; color: var(--sur-indigo); }
 .carte--collab .petit { color: var(--sur-indigo); opacity: 0.85; }
 .carte--collab .vignette { background: rgba(255, 255, 255, 0.16); color: var(--sur-indigo); }
+
+/* Couleur de la matière (reprise de l'horaire de l'école). Plus douce en mode sombre et pour une heure passée. */
+:root { --mat-force: 78%; --mat-passe: 38%; }
+.case--mat { background: color-mix(in srgb, var(--mat) var(--mat-force), var(--surface)); border-color: color-mix(in srgb, var(--mat) 80%, var(--encre) 20%); color: var(--encre); }
+.case--mat span { color: color-mix(in srgb, var(--encre) 75%, transparent); }
+.case--passe.case--mat { background: color-mix(in srgb, var(--mat) var(--mat-passe), var(--surface)); border-color: transparent; color: var(--passe-encre); }
+.case--deplace.case--mat, .case--attente.case--mat { box-shadow: inset 4px 0 0 var(--mat); }
+.case--deplace.case--mat { background: var(--indigo); color: var(--sur-indigo); }
+.case--deplace.case--mat span { color: var(--sur-indigo); }
+.case--attente.case--mat { background: var(--orange-pale); }
+.creneau--mat { border-left: 6px solid var(--mat); background: color-mix(in srgb, var(--mat) 22%, var(--surface)); }
+.creneau--passe.creneau--mat { background: color-mix(in srgb, var(--mat) 12%, var(--passe)); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='clair']):not([data-theme='light']):not([data-theme='contraste']) { --mat-force: 34%; --mat-passe: 16%; }
+}
+:root[data-theme='sombre'], :root[data-theme='dark'] { --mat-force: 34%; --mat-passe: 16%; }
