@@ -34,21 +34,12 @@ interface Fleche {
   anime: boolean;
 }
 
-const CLE_FLECHES = 'behappi-fleches';
 const CLE_AIDE = 'behappi-aide-horaire';
 const aideVue = (): boolean => {
   try {
     return localStorage.getItem(CLE_AIDE) === '1';
   } catch {
     return false;
-  }
-};
-const flechesVisibles = (): boolean => {
-  try {
-    // Par défaut, pas de flèches : la semaine reste lisible ; un toucher sur une case les montre.
-    return localStorage.getItem(CLE_FLECHES) === '1';
-  } catch {
-    return true;
   }
 };
 
@@ -61,7 +52,6 @@ export function Horaire() {
     return 0;
   });
   const [decalage, setDecalage] = useState(depart);
-  const [toutesFleches, setToutesFleches] = useState(flechesVisibles);
   // L'aide sous la grille disparaît dès qu'on a touché une heure libérée une première fois.
   const [aide, setAide] = useState(() => !aideVue());
   const [sens, setSens] = useState(0);
@@ -99,7 +89,22 @@ export function Horaire() {
     for (const o of opps.values()) if (!o.passe) m.set(`${o.date}|${o.h}`, optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff, priorites));
     return m;
   }, [ds, vue, opps, moi, aujourdhui, finieEff, priorites]);
-  const meilleures = useMemo(() => [...parHeure.values()].map((l) => l[0]).filter(Boolean), [parHeure]);
+  // Ce qu'on montre d'office : seulement les meilleures propositions (vraiment avantageuses pour toi),
+  // 3 au plus, un cours ne part que vers une seule heure. Les autres : au survol ou au toucher.
+  const meilleures = useMemo(() => {
+    const tous = [...parHeure.values()].map((l) => l[0]).filter((o) => o && o.meilleur && o.avantageProf && !o.semaineSuivante);
+    tous.sort((a, b) => b.score - a.score);
+    const pris = new Set<string>();
+    const res: typeof tous = [];
+    for (const o of tous) {
+      const k = `${o.dateO}|${o.hO}`;
+      if (pris.has(k)) continue;
+      pris.add(k);
+      res.push(o);
+      if (res.length >= 3) break;
+    }
+    return res;
+  }, [parHeure]);
   // Souris : survoler une heure libérée montre ses options ; survoler un cours montre où il peut aller.
   const [survol, setSurvol] = useState<string | null>(null);
   const survolees = useMemo(() => {
@@ -223,19 +228,20 @@ export function Horaire() {
         const o = opps.get(cle);
         if (date === aujourdhui && sit.enCours && p.h === sit.h) return { cle, date, h: p.h, type: 'libre-maint', haut: 'Libre', bas: 'en cours', nb: o?.nb };
         if (o && o.passe) return { cle, date, h: p.h, type: 'perdue', nb: o.nb };
-        if (o) return { cle, date, h: p.h, type: o.etoile ? 'etoile' : 'possible', nb: o.nb };
+        // ✦ seulement là où arrive une des meilleures propositions (celles dessinées d'office).
+        if (o) return { cle, date, h: p.h, type: meilleures.some((m) => `${m.date}|${m.h}` === cle) ? 'etoile' : 'possible', nb: o.nb };
         // Un cours qui saute parce que la classe est en stage : l'heure est libre, on dit pourquoi.
         const enStageIci = ds.cours.find((x) => x.prof === moi && x.jour === jourSemaineIso(date) && x.h === p.h && !sansStage(ds, x, date));
         if (enStageIci) return { cle, date, h: p.h, type: 'stage', haut: enStageIci.classe, bas: 'stage' };
         return { cle, date, h: p.h, type: 'vide' };
       }),
     );
-  }, [ds, dates, vue, classeVue, salleVue, moi, opps, aujourdhui, heureFinie, sit.enCours, sit.h]);
+  }, [ds, dates, vue, classeVue, salleVue, moi, opps, meilleures, aujourdhui, heureFinie, sit.enCours, sit.h]);
 
   // Flèches : du cours de départ vers l'heure libérée.
   const dessiner = useCallback(() => {
     const g = grilleRef.current;
-    if (!g || vue !== 'moi' || (!sel && !survolees && !toutesFleches)) {
+    if (!g || vue !== 'moi') {
       setFleches([]);
       return;
     }
@@ -247,7 +253,7 @@ export function Horaire() {
       return { x: r.left - gr.left + r.width / 2, y: r.top - gr.top + r.height / 2, w: r.width, h: r.height };
     };
     const res: Fleche[] = [];
-    // Une heure touchée : toutes ses options, animées. Sinon : la meilleure de chaque heure, discrète.
+    // Une heure touchée ou survolée : ses options, animées. Sinon : les meilleures propositions seulement.
     const aDessiner = sel ? options.slice(0, 4) : survolees ?? meilleures;
     const vif = !!sel || !!survolees;
     aDessiner.forEach((o) => {
@@ -266,7 +272,7 @@ export function Horaire() {
       const y2 = cible.y - uy * Math.min(cible.w, cible.h) * 0.55;
       const cx = (x1 + x2) / 2 - uy * long * 0.18;
       const cy = (y1 + y2) / 2 + ux * long * 0.18;
-      const fort = vif ? o.meilleur : o.meilleur && o.avantageProf;
+      const fort = vif ? o.meilleur : true;
       const couleur = o.semaineSuivante ? 'var(--sarcelle)' : fort ? 'var(--indigo)' : 'var(--indigo-moyen)';
       res.push({
         d: `M${x1.toFixed(1)} ${y1.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`,
@@ -278,7 +284,7 @@ export function Horaire() {
       });
     });
     setFleches(res);
-  }, [sel, options, vue, meilleures, toutesFleches, survolees]);
+  }, [sel, options, vue, meilleures, survolees]);
 
   useLayoutEffect(() => {
     dessiner();
@@ -555,32 +561,14 @@ export function Horaire() {
       </>
       )}
 
-      {vue === 'moi' && !sel && mode === 'semaine' && (aide || toutesFleches) && (
-        <div className="rangee rangee--entre enrouler">
-          <p className="petit grandit" style={{ margin: 0 }}>
-            {meilleures.length
-              ? toutesFleches
-                ? `${meilleures.length === 1 ? 'Une flèche montre le cours' : `${meilleures.length} flèches montrent les cours`} que tu peux avancer. Survole ou touche une heure libérée pour voir toutes les options ; un cours marqué d’un point se glisse aussi vers une heure libérée.`
-                : 'Touche une heure libérée pour voir les cours qui peuvent y venir.'
+      {vue === 'moi' && !sel && mode === 'semaine' && aide && (
+        <p className="petit" style={{ margin: 0 }}>
+          {meilleures.length
+            ? `${meilleures.length === 1 ? 'La flèche montre le meilleur cours' : `Les ${meilleures.length} flèches montrent les meilleurs cours`} à avancer. Survole ou touche une heure libérée pour voir les autres possibilités.`
+            : opps.size
+              ? 'Pas de déplacement vraiment avantageux cette semaine. Survole ou touche une heure libérée pour voir les possibilités.'
               : 'Aucun cours à avancer cette semaine.'}
-          </p>
-          {meilleures.length > 0 && (
-            <button
-              className="lien-action"
-              onClick={() => {
-                const v = !toutesFleches;
-                setToutesFleches(v);
-                try {
-                  localStorage.setItem(CLE_FLECHES, v ? '1' : '0');
-                } catch {
-                  /* rien */
-                }
-              }}
-            >
-              {toutesFleches ? 'Masquer les flèches' : 'Montrer les flèches'}
-            </button>
-          )}
-        </div>
+        </p>
       )}
 
       <Feuille ouverte={!!sel && options.length > 0} onFermer={() => setSel(null)} titre="Déplacements possibles">
