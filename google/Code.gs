@@ -717,7 +717,7 @@ function importerAbsencesMail() {
   messages.sort((a, b) => b.getDate() - a.getDate());
   try {
     const piece = messages[0].getAttachments().find((p) => /\.xlsx$/i.test(p.getName()));
-    if (piece) ecrire(() => appliquerAbsencesExcel(lireClasseurXlsx(Utilities.unzip(piece.copyBlob())), new Date()));
+    if (piece) ecrire(() => appliquerAbsencesExcel(lireClasseurXlsx(Utilities.unzip(piece.copyBlob().setContentType('application/zip'))), new Date()));
     else journaliser(0, [], 'Mail reçu sans fichier .xlsx');
   } catch (err) {
     // Un fichier illisible ne doit pas être relu toutes les 10 minutes : on le note et on passe.
