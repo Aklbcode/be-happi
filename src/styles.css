@@ -885,3 +885,9 @@ a.puce--demo { text-decoration: none; }
   body:has(.menu-lateral) .feuille { left: 244px; }
   .feuille .poignee { display: none; }
 }
+
+/* Locaux : filtres discrets (équipement), sous les heures. */
+.filtres-discrets { gap: 6px; margin-top: -4px; }
+.filtres-discrets .filtre { min-height: 30px; padding: 0 10px; border-radius: 15px; border-color: transparent; background: transparent; color: var(--discret); font-size: 13px; font-weight: 600; }
+.filtres-discrets .filtre[aria-pressed='false'] { border: 1px dashed var(--trait); }
+.filtres-discrets .filtre[aria-pressed='true'] { background: var(--indigo-pale); color: var(--indigo-encre); border-color: transparent; }

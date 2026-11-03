@@ -91,7 +91,6 @@ export function Locaux({ params }: { params: URLSearchParams }) {
     <section className="ecran ecran--large" aria-label="Locaux">
       <Entete
         titre="Locaux"
-        sous="Les locaux libres, rangés comme sur le terrain"
         droite={
           <span className="puce puce--grise">
             <Icon nom="calendrier" taille={16} />
@@ -109,7 +108,7 @@ export function Locaux({ params }: { params: URLSearchParams }) {
         ))}
       </div>
 
-      <div className="rangee enrouler" role="group" aria-label="Filtres">
+      <div className="rangee enrouler filtres-discrets" role="group" aria-label="Filtres">
         {(
           [
             ['vp', 'Projecteur'],
@@ -119,7 +118,7 @@ export function Locaux({ params }: { params: URLSearchParams }) {
           ] as const
         ).map(([k, l]) => (
           <button key={k} className="filtre" aria-pressed={filtres[k]} onClick={() => setFiltres({ ...filtres, [k]: !filtres[k] })}>
-            {filtres[k] && <Icon nom="coche" taille={14} epaisseur={2.6} />}
+            {filtres[k] && <Icon nom="coche" taille={13} epaisseur={2.6} />}
             {l}
           </button>
         ))}
@@ -132,7 +131,6 @@ export function Locaux({ params }: { params: URLSearchParams }) {
             <span className="petit fort">
               H{h} · {periode(h).debut} – {periode(h).fin}
             </span>
-            <span className="petit">Comme sur le plan →</span>
           </div>
           <MiniPlan />
         </div>
