@@ -20,7 +20,7 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
   const groupes = GROUPES.filter((g) => g.titre !== 'Vie scolaire').map((g) => ({
     ...g,
     services: g.services.filter(
-      (s) => !dansOnglets.has(s.ecran) && peutOuvrir(s.ecran, profils) && !(profil === 'eleve' && s.ecran !== 'eleve' && s.ecran !== 'ecran' && s.ecran !== 'signaler'),
+      (s) => !dansOnglets.has(s.ecran) && s.ecran !== 'collab' && peutOuvrir(s.ecran, profils) && !(profil === 'eleve' && s.ecran !== 'eleve' && s.ecran !== 'ecran' && s.ecran !== 'signaler'),
     ),
   })).filter((g) => g.services.length);
   const lienMenu = (ecran: Ecran, libelle: string, icone: string, href = `#/${ecran}`) => {

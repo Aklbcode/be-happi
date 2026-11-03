@@ -902,3 +902,8 @@ a.puce--demo { text-decoration: none; }
 
 /* Horaire : une heure dont la classe est en stage (libre), à peine visible. */
 .case--stage { background: transparent; border: 0; color: var(--discret); opacity: 0.55; font-size: 11px; text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* Où est ? : l'heure commune bien en vue. */
+.carte--collab { background: var(--indigo); border-color: transparent; color: var(--sur-indigo); }
+.carte--collab .petit { color: var(--sur-indigo); opacity: 0.85; }
+.carte--collab .vignette { background: rgba(255, 255, 255, 0.16); color: var(--sur-indigo); }

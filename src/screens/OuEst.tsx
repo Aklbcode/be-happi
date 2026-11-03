@@ -125,6 +125,19 @@ export function OuEst({ params }: { params: URLSearchParams }) {
                 </div>
               </section>
             )}
+            {ecranActif('collab') && (
+              <a className="carte carte--lien carte--collab" href={lien('collab')}>
+                <span className="vignette">
+                  <Icon nom="agenda" />
+                </span>
+                <span className="pile grandit">
+                  <span className="titre-s">Trouver une heure commune</span>
+                  <span className="petit">Avec un ou plusieurs collègues, ou l’équipe d’une classe. La réunion Teams en un geste.</span>
+                </span>
+                <Icon nom="droite" />
+              </a>
+            )}
+
             <section className="carte" aria-label="Qui est libre ?">
               <div className="rangee rangee--entre">
                 <h2 className="titre-m">Qui est libre ?</h2>
@@ -205,13 +218,18 @@ function Fiche({ t, date, hNow, onAide }: { t: Trouve; date: string; hNow?: numb
             </button>
           ))}
         </div>
-        {email && (
-          <div className="rangee">
+        <div className="rangee enrouler">
+          {email && (
             <button className="bouton bouton--prim bouton--petit" onClick={() => ouvrirTeams({ type: 'teams-chat', emails: [email], noms: [nomAffiche(t.nom)], message: `Bonjour ${nomAffiche(t.nom)}, ` })}>
               <Icon nom="message" taille={16} /> Écrire sur Teams
             </button>
-          </div>
-        )}
+          )}
+          {ecranActif('collab') && (
+            <a className="bouton bouton--sec bouton--petit" href={lien('collab', { p: `${ds.moi.nom}|${t.nom}` })}>
+              <Icon nom="agenda" taille={16} /> Heure commune avec {nomAffiche(t.nom)}
+            </a>
+          )}
+        </div>
       </section>
     );
   }
