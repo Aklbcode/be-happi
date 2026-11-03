@@ -46,7 +46,15 @@ const CHAMPS = {
   Materiel: ['Title', 'DateRes', 'Heure', 'Rack', 'Classe'],
   Changements: ['Title', 'DateChg', 'Heure', 'Classe', 'TypeChg'],
   CapReussite: ['Title', 'Eleve', 'EleveMail', 'DateCR', 'Heure', 'Matiere', 'Origine', 'Statut', 'Prof', 'Local'],
+  Suggestions: ['Title', 'Type'],
 };
+
+/**
+ * Suggestions (profil → « Une idée, une remarque ? ») : écrites dans l'onglet Suggestions, que seule
+ * la personne qui gère l'app lit (jamais renvoyées aux autres). Prévenue aussi par mail si
+ * ADMIN_SUGGESTIONS est rempli (copie privée).
+ */
+const ADMIN_SUGGESTIONS = '';
 
 /** Les rôles de l'onglet Roles (sans accents ni majuscules), comme dans l'app. */
 const ROLES = {
@@ -240,6 +248,9 @@ function autoriser(action, liste, moi, mail, champs, ligne) {
       break;
     case 'CapReussite':
       ok = action !== 'supprimer' || gestion(moi) || auteur;
+      break;
+    case 'Suggestions':
+      ok = action === 'creer';
       break;
     default:
       ok = false;
@@ -441,6 +452,8 @@ function donnees() {
     }
     listes[nom] = { cols, lignes: rangs };
   });
+  // Les suggestions restent privées : l'app sait seulement que la liste existe (pour écrire).
+  listes.Suggestions = { cols: ['Title', 'Type'], lignes: [] };
   const d = { listes, profs, roles };
   // Une écriture pendant la construction a changé la génération : cette copie n'est pas gardée.
   ecrireCache(d, c && generation(c) === g ? g : '');
@@ -579,8 +592,10 @@ function retirerStages(nom) {
 // ---------- Écriture ----------
 
 function feuille(nom) {
-  if (LISTES.indexOf(nom) < 0 || LECTURE_SEULE.indexOf(nom) >= 0 || !CHAMPS[nom]) throw new Error(`Liste non modifiable : ${nom}`);
-  const f = SpreadsheetApp.getActive().getSheetByName(nom);
+  if ((LISTES.indexOf(nom) < 0 && nom !== 'Suggestions') || LECTURE_SEULE.indexOf(nom) >= 0 || !CHAMPS[nom]) throw new Error(`Liste non modifiable : ${nom}`);
+  const classeur = SpreadsheetApp.getActive();
+  if (nom === 'Suggestions' && !classeur.getSheetByName(nom) && classeur.insertSheet) classeur.insertSheet(nom).appendRow(['ID', 'Version', 'Title', 'Type', 'Created', 'CreePar', 'Modified', 'ModifiePar']);
+  const f = classeur.getSheetByName(nom);
   if (!f) throw new Error(`Onglet introuvable : ${nom}`);
   return f;
 }
@@ -641,6 +656,13 @@ function creer(nom, champs, mail, moi) {
   const maintenant = new Date().toISOString();
   const o = Object.assign({}, champs, { ID: Utilities.getUuid().slice(0, 13), Version: 1, Created: maintenant, CreePar: mail, Modified: maintenant, ModifiePar: mail });
   f.appendRow(t.entetes.map((h) => versCellule(o[h])));
+  if (nom === 'Suggestions' && ADMIN_SUGGESTIONS && typeof MailApp !== 'undefined') {
+    try {
+      MailApp.sendEmail({ to: ADMIN_SUGGESTIONS, subject: `IPES App · ${String(champs.Type || 'Suggestion').toLowerCase()} de ${moi.nom ? nomCourt(moi.nom) : mail}`, body: `${String(champs.Title || '').replace(/^'/, '')}\n\n— ${mail}`, name: 'IPES App' });
+    } catch (e) {
+      /* la suggestion est gardée dans l'onglet, même sans mail */
+    }
+  }
   if (nom === 'Absences') {
     try {
       notifierDeplacements([{ Title: champs.Title, DateAbs: versCellule(champs.DateAbs), DeH: champs.DeH, AH: champs.AH }], new Date());
@@ -960,15 +982,19 @@ function appliquerAbsencesExcel(classeur, maintenant) {
 // libre, jamais H5, pas de classe en stage, pas d'heure déjà passée. L'app revérifie tout.
 //
 // Comment : le script envoie UN mail technique par prof à l'adresse DESTINATAIRE_NOTIF (la boîte
-// de l'école de la personne qui gère l'app), objet « IPES-APP-NOTIF <code> | <adresse du prof> | <texte> ».
-// Un flow Power Automate (« When a new email arrives ») poste le texte au prof dans Teams (Flow bot)
-// puis supprime le mail. Les profs ne reçoivent aucun mail.
+// de l'école de la personne qui gère l'app), objet « IPES-APP-NOTIF <code> | <adresse du prof> | <texte> »,
+// avec la carte Teams en pièce jointe (carte.json : le cours qui part → l'heure libérée, le gain,
+// un bouton « Proposer » qui ouvre IPES App avec ce déplacement prêt). Un flow Power Automate
+// (« When a new email arrives ») poste la carte au prof dans Teams (Flow bot) puis supprime le mail.
+// Les profs ne reçoivent aucun mail. Seulement les déplacements qu'ils ont toutes les chances d'accepter.
 // Il faut l'adresse du prof (colonne Email de l'onglet Profs, remplie à sa première ouverture).
 // Pour couper : mettre NOTIFIER à false. Le modèle public laisse DESTINATAIRE_NOTIF vide.
 // =====================================================================================
 
 const NOTIFIER = true;
 const DESTINATAIRE_NOTIF = '';
+/** L'identifiant du paquet Teams d'IPES App (manifest « id ») : le bouton de la carte ouvre l'app. */
+const APP_TEAMS = '';
 const OBJET_NOTIF = 'IPES-APP-NOTIF';
 const FINS_MIN = [0, 555, 610, 675, 725, 775, 825, 875, 935, 985];
 const MAX_MAILS = 60;
@@ -978,17 +1004,29 @@ const classesDe = (t) => String(t || '').split(/[,;]/).map((x) => x.trim().toUpp
 const jourIso = (d) => new Date(`${d}T12:00:00`).getDay();
 const plusJours = (d, n) => isoDate(new Date(new Date(`${d}T12:00:00`).getTime() + n * 86400000));
 
-/** Les occasions nées de ces absences : { prof: [{ date, h, classes, depuisDate, depuisH }] }. */
+const heureTexte = (min) => `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
+const debutH = (h) => heureTexte(FINS_MIN[h] - 50);
+const finH = (h) => heureTexte(FINS_MIN[h]);
+const majuscule = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const nomCourt = (t) => { const n = nomSeul(String(t)); return n.charAt(0) + n.slice(1).toLowerCase(); };
+
+/**
+ * Les occasions nées de ces absences, seulement celles qu'un prof a toutes les chances d'accepter
+ * (comme l'app) : il commence plus tard ou finit plus tôt, sans journée plus longue, sans jour de
+ * cours en plus. → { prof: [{ date, h, classes, local, absent, depuisDate, depuisH, depuisLocal, gain }] }.
+ */
 function occasionsDe(nouvelles, maintenant) {
   fuseau = fuseau || SpreadsheetApp.getActive().getSpreadsheetTimeZone();
   const aujourdhui = isoDate(maintenant);
   const minutes = Number(Utilities.formatDate(maintenant, fuseau, 'H')) * 60 + Number(Utilities.formatDate(maintenant, fuseau, 'm'));
-  const horaires = lignes('Horaires').map((c) => ({ prof: String(c.Title), jour: Number(c.JourNum), h: Number(c.Heure), classes: classesDe(c.Classes) })).filter((c) => c.prof && c.h && c.classes);
+  const horaires = lignes('Horaires').map((c) => ({ prof: String(c.Title), jour: Number(c.JourNum), h: Number(c.Heure), classes: classesDe(c.Classes), local: String(c.Local || '') })).filter((c) => c.prof && c.h && c.classes);
   const absences = lignes('Absences').map((a) => ({ prof: String(a.Title), date: String(a.DateAbs || '').slice(0, 10), de: Number(a.DeH) || 1, a: Number(a.AH) || 9 }));
   const stages = lignes('Stages').flatMap((x) => String(x.Title || '').split(/[,;]/).map((c) => ({ classe: c.trim().toUpperCase(), du: String(x.Du || '').slice(0, 10), au: String(x.Au || x.Du || '').slice(0, 10) })));
+  const deplacements = lignes('Deplacements').map((x) => ({ prof: String(x.Collegue || ''), date: String(x.DateDep || '').slice(0, 10), h: Number(x.HeureVide), dO: String(x.DateOrigine || '').slice(0, 10), hO: Number(x.HeureOrigine), classe: classesDe(x.Classe) }));
   const absent = (p, d, h) => absences.some((a) => a.prof === p && a.date === d && a.de <= h && h <= a.a);
   const enStage = (k, d) => k.split(', ').some((c) => stages.some((x) => x.classe === c && x.du <= d && d <= x.au));
-  const occupe = (p, j, h) => horaires.some((c) => c.prof === p && c.jour === j && c.h === h);
+  const heuresDe = (p, j) => horaires.filter((c) => c.prof === p && c.jour === j).map((c) => c.h);
+  const duree = (hs) => (hs.length ? FINS_MIN[Math.max(...hs)] - (FINS_MIN[Math.min(...hs)] - 50) : 0);
   const parProf = {};
   nouvelles.forEach((n) => {
     const x = String(n.Title || '');
@@ -1000,6 +1038,7 @@ function occasionsDe(nouvelles, maintenant) {
     horaires.filter((c) => c.prof === x && c.jour === j && c.h >= de && c.h <= a && c.h !== 5).forEach((libere) => {
       if (d === aujourdhui && FINS_MIN[libere.h] - 50 <= minutes) return; // heure déjà commencée
       if (enStage(libere.classes, d)) return;
+      if (deplacements.some((z) => z.date === d && z.h === libere.h && z.classe === libere.classes)) return; // déjà reprise
       // Les cours de cette classe plus tard dans la semaine, chez un prof libre à cette heure-là.
       for (let k = 0; k <= 5 - j; k++) {
         const d2 = plusJours(d, k);
@@ -1007,8 +1046,24 @@ function occasionsDe(nouvelles, maintenant) {
         horaires
           .filter((c) => c.prof !== x && c.classes === libere.classes && c.jour === j2 && (k > 0 || c.h > libere.h))
           .forEach((c) => {
-            if (occupe(c.prof, j, libere.h) || absent(c.prof, d, libere.h) || absent(c.prof, d2, c.h)) return;
-            (parProf[c.prof] = parProf[c.prof] || []).push({ date: d, h: libere.h, classes: libere.classes, depuisDate: d2, depuisH: c.h });
+            if (heuresDe(c.prof, j).indexOf(libere.h) >= 0 || absent(c.prof, d, libere.h) || absent(c.prof, d2, c.h)) return;
+            if (deplacements.some((z) => z.prof === c.prof && z.dO === d2 && z.hO === c.h)) return; // déjà proposé
+            // Ce que ça change pour lui : seulement si c'est clairement mieux.
+            const H = heuresDe(c.prof, j2);
+            const memeJour = k === 0;
+            const restent = H.filter((h) => h !== c.h).concat(memeJour ? [libere.h] : []);
+            let gain = '';
+            const jour = majuscule(JOURS_NOMS[j2]);
+            if (!restent.length) gain = `${jour}, tu n'as plus cours`;
+            else if (c.h < Math.min(...restent)) gain = `${jour}, tu commences à ${debutH(Math.min(...restent))} au lieu de ${debutH(c.h)}`;
+            else if (c.h > Math.max(...restent)) gain = `${jour}, tu finis à ${finH(Math.max(...restent))} au lieu de ${finH(c.h)}`;
+            if (!gain) return;
+            const T = heuresDe(c.prof, j);
+            if (!memeJour && !T.length) return; // un jour de cours en plus
+            const avant = memeJour ? H : T;
+            const apres = memeJour ? restent : T.concat([libere.h]);
+            if (duree(apres) > duree(avant)) return; // journée plus longue
+            (parProf[c.prof] = parProf[c.prof] || []).push({ date: d, h: libere.h, classes: libere.classes, local: libere.local, absent: x, depuisDate: d2, depuisH: c.h, depuisLocal: c.local, gain });
           });
       }
     });
@@ -1016,9 +1071,52 @@ function occasionsDe(nouvelles, maintenant) {
   return parProf;
 }
 
-/** Envoie un mail aux profs concernés (une fois par heure libérée et par prof). Renvoie le nombre de profs prévenus. */
+/** Le lien qui ouvre IPES App dans Teams avec ce déplacement prêt à proposer. */
+function lienTeams(o) {
+  const contexte = JSON.stringify({ subEntityId: `prop~${o.depuisDate}~${o.depuisH}~${o.date}~${o.h}` });
+  return `https://teams.microsoft.com/l/entity/${APP_TEAMS}/behappi-accueil?context=${encodeURIComponent(contexte)}`;
+}
+
+/** La carte Teams : pour chaque occasion, le cours qui part → l'heure libérée, le gain, et « Proposer ». */
+function carteTeams(occasions) {
+  const quand = (d, h) => `${JOURS_NOMS[jourIso(d)].slice(0, 3)}. ${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))} · H${h}`;
+  const bloc = (o) => ({
+    type: 'Container',
+    style: 'emphasis',
+    spacing: 'Medium',
+    items: [
+      { type: 'TextBlock', text: `${nomCourt(o.absent)} absent·e · ${quand(o.date, o.h)} (${debutH(o.h)}) libérée`, isSubtle: true, size: 'Small', wrap: true },
+      {
+        type: 'ColumnSet',
+        columns: [
+          { type: 'Column', width: 'stretch', items: [{ type: 'TextBlock', text: 'Ton cours', size: 'Small', isSubtle: true }, { type: 'TextBlock', text: quand(o.depuisDate, o.depuisH), weight: 'Bolder', wrap: true }, { type: 'TextBlock', text: `${o.classes}${o.depuisLocal ? ` · ${o.depuisLocal}` : ''}`, size: 'Small', spacing: 'None', wrap: true }] },
+          { type: 'Column', width: 'auto', verticalContentAlignment: 'Center', items: [{ type: 'TextBlock', text: '➜', size: 'ExtraLarge', color: 'Accent' }] },
+          { type: 'Column', width: 'stretch', style: 'good', items: [{ type: 'TextBlock', text: 'Avancé à', size: 'Small', isSubtle: true }, { type: 'TextBlock', text: quand(o.date, o.h), weight: 'Bolder', wrap: true }, { type: 'TextBlock', text: `${o.classes}${o.local ? ` · ${o.local}` : ''}`, size: 'Small', spacing: 'None', wrap: true }] },
+        ],
+      },
+      { type: 'TextBlock', text: `✓ ${o.gain}`, color: 'Good', weight: 'Bolder', wrap: true },
+      { type: 'ActionSet', actions: [{ type: 'Action.OpenUrl', title: 'Proposer ce déplacement', url: lienTeams(o) }] },
+    ],
+  });
+  return {
+    type: 'AdaptiveCard',
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    version: '1.4',
+    body: [
+      { type: 'TextBlock', text: occasions.length > 1 ? `${occasions.length} heures libérées pour toi` : `Une heure libérée pour ta ${occasions[0].classes}`, size: 'Large', weight: 'Bolder', wrap: true },
+      { type: 'TextBlock', text: 'IPES App revérifie tout avant d’envoyer ; l’éducateur valide.', isSubtle: true, size: 'Small', wrap: true, spacing: 'None' },
+      ...occasions.map(bloc),
+    ],
+  };
+}
+
+/**
+ * Prévient les profs concernés dans Teams (une fois par heure libérée et par prof) : un mail technique
+ * par prof vers DESTINATAIRE_NOTIF, avec la carte en pièce jointe (carte.json) ; le flow la poste.
+ * Renvoie le nombre de profs prévenus.
+ */
 function notifierDeplacements(nouvelles, maintenant) {
-  if (!NOTIFIER || !DESTINATAIRE_NOTIF || typeof MailApp === 'undefined') return 0;
+  if (!NOTIFIER || !DESTINATAIRE_NOTIF || !APP_TEAMS || typeof MailApp === 'undefined') return 0;
   const parProf = occasionsDe(nouvelles, maintenant);
   const noms = Object.keys(parProf);
   if (!noms.length) return 0;
@@ -1031,16 +1129,28 @@ function notifierDeplacements(nouvelles, maintenant) {
   let envoyes = 0;
   noms.forEach((prof) => {
     if (envoyes >= MAX_MAILS || !mails[prof]) return;
-    const neuves = parProf[prof].filter((o) => !deja.has(`${prof}|${o.date}|${o.h}`));
+    // Une seule proposition par heure libérée : la première (le plus tôt dans la semaine).
+    const vues = new Set();
+    const neuves = parProf[prof].filter((o) => {
+      const k = `${prof}|${o.date}|${o.h}`;
+      if (deja.has(k) || vues.has(k)) return false;
+      vues.add(k);
+      return true;
+    }).slice(0, 3);
     if (!neuves.length) return;
-    const quand = (d, h) => `${JOURS_NOMS[jourIso(d)]} ${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))} H${h}`;
-    const liste = neuves.slice(0, 3).map((o) => `${quand(o.date, o.h)} pour ta ${o.classes} (ton cours du ${quand(o.depuisDate, o.depuisH)})`).join(' ; ');
-    const plus = neuves.length > 3 ? ` et ${neuves.length - 3} autre(s)` : '';
-    const texte = `IPES App : une heure libérée que tu peux utiliser, ${liste}${plus}. Ouvre IPES App (onglet Horaire) pour proposer le déplacement.`.replace(/\|/g, '/');
+    const texte = `Une heure libérée pour ta ${neuves[0].classes} : ${neuves[0].gain.charAt(0).toLowerCase()}${neuves[0].gain.slice(1)}.`.replace(/\|/g, '/');
     try {
-      MailApp.sendEmail({ to: DESTINATAIRE_NOTIF, subject: `${OBJET_NOTIF} ${CLE.slice(0, 8)} | ${mails[prof]} | ${texte}`.slice(0, 250), body: texte, name: 'IPES App' });
-      neuves.forEach((o) => journal.appendRow([`${prof}|${o.date}|${o.h}`, prof, new Date().toISOString()]));
-      neuves.forEach((o) => deja.add(`${prof}|${o.date}|${o.h}`));
+      MailApp.sendEmail({
+        to: DESTINATAIRE_NOTIF,
+        subject: `${OBJET_NOTIF} ${CLE.slice(0, 8)} | ${mails[prof]} | ${texte}`.slice(0, 250),
+        body: texte,
+        name: 'IPES App',
+        attachments: [Utilities.newBlob(JSON.stringify(carteTeams(neuves)), 'application/json', 'carte.json')],
+      });
+      neuves.forEach((o) => {
+        journal.appendRow([`${prof}|${o.date}|${o.h}`, prof, new Date().toISOString()]);
+        deja.add(`${prof}|${o.date}|${o.h}`);
+      });
       envoyes++;
     } catch (e) {
       /* quota de mails atteint : on réessaiera au prochain import */

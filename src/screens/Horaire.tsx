@@ -9,7 +9,7 @@ import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStag
 import { capital, opportunitesSemaine, optionsPour, probable, type OptionDeplacement } from '../logic/deplacements';
 import type { Deplacement } from '../data/types';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
-import { aller } from '../lib/route';
+import { aller, lireRoute } from '../lib/route';
 import { couleurMatiere } from '../logic/couleurs';
 
 type Vue = 'moi' | 'classe' | 'local';
@@ -312,6 +312,40 @@ export function Horaire() {
     return () => ro.disconnect();
   }, [dessiner, lignes]);
 
+  // Lien d'une notification Teams (« prop~dateO~hO~date~h ») ou #/horaire?prop=… : la semaine de
+  // l'heure libérée s'ouvre et le déplacement est prêt ; il ne reste qu'à toucher « Proposer ».
+  const [demande, setDemande] = useState<string | null>(() => lireRoute().params.get('prop'));
+  const demandeVue = useRef(false);
+  useEffect(() => {
+    if (demande) return;
+    let actif = true;
+    void import('../lib/teams').then((t) => t.sousPage()).then((p) => actif && p && setDemande(p.replace(/^prop~/, '')));
+    return () => {
+      actif = false;
+    };
+  }, [demande]);
+  useEffect(() => {
+    if (!ds || !demande || demandeVue.current) return;
+    const [dateO, hO, date, h] = demande.split('~');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || !Number(h)) return;
+    const semaines = Math.round((deIso(iso(lundiDe(deIso(date)))).getTime() - deIso(iso(lundiDe(base))).getTime()) / (7 * 86400000));
+    if (semaines !== decalage) {
+      setDecalage(semaines);
+      return; // on attend la bonne semaine
+    }
+    demandeVue.current = true;
+    const o = optionsPour(ds, moi, date, Number(h), aujourdhui, finieEff, priorites).find((x) => x.dateO === dateO && x.hO === Number(hO));
+    if (o) setChoix(o);
+    else montrerToast('Ce déplacement n’est plus possible (déjà repris, annulé ou heure passée).');
+  }, [ds, demande, decalage, base, moi, aujourdhui, finieEff, priorites, montrerToast]);
+
+  // « Proposé » reste annulable quelques secondes.
+  useEffect(() => {
+    if (!fait) return;
+    const id = window.setTimeout(() => setFait(null), 8000);
+    return () => window.clearTimeout(id);
+  }, [fait]);
+
   if (!ds) return <section className="ecran"><p className="texte">Chargement…</p></section>;
 
   const d1 = deIso(dates[0]);
@@ -348,7 +382,7 @@ export function Horaire() {
     window.setTimeout(() => {
       setEnvol(null);
       setChoix(o);
-    }, 520);
+    }, 1150);
   }
 
   async function confirmer() {
@@ -375,13 +409,6 @@ export function Horaire() {
       montrerToast(`Impossible : ${e instanceof Error ? e.message : e}`);
     }
   }
-
-  // « Proposé » reste annulable quelques secondes.
-  useEffect(() => {
-    if (!fait) return;
-    const id = window.setTimeout(() => setFait(null), 8000);
-    return () => window.clearTimeout(id);
-  }, [fait]);
 
   function toucher(c: Case) {
     if (vue !== 'moi' || ignorerClic.current) return;
@@ -888,7 +915,7 @@ function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol }
   }
 }
 
-/** Le cours choisi glisse vers l'heure libérée (une demi-seconde). */
+/** Le cours choisi glisse vers l'heure libérée (un peu plus d'une seconde, pour qu'on le suive des yeux). */
 function Envol({ texte, x0, y0, x1, y1, w, h }: { texte: string; x0: number; y0: number; x1: number; y1: number; w: number; h: number }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -898,7 +925,7 @@ function Envol({ texte, x0, y0, x1, y1, w, h }: { texte: string; x0: number; y0:
         { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 18}px) scale(1.08)`, offset: 0.5 },
         { transform: `translate(${x1}px, ${y1}px) scale(1)` },
       ],
-      { duration: 480, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' },
+      { duration: 1100, easing: 'cubic-bezier(.45,.05,.25,1)', fill: 'forwards' },
     );
   }, [x0, y0, x1, y1]);
   return (

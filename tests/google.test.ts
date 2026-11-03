@@ -54,7 +54,7 @@ function feuille(nom: string) {
 }
 
 const deuxChiffres = (n: number) => String(n).padStart(2, '0');
-const mailsEnvoyes: { to: string; subject: string; body: string }[] = [];
+const mailsEnvoyes: { to: string; subject: string; body: string; attachments?: { texte: string }[] }[] = [];
 // Le cache Google (quelques minutes) : une Map suffit.
 const memoireCache = new Map<string, string>();
 const cache = {
@@ -69,8 +69,9 @@ const contexte = vm.createContext({
   ContentService: { createTextOutput: (s: string) => ({ setMimeType: () => s }), MimeType: { JSON: 'json' } },
   LockService: { getScriptLock: () => ({ waitLock: () => undefined, releaseLock: () => undefined }) },
   CacheService: { getScriptCache: () => cache },
-  MailApp: { sendEmail: (m: { to: string; subject: string; body: string }) => void mailsEnvoyes.push(m) },
+  MailApp: { sendEmail: (m: { to: string; subject: string; body: string; attachments?: { texte: string }[] }) => void mailsEnvoyes.push(m) },
   Utilities: {
+    newBlob: (texte: string) => ({ texte }),
     getUuid: () => `${Math.random().toString(16).slice(2, 10)}-${Math.random().toString(16).slice(2, 10)}`,
     // Le test tourne à l'heure locale de la machine : assez pour des dates à minuit.
     formatDate: (d: Date, _tz: string, f: string) => {
@@ -80,7 +81,7 @@ const contexte = vm.createContext({
     },
   },
 });
-vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8').replace('__CLE__', CLE).replace("const DESTINATAIRE_NOTIF = '';", "const DESTINATAIRE_NOTIF = 'flow@ecole.example';"), contexte);
+vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8').replace('__CLE__', CLE).replace("const DESTINATAIRE_NOTIF = '';", "const DESTINATAIRE_NOTIF = 'flow@ecole.example';").replace("const APP_TEAMS = '';", "const APP_TEAMS = '00000000-0000-0000-0000-000000000000';").replace("const ADMIN_SUGGESTIONS = '';", "const ADMIN_SUGGESTIONS = 'admin@ecole.example';"), contexte);
 const doPost = contexte.doPost as (e: unknown) => string;
 const envoi = async (_url: string, corps: string) => JSON.parse(doPost({ postData: { contents: corps } }));
 
@@ -286,8 +287,28 @@ test('une absence encodée libère une heure : le prof qui a la classe plus tard
   const [code, a, texte] = mailsEnvoyes[0].subject.split(' | ');
   assert.equal(code, `IPES-APP-NOTIF ${CLE.slice(0, 8)}`);
   assert.equal(a, prof);
-  assert.match(texte, /lundi .* H2 pour ta 5TQB \(ton cours du lundi .* H3\)/);
+  assert.match(texte, /Une heure libérée pour ta 5TQB : lundi, tu finis à 10h10 au lieu de 11h15/);
+  // La carte Teams : le cours qui part → l'heure libérée, le gain, et un bouton qui ouvre l'app prête.
+  const carte = JSON.parse(mailsEnvoyes[0].attachments![0].texte);
+  assert.equal(carte.type, 'AdaptiveCard');
+  const tout = JSON.stringify(carte);
+  assert.match(tout, /Martin absent·e/);
+  assert.match(tout, /lun\. \d+\/\d+ · H3/);
+  const url = carte.body[2].items.find((x: { type: string }) => x.type === 'ActionSet').actions[0].url as string;
+  assert.match(decodeURIComponent(url), /^https:\/\/teams\.microsoft\.com\/l\/entity\/0{8}-.*\/behappi-accueil\?context=\{"subEntityId":"prop~\d{4}-\d{2}-\d{2}~3~\d{4}-\d{2}-\d{2}~2"\}$/);
   // La même heure encore : pas de deuxième mail.
   creerX(educ, 'Absences', { Title: 'MARTIN (sport)', DateAbs: `${lundi}T12:00:00Z`, DeH: 2, AH: 2 });
   assert.equal(mailsEnvoyes.length, 1);
+});
+
+test('une suggestion arrive dans l’onglet Suggestions et chez l’admin, jamais chez les autres', () => {
+  mailsEnvoyes.length = 0;
+  const r = creerX(prof, 'Suggestions', { Title: 'Un mode sombre plus contrasté', Type: 'Idée' });
+  assert.equal(r.status, 201);
+  assert.equal(classeur.Suggestions.length, 2);
+  assert.equal(mailsEnvoyes[0].to, 'admin@ecole.example');
+  assert.match(mailsEnvoyes[0].subject, /idée de Lambert/);
+  assert.deepEqual(lire(educ).listes.Suggestions.lignes, []);
+  // Personne ne les modifie ni ne les supprime depuis l'app.
+  assert.equal(appeler({ action: 'supprimer', cle: CLE, mail: educ, liste: 'Suggestions', id: r.item.id }).status, 403);
 });

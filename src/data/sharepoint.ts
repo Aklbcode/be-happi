@@ -633,6 +633,11 @@ export async function enregistrerMateriel(m: ResaMateriel): Promise<string> {
   return creer(config.listes.materiel, { [C.prof]: m.prof, [C.date]: versUtcMidi(m.date), [C.heure]: m.h, [C.rack]: m.rack, [C.classe]: m.classe });
 }
 
+/** Une remarque ou une idée pour l'app (profil → « Une idée, une remarque ? »). */
+export async function envoyerSuggestion(texte: string, type: string): Promise<string> {
+  return creer(config.listes.suggestions, { Title: texte.slice(0, 1000), Type: type });
+}
+
 export const supprimerMateriel = (id: string): Promise<void> => supprimer(config.listes.materiel, id);
 export const supprimerReservation = (id: string): Promise<void> => supprimer(config.listes.reservations, id);
 

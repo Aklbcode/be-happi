@@ -53,6 +53,17 @@ export async function indiceConnexion(): Promise<string | undefined> {
   }
 }
 
+/** Le « sous-onglet » demandé par un lien profond Teams (carte de notification → déplacement prêt). */
+export async function sousPage(): Promise<string | undefined> {
+  if (!(await dansTeams())) return undefined;
+  try {
+    const ctx = await app.getContext();
+    return ctx.page?.subPageId || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Ouvre un lien (Teams, page web) : dans Teams, par Teams lui-même ; sinon dans un nouvel onglet. */
 export async function ouvrirLien(url: string): Promise<void> {
   if (await dansTeams()) {

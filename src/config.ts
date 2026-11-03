@@ -47,10 +47,12 @@ export const config = {
     stages: 'Stages',
     /** FACULTATIVE : les dates importantes de l'école (réunions de parents, bulletins, conseils…). */
     agenda: 'Agenda',
+    /** Les remarques et idées envoyées depuis le profil (lues seulement par la personne qui gère l'app). */
+    suggestions: 'Suggestions',
   },
 
   /** Listes dont l'absence n'est pas une erreur. */
-  listesFacultatives: ['decisions', 'capReussite', 'resultats', 'stages', 'agenda'] as string[],
+  listesFacultatives: ['decisions', 'capReussite', 'resultats', 'stages', 'agenda', 'suggestions'] as string[],
   /** Colonnes dont l'absence n'est pas une erreur (liste → champs de config.champs). */
   colonnesFacultatives: { signalements: ['reponse', 'urgence'], absences: ['motif'], reservations: ['absent'] } as Record<string, string[]>,
 

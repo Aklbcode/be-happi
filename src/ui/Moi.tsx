@@ -159,6 +159,8 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
         </button>
       )}
 
+      <Suggestion fermer={fermer} />
+
       {profils.includes('prof') && <CeQuiCompte />}
 
       <section className="pile pile--8" aria-label="Thème">
@@ -200,3 +202,62 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
 }
 
 export const initiales = (prenom: string, nom: string): string => `${(prenom || '?').charAt(0)}${(nom || '').charAt(0)}`.toUpperCase();
+
+/** « Une idée, une remarque ? » : envoyée à la personne qui gère l'app (onglet Suggestions du Sheet). */
+function Suggestion({ fermer }: { fermer: () => void }) {
+  const { demo, montrerToast } = useStore();
+  const [ouvert, setOuvert] = useState(false);
+  const [type, setType] = useState('Idée');
+  const [texte, setTexte] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+  async function envoyer() {
+    setEnvoi(true);
+    try {
+      if (!demo) await (await import('../data/sharepoint')).envoyerSuggestion(texte.trim(), type);
+      setTexte('');
+      setOuvert(false);
+      fermer();
+      montrerToast(demo ? 'Merci ! (démo : rien n’est envoyé)' : 'Merci ! C’est envoyé à la personne qui gère IPES App.');
+    } catch (e) {
+      montrerToast(`Impossible d’envoyer : ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setEnvoi(false);
+    }
+  }
+  if (!ouvert)
+    return (
+      <button className="carte carte--lien" onClick={() => setOuvert(true)}>
+        <span className="vignette">
+          <Icon nom="message" />
+        </span>
+        <span className="pile grandit">
+          <span className="titre-s">Une idée, une remarque ?</span>
+          <span className="petit">Dis-nous ce qui manque ou ce qui gêne</span>
+        </span>
+        <Icon nom="droite" />
+      </button>
+    );
+  return (
+    <section className="carte pile pile--8" aria-label="Une idée, une remarque ?">
+      <h3 className="titre-s">Une idée, une remarque ?</h3>
+      <div className="seg" role="group" aria-label="Type">
+        {['Idée', 'Remarque', 'Problème'].map((t) => (
+          <button key={t} aria-pressed={type === t} onClick={() => setType(t)}>
+            {t}
+          </button>
+        ))}
+      </div>
+      <textarea className="champ" rows={4} maxLength={1000} placeholder="Écris ici…" value={texte} onChange={(e) => setTexte(e.target.value)} aria-label="Ton message" />
+      <div className="rangee" style={{ gap: 8 }}>
+        <button className="bouton bouton--prim grandit" disabled={envoi || texte.trim().length < 3} onClick={() => void envoyer()}>
+          {envoi ? 'Envoi…' : 'Envoyer'}
+        </button>
+        <button className="bouton bouton--sec" onClick={() => setOuvert(false)}>
+          Annuler
+        </button>
+      </div>
+      <p className="petit">Seule la personne qui gère IPES App le lit.</p>
+    </section>
+  );
+}
+
