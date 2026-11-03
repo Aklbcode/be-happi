@@ -891,3 +891,11 @@ a.puce--demo { text-decoration: none; }
 .filtres-discrets .filtre { min-height: 30px; padding: 0 10px; border-radius: 15px; border-color: transparent; background: transparent; color: var(--discret); font-size: 13px; font-weight: 600; }
 .filtres-discrets .filtre[aria-pressed='false'] { border: 1px dashed var(--trait); }
 .filtres-discrets .filtre[aria-pressed='true'] { background: var(--indigo-pale); color: var(--indigo-encre); border-color: transparent; }
+
+/* Locaux : les 9 heures sur une ligne, sans défilement. */
+.heures-9 { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.heures-9 button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 50px; padding: 0; border-radius: 12px; border: 1px solid var(--trait); background: var(--surface); color: var(--encre); line-height: 1.05; }
+.heures-9 b { font-size: 14px; font-weight: 700; }
+.heures-9 small { font-size: 11px; font-weight: 600; color: var(--discret); }
+.heures-9 button[aria-pressed='true'] { background: var(--nuit); border-color: transparent; color: #fff; }
+.heures-9 button[aria-pressed='true'] small { color: rgba(255, 255, 255, 0.8); }

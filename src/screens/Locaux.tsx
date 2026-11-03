@@ -13,7 +13,6 @@ import { JOURS_COURTS, PERIODES, deIso, estJourDeCours, iso, jourSemaineIso, per
 import type { Local } from '../data/types';
 import { batiment, nomEtage, type CodeBatiment } from '../data/batiments';
 import { MiniPlan } from '../ui/MiniPlan';
-import { Entete } from '../ui/Entete';
 
 /** D'ouest en est, comme sur le terrain. */
 const COLONNES: CodeBatiment[] = ['C', 'F', 'T'];
@@ -89,23 +88,14 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
   return (
     <section className="ecran ecran--large" aria-label="Locaux">
-      <Entete
-        titre="Locaux"
-        titreCache
-        apres={
-          <span className="puce puce--grise" style={{ alignSelf: 'flex-start' }}>
-            <Icon nom="calendrier" taille={16} />
-            {JOURS_COURTS[jourSemaineIso(date)]}. {d.getDate()}/{d.getMonth() + 1}
-          </span>
-        }
-        droite={<span />}
-      />
+      <h1 className="visuellement-cache">Locaux</h1>
 
-      <div className="defile-x" role="group" aria-label="Choisir l'heure">
+      {/* Les 9 heures d'un coup : l'heure et le nombre de locaux libres. */}
+      <div className="heures-9" role="group" aria-label="Choisir l'heure (nombre de locaux libres)">
         {PERIODES.map((p, i) => (
-          <button key={p.h} className="choix" aria-pressed={p.h === h} onClick={() => setH(p.h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.05 }}>
-            <span>H{p.h}</span>
-            <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.8 }}>{libresParHeure[i]?.length ?? 0} libres</span>
+          <button key={p.h} aria-pressed={p.h === h} onClick={() => setH(p.h)} aria-label={`H${p.h}, ${libresParHeure[i]?.length ?? 0} locaux libres`}>
+            <b>H{p.h}</b>
+            <small>{libresParHeure[i]?.length ?? 0}</small>
           </button>
         ))}
       </div>
@@ -128,9 +118,15 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
       <section className="carte carte--serree" aria-label="Locaux libres">
         <div className="rangee rangee--entre">
-          <h2 className="titre-s">
-            H{h} · {periode(h).debut} – {periode(h).fin}
-          </h2>
+          <div className="pile pile--8">
+            <span className="puce puce--grise" style={{ alignSelf: 'flex-start' }}>
+              <Icon nom="calendrier" taille={15} />
+              {JOURS_COURTS[jourSemaineIso(date)]}. {d.getDate()}/{d.getMonth() + 1}
+            </span>
+            <h2 className="titre-s">
+              H{h} · {periode(h).debut} – {periode(h).fin}
+            </h2>
+          </div>
           <MiniPlan />
         </div>
 
