@@ -38,7 +38,12 @@ export const CONGES: Conge[] = [
   { du: '2026-10-19', au: '2026-10-30', nom: "Congé d'automne" },
   { du: '2026-11-02', au: '2026-11-02', nom: 'Fête des morts' },
   { du: '2026-11-11', au: '2026-11-11', nom: 'Armistice' },
+  // Journées « cours suspendus » de l'IPES (note de service, éphémérides 2026-2027).
+  { du: '2026-11-23', au: '2026-11-24', nom: 'Cours suspendus (formations)' },
+  { du: '2026-12-02', au: '2026-12-02', nom: 'Cours suspendus (conseils de guidance)' },
+  { du: '2027-02-17', au: '2027-02-17', nom: 'Cours suspendus (conseils de guidance)' },
   { du: '2026-12-21', au: '2027-01-01', nom: "Vacances d'hiver" },
+  { du: '2027-02-09', au: '2027-02-09', nom: 'Mardi gras' },
   { du: '2027-02-22', au: '2027-03-05', nom: 'Congé de détente' },
   { du: '2027-03-29', au: '2027-03-29', nom: 'Lundi de Pâques' },
   { du: '2027-04-26', au: '2027-05-07', nom: 'Vacances de printemps' },

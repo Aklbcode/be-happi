@@ -41,7 +41,7 @@ const STAGES_DEPART = [];
  * ligne dans le Sheet, elle ne revient pas : le lot est marqué « importé ».
  * Le modèle public est vide ; la copie collée dans le Sheet porte les vraies lignes.
  */
-const LOT = { id: '', absences: [], stages: [] };
+const LOTS = [];
 
 function ajouterLignes(nom, lignesLot, cle) {
   const f = SpreadsheetApp.getActive().getSheetByName(nom);
@@ -55,15 +55,32 @@ function ajouterLignes(nom, lignesLot, cle) {
   return nouvelles.length;
 }
 
-function importerLot() {
-  if (!LOT.id || typeof PropertiesService === 'undefined') return;
+/**
+ * Chaque lot ne s'importe qu'une fois. « remplacerStages » : on retire d'abord les lignes de l'onglet
+ * Stages qui portent ce nom (ex. « Stage »), pour corriger des dates déjà importées.
+ */
+function importerLots() {
+  if (!LOTS.length || typeof PropertiesService === 'undefined') return;
   const props = PropertiesService.getScriptProperties();
-  const marque = `lot-${LOT.id}`;
-  if (props.getProperty(marque)) return;
   const jour = (v) => String(valeur(v) || '').slice(0, 10);
-  ajouterLignes('Absences', LOT.absences.map(([p, d, de, a]) => ({ Title: p, DateAbs: d, DeH: de, AH: a })), (o) => `${String(o.Title).trim().toUpperCase()}|${jour(o.DateAbs)}`);
-  ajouterLignes('Stages', LOT.stages.map(([c, du, au, s]) => ({ Title: c, Du: du, Au: au, Stage: s })), (o) => `${String(o.Title).trim().toUpperCase()}|${jour(o.Du)}|${jour(o.Au)}`);
-  props.setProperty(marque, new Date().toISOString());
+  LOTS.forEach((lot) => {
+    const marque = `lot-${lot.id}`;
+    if (!lot.id || props.getProperty(marque)) return;
+    if (lot.remplacerStages) retirerStages(lot.remplacerStages);
+    ajouterLignes('Absences', (lot.absences || []).map(([p, d, de, a]) => ({ Title: p, DateAbs: d, DeH: de, AH: a })), (o) => `${String(o.Title).trim().toUpperCase()}|${jour(o.DateAbs)}`);
+    ajouterLignes('Stages', (lot.stages || []).map(([c, du, au, st]) => ({ Title: c, Du: du, Au: au, Stage: st })), (o) => `${String(o.Title).trim().toUpperCase()}|${jour(o.Du)}|${jour(o.Au)}`);
+    props.setProperty(marque, new Date().toISOString());
+  });
+}
+
+/** Retire de l'onglet Stages les lignes dont la colonne « Stage » vaut ce nom. */
+function retirerStages(nom) {
+  const f = SpreadsheetApp.getActive().getSheetByName('Stages');
+  if (!f) return;
+  const t = tableau(f);
+  const i = t.entetes.indexOf('Stage');
+  if (i < 0) return;
+  for (let r = t.valeurs.length - 1; r >= 0; r--) if (String(t.valeurs[r][i]).trim() === nom) f.deleteRow(r + 2);
 }
 
 function preparerStages() {
@@ -263,7 +280,7 @@ function toutLire() {
   const sortie = {};
   ecrire(() => {
     if (classeur.insertSheet) preparerStages();
-    importerLot();
+    importerLots();
     LISTES.forEach((nom) => { const f = classeur.getSheetByName(nom); if (f) numeroter(f); });
   });
   LISTES.forEach((nom) => {
