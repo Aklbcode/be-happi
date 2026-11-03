@@ -75,6 +75,13 @@ let envoyer: Envoi = async (url, corps) => {
   return r.json();
 };
 
+export const MESSAGE_RESEAU = 'Pas de connexion au Google Sheet pour le moment. Nouvel essai dans un instant.';
+
+/** « Load failed » (iPhone), « Failed to fetch » (Chrome), « NetworkError » (Firefox) : le réseau, pas le script. */
+export function erreurReseau(e: unknown): boolean {
+  return e instanceof TypeError || /load failed|failed to fetch|networkerror|network request failed/i.test(String((e as Error)?.message ?? e));
+}
+
 /** Erreur du script avec son code (401 clé, 403 inconnu, 404, 409, 412 modifié entre-temps). */
 export class ErreurScript extends Error {
   status: number;
@@ -87,7 +94,21 @@ export class ErreurScript extends Error {
 async function script(action: string, donnees: Record<string, unknown> = {}): Promise<any> {
   if (!reglages) throw new ErreurScript(400, 'IPES App n’est pas reliée à un Google Sheet.');
   const mail = await adresse();
-  const r = await envoyer(`https://script.google.com/macros/s/${reglages.script}/exec`, JSON.stringify({ action, cle: reglages.cle, mail, ...donnees }));
+  const url = `https://script.google.com/macros/s/${reglages.script}/exec`;
+  const corps = JSON.stringify({ action, cle: reglages.cle, mail, ...donnees });
+  // Une lecture qui échoue sur le réseau (téléphone qui sort de veille, Google lent à démarrer) est
+  // retentée deux fois. Une écriture, jamais : elle a peut-être été faite.
+  const essais = action === 'lire' || action === 'qui' ? 3 : 1;
+  let r: any;
+  for (let i = 1; ; i++) {
+    try {
+      r = await envoyer(url, corps);
+      break;
+    } catch (e) {
+      if (i >= essais || !erreurReseau(e)) throw erreurReseau(e) ? new ErreurScript(503, MESSAGE_RESEAU) : e;
+      await new Promise((ok) => setTimeout(ok, i * 1500));
+    }
+  }
   const status = Number(r?.status ?? 200);
   if (status >= 400) throw new ErreurScript(status, String(r?.erreur ?? `Erreur ${status}`));
   return r;

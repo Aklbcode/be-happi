@@ -149,3 +149,25 @@ test('import de l’Excel : heures d’une sortie, date d’une feuille, nom mal
   assert.equal(f.resoudreProf('LAMBERTNI', 2, {}, profs, horaires), 'LAMBERTINI');
   assert.equal(f.resoudreProf('Inconnu', 2, {}, profs, horaires), '');
 });
+
+test('une coupure réseau à la lecture est retentée ; une écriture ne l’est jamais', async () => {
+  let n = 0;
+  const instable = async (url: string, corps: string) => {
+    n++;
+    if (n === 1) throw new TypeError('Load failed');
+    return envoi(url, corps);
+  };
+  utiliserReglagesGoogle({ script: 'AKfycbxTESTTESTTESTTEST', cle: CLE }, instable, 'luc.lambert@ecole.example');
+  const ds = await chargerSharePoint('luc.lambert@ecole.example', 'Luc');
+  assert.equal(ds.moi.nom, 'LAMBERT');
+  let ecritures = 0;
+  utiliserReglagesGoogle({ script: 'AKfycbxTESTTESTTESTTEST', cle: CLE }, async (url, corps) => {
+    if (JSON.parse(corps).action === 'creer') {
+      ecritures++;
+      throw new TypeError('Load failed');
+    }
+    return envoi(url, corps);
+  }, 'luc.lambert@ecole.example');
+  await assert.rejects(enregistrerReservation({ prof: 'LAMBERT', date: J(3), h: 2, local: 'BF110', classe: '5TQB' }), /Pas de connexion/);
+  assert.equal(ecritures, 1);
+});

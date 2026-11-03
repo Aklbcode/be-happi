@@ -923,3 +923,6 @@ a.puce--demo { text-decoration: none; }
   :root:not([data-theme='clair']):not([data-theme='light']):not([data-theme='contraste']) { --mat-force: 34%; --mat-passe: 16%; }
 }
 :root[data-theme='sombre'], :root[data-theme='dark'] { --mat-force: 34%; --mat-passe: 16%; }
+
+/* Coupure réseau alors que l'horaire est déjà là : un rappel discret en bas, pas une alerte. */
+.toast--haut.toast--doux { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); background: var(--surface-2); color: var(--texte-2); border: 1px solid var(--trait); box-shadow: none; font-size: 13px; font-weight: 500; padding: 8px 12px; }

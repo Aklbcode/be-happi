@@ -89,7 +89,7 @@ function Coquille() {
   return (
     <>
       {erreur && ecran !== 'connexion' && !(googleActif() && choixEnAttente()) && (
-        <div role="alert" className="toast toast--haut">
+        <div role="alert" className={`toast toast--haut${ds && /connexion au Google Sheet/.test(erreur) ? ' toast--doux' : ''}`}>
           <Icon nom="attention" />{' '}
           {googleActif() ? erreur : <>Connexion SharePoint impossible : <a href="#/connexion">détails</a></>}
         </div>

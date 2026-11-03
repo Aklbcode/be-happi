@@ -164,7 +164,8 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
       setDs(donnees);
       ecrire(CLE_CACHE, JSON.stringify(donnees));
     } catch (e) {
-      setErreur(e instanceof Error ? e.message : String(e));
+      const { erreurReseau, MESSAGE_RESEAU } = await import('./google');
+      setErreur(erreurReseau(e) ? MESSAGE_RESEAU : e instanceof Error ? e.message : String(e));
     } finally {
       setChargement(false);
     }
@@ -173,6 +174,25 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
   useEffect(() => {
     void charger();
   }, [charger]);
+
+  // Après une coupure réseau : nouvel essai toutes les 20 s, et dès que l'app revient au premier plan.
+  const reseauKo = !!erreur && /connexion au Google Sheet/.test(erreur);
+  useEffect(() => {
+    if (!reseauKo) return;
+    const id = window.setInterval(() => void charger(), 20000);
+    return () => window.clearInterval(id);
+  }, [reseauKo, charger]);
+  useEffect(() => {
+    if (demo) return;
+    let derniere = Date.now();
+    const revenir = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - derniere < 60000) return;
+      derniere = Date.now();
+      void charger();
+    };
+    document.addEventListener('visibilitychange', revenir);
+    return () => document.removeEventListener('visibilitychange', revenir);
+  }, [demo, charger]);
 
   const montrerToast = useCallback((t: string) => {
     setToast(t);

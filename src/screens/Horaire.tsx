@@ -336,7 +336,7 @@ export function Horaire() {
     <section className="ecran ecran--large ecran--horaire" aria-label="Horaire">
       <Entete
         titre={libelleSemaine}
-        sous={vue === 'moi' ? 'Mon horaire' : vue === 'classe' ? `Horaire de la ${classeVue}` : `Occupation de ${salleVue}`}
+        sous={vue === 'moi' ? undefined : vue === 'classe' ? `Horaire de la ${classeVue}` : `Occupation de ${salleVue}`}
         droite={
           <>
             <button className="rond rond--petit" aria-label="Semaine précédente" onClick={() => changerSemaine(-1)}>
