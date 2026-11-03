@@ -91,12 +91,14 @@ export function Locaux({ params }: { params: URLSearchParams }) {
     <section className="ecran ecran--large" aria-label="Locaux">
       <Entete
         titre="Locaux"
-        droite={
-          <span className="puce puce--grise">
+        titreCache
+        apres={
+          <span className="puce puce--grise" style={{ alignSelf: 'flex-start' }}>
             <Icon nom="calendrier" taille={16} />
             {JOURS_COURTS[jourSemaineIso(date)]}. {d.getDate()}/{d.getMonth() + 1}
           </span>
         }
+        droite={<span />}
       />
 
       <div className="defile-x" role="group" aria-label="Choisir l'heure">
