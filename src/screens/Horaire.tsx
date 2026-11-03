@@ -18,7 +18,7 @@ interface Case {
   cle: string;
   date: string;
   h: number;
-  type: 'vide' | 'cours' | 'passe' | 'possible' | 'etoile' | 'perdue' | 'deplace' | 'attente' | 'depart' | 'libre-maint' | 'sansprof';
+  type: 'vide' | 'cours' | 'passe' | 'possible' | 'etoile' | 'perdue' | 'deplace' | 'attente' | 'depart' | 'libre-maint' | 'sansprof' | 'stage';
   haut?: string;
   bas?: string;
   nb?: number;
@@ -188,7 +188,7 @@ export function Horaire() {
           const jour = jourSemaineIso(date);
           const c = ds.cours.find((x) => x.jour === jour && x.h === p.h && x.classes.includes(classeVue));
           if (!c) return { cle, date, h: p.h, type: 'vide' };
-          if (enStage(ds, classeVue, date)) return { cle, date, h: p.h, type: 'perdue', haut: 'Stage' };
+          if (enStage(ds, classeVue, date)) return { cle, date, h: p.h, type: 'stage', haut: 'Stage' };
           if (absentA(ds, c.prof, date, p.h)) return { cle, date, h: p.h, type: 'sansprof', haut: c.matiere.slice(0, 10) || 'Cours', bas: 'sans prof' };
           return { cle, date, h: p.h, type: passe ? 'passe' : 'cours', haut: c.matiere.slice(0, 10) || c.classe, bas: nomAffiche(c.prof).slice(0, 9) };
         }
@@ -215,7 +215,7 @@ export function Horaire() {
         if (o) return { cle, date, h: p.h, type: o.etoile ? 'etoile' : 'possible', nb: o.nb };
         // Un cours qui saute parce que la classe est en stage : l'heure est libre, on dit pourquoi.
         const enStageIci = ds.cours.find((x) => x.prof === moi && x.jour === jourSemaineIso(date) && x.h === p.h && !sansStage(ds, x, date));
-        if (enStageIci) return { cle, date, h: p.h, type: 'perdue', haut: enStageIci.classe, bas: 'en stage' };
+        if (enStageIci) return { cle, date, h: p.h, type: 'stage', haut: enStageIci.classe, bas: 'stage' };
         return { cle, date, h: p.h, type: 'vide' };
       }),
     );
@@ -400,7 +400,7 @@ export function Horaire() {
                   } else if (c.type === 'possible' || c.type === 'etoile') {
                     titre = `${c.nb} cours ${c.nb && c.nb > 1 ? 'peuvent' : 'peut'} venir ici`;
                     sous = meilleure ? `Le plus avantageux : ${meilleure.classe}, ${JOURS[jourSemaineIso(meilleure.dateO)].toLowerCase()} H${meilleure.hO} · ${meilleure.resume.split(' · ')[0]}` : '';
-                  } else if (c.type === 'perdue' && c.bas === 'en stage') {
+                  } else if (c.type === 'stage') {
                     titre = `${c.haut} en stage`;
                     sous = 'Pas de cours : heure libre';
                   } else if (c.type === 'perdue') {
@@ -719,6 +719,13 @@ function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol }
               <Icon nom="horloge" taille={13} /> {c.nb}
             </>
           )}
+        </div>
+      );
+    case 'stage':
+      // Classe en stage : l'heure est libre, on le rappelle sans attirer l'œil.
+      return (
+        <div className={`case case--stage${extra}`} {...commun} title={`${c.haut} en stage : heure libre`}>
+          <span>{c.haut}</span>
         </div>
       );
     case 'libre-maint':

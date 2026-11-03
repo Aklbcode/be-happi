@@ -38,3 +38,18 @@ test('le local d’un cours en stage est libre', () => {
   assert.equal(etatLocal(ds, 'X', 'BF108', LUNDI, 2).etat, 'libre');
   assert.equal(etatLocal(ds, 'X', 'BF108', LUNDI, 3).etat, 'occupe');
 });
+
+test('une heure libérée par un stage peut recevoir un cours avancé', async () => {
+  const { optionsPour, heureLibre } = await import('../src/logic/deplacements');
+  // MOI a la 6A (en stage) lundi H3 ; X est absent lundi H3 avec la 3B ; MOI a la 3B mardi H5.
+  const base: Dataset = {
+    ...ds,
+    cours: [c('MOI', 1, 3, '6A', 'BF108'), c('X', 1, 3, '3B', 'BC105'), c('MOI', 2, 5, '3B', 'BF108'), c('MOI', 1, 2, '4C', 'BF108')],
+    absences: [{ prof: 'X', date: LUNDI, deH: 3, aH: 3 }],
+  };
+  assert.equal(heureLibre(base, 'MOI', LUNDI, 3), true);
+  const o = optionsPour(base, 'MOI', LUNDI, 3, LUNDI, 0);
+  assert.ok(o.some((x) => x.classe === '3B'));
+  // Sans le stage, MOI a cours à cette heure : pas d'option.
+  assert.equal(optionsPour({ ...base, stages: [] }, 'MOI', LUNDI, 3, LUNDI, 0).length, 0);
+});
