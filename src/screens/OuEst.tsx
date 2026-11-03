@@ -150,9 +150,6 @@ export function OuEst({ params }: { params: URLSearchParams }) {
                 {!libres.length && <span className="petit">Personne de libre à cette heure.</span>}
               </div>
               <div className="rangee enrouler">
-                <a className="bouton bouton--sec" href={lien('collab')}>
-                  <Icon nom="agenda" taille={18} /> Trouver une heure commune
-                </a>
                 {estAuj && hLibre >= (hNow ?? 1) && (
                   <button className="bouton bouton--prim" onClick={() => setAide({ h: hLibre })}>
                     <Icon nom="message" taille={18} /> Demander un coup de main
@@ -181,7 +178,43 @@ export function OuEst({ params }: { params: URLSearchParams }) {
 
 function Fiche({ t, date, hNow, onAide }: { t: Trouve; date: string; hNow?: number; onAide: (h: number, classe?: string) => void }) {
   const { ds, ouvrirTeams, profil } = useStore();
+  const [hVue, setHVue] = useState<number | null>(null);
   if (!ds) return null;
+
+  // Un prof ne voit pas l'horaire complet d'un collègue : seulement où il est, heure par heure.
+  if (t.type === 'prof' && profil === 'prof' && t.nom !== ds.moi.nom) {
+    const h = hVue ?? hNow ?? 1;
+    const p = journeeProf(ds, t.nom, date)[h - 1];
+    const ton = p.statut === 'cours' ? 'indigo' : p.statut === 'absent' ? 'rose' : p.statut === 'fourche' ? 'pale' : 'vide';
+    const email = ds.profs.find((x) => x.nom === t.nom)?.email;
+    return (
+      <section className="carte fiche" aria-label={`Où est ${nomAffiche(t.nom)}`}>
+        <div className="rangee">
+          <span className="rond rond--grand rond--nuit">{t.nom.slice(0, 2)}</span>
+          <div className="pile grandit">
+            <h2 className="titre-l">{nomAffiche(t.nom)}</h2>
+            <span className={`statut statut--${ton}`}>
+              {p.statut === 'cours' ? `En ${p.local || 'cours'}` : p.texte} · H{h} · {periode(h).debut}
+            </span>
+          </div>
+        </div>
+        <div className="heures-9" role="group" aria-label="Choisir l'heure">
+          {PERIODES.map((x) => (
+            <button key={x.h} aria-pressed={x.h === h} onClick={() => setHVue(x.h)}>
+              <b>H{x.h}</b>
+            </button>
+          ))}
+        </div>
+        {email && (
+          <div className="rangee">
+            <button className="bouton bouton--prim bouton--petit" onClick={() => ouvrirTeams({ type: 'teams-chat', emails: [email], noms: [nomAffiche(t.nom)], message: `Bonjour ${nomAffiche(t.nom)}, ` })}>
+              <Icon nom="message" taille={16} /> Écrire sur Teams
+            </button>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   if (t.type === 'prof') {
     const jour = journeeProf(ds, t.nom, date);
@@ -208,11 +241,6 @@ function Fiche({ t, date, hNow, onAide }: { t: Trouve; date: string; hNow?: numb
             <button className="bouton bouton--prim bouton--petit" onClick={() => ouvrirTeams({ type: 'teams-chat', emails: [email], noms: [nomAffiche(t.nom)], message: `Bonjour ${nomAffiche(t.nom)}, ` })}>
               <Icon nom="message" taille={16} /> Écrire sur Teams
             </button>
-          )}
-          {profil === 'prof' && (
-            <a className="bouton bouton--sec bouton--petit" href={lien('collab', { p: `${ds.moi.nom}|${t.nom}` })}>
-              <Icon nom="agenda" taille={16} /> Trouver une heure commune
-            </a>
           )}
         </div>
       </section>
@@ -252,11 +280,13 @@ function Fiche({ t, date, hNow, onAide }: { t: Trouve; date: string; hNow?: numb
           }))}
           actuel={hNow}
         />
-        <div className="rangee enrouler">
-          <a className="bouton bouton--sec bouton--petit" href={lien('collab', { p: equipe.join('|') })}>
-            <Icon nom="gens" taille={16} /> Réunir l’équipe ({equipe.length})
-          </a>
-        </div>
+        {ecranActif('collab') && (
+          <div className="rangee enrouler">
+            <a className="bouton bouton--sec bouton--petit" href={lien('collab', { p: equipe.join('|') })}>
+              <Icon nom="gens" taille={16} /> Réunir l’équipe ({equipe.length})
+            </a>
+          </div>
+        )}
       </section>
     );
   }

@@ -16,7 +16,8 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
   const { ouvrir } = useMoi();
   const p = descProfil(profil);
   const dansOnglets = new Set(p.onglets.map((o) => o.ecran));
-  const groupes = GROUPES.map((g) => ({
+  // Version de test : pas de groupe « Vie scolaire » dans le menu (Pilotage est un onglet, Validations dans le profil).
+  const groupes = GROUPES.filter((g) => g.titre !== 'Vie scolaire').map((g) => ({
     ...g,
     services: g.services.filter(
       (s) => !dansOnglets.has(s.ecran) && peutOuvrir(s.ecran, profils) && !(profil === 'eleve' && s.ecran !== 'eleve' && s.ecran !== 'ecran' && s.ecran !== 'signaler'),

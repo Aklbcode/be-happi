@@ -27,6 +27,8 @@ export const OPTIONS = {
   bienvenue: false,
   /** Onglet « École » (tous les services) dans la barre. */
   ongletEcole: false,
+  /** Collab (heure commune) : remplacé par « Qui est libre ? » dans Où est ?. */
+  collab: false,
 };
 
 const COUPES: [boolean, Ecran[]][] = [
@@ -37,6 +39,7 @@ const COUPES: [boolean, Ecran[]][] = [
   [OPTIONS.infos, ['infos']],
   [OPTIONS.direction, ['direction']],
   [OPTIONS.eleve, ['eleve', 'semaine']],
+  [OPTIONS.collab, ['collab']],
 ];
 const ECRANS_COUPES = new Set<Ecran>(COUPES.filter(([actif]) => !actif).flatMap(([, e]) => e));
 
