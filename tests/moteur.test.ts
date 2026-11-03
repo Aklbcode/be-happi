@@ -164,17 +164,20 @@ test('une remédiation récupère la classe : elle n’est plus « à l’étude
 
 test('la semaine suivante n’est proposée que s’il n’y a rien dans la semaine', () => {
   // X absent vendredi H3 avec la 3A ; cette semaine, MOI n'a plus la 3A après vendredi.
+  // Une semaine dont le lundi suivant est un jour de cours (23/11 : cours suspendus).
+  const L = '2026-12-07';
+  const j = (n: number) => plusJoursIso(L, n);
   const vendredi = j(4);
   const cours = [c('MOI', 1, 1, '3A', 'BF201'), c('MOI', 1, 2, '4B', 'BF201'), c('X', 5, 3, '3A', 'BC105')];
   const ds = donnees({ cours, absences: [{ prof: 'X', date: vendredi, deH: 3, aH: 3 }] });
-  const options = optionsPour(ds, 'MOI', vendredi, 3, LUNDI, 0);
+  const options = optionsPour(ds, 'MOI', vendredi, 3, L, 0);
   assert.ok(options.length > 0);
   assert.ok(options.every((o) => o.semaineSuivante));
   assert.equal(options[0].dateO, j(7));
 
   // S'il y a une option dans la semaine, pas de S+1.
   const avecVendredi = donnees({ cours: [...cours, c('MOI', 5, 6, '3A', 'BF201')], absences: [{ prof: 'X', date: vendredi, deH: 3, aH: 3 }] });
-  const o2 = optionsPour(avecVendredi, 'MOI', vendredi, 3, LUNDI, 0);
+  const o2 = optionsPour(avecVendredi, 'MOI', vendredi, 3, L, 0);
   assert.ok(o2.length > 0);
   assert.ok(o2.every((o) => !o.semaineSuivante));
 });
