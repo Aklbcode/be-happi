@@ -7,7 +7,7 @@
 import type { Dataset, Resultat, SeanceCR } from '../data/types';
 import { MIDI, deIso, estJourDeCours, iso, periode, plusJours } from '../lib/calendar';
 import { sansAccents } from '../data/champs';
-import { coursDuProf, coursSansProf, nomAffiche, peutPrendre } from './horaire';
+import { coursDuProf, coursSansProf, nomAffiche, peutPrendre, classesDuProf } from './horaire';
 import { heureLibre } from './deplacements';
 import { positionProf } from './ouest';
 
@@ -135,7 +135,7 @@ export interface Occasion {
  */
 export function occasionsProf(ds: Dataset, moi: string, aujourdhui: string, heurePassee: number, jours = 5): Occasion[] {
   const fam = famillesDe(ds, moi);
-  const mesClasses = new Set(ds.cours.filter((c) => c.prof === moi).flatMap((c) => c.classes));
+  const mesClasses = new Set(classesDuProf(ds, moi));
   const cr = ds.capReussite ?? [];
   const sortie: Occasion[] = [];
   for (const date of prochainsJours(aujourdhui, jours)) {

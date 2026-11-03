@@ -13,7 +13,7 @@
 
 import type { Dataset, Deplacement } from '../data/types';
 import { JOURS, MIDI, deIso, dureeTxt, jourSemaineIso, periode, plusJoursIso } from '../lib/calendar';
-import { absentA, classeOccupee, classesDe, coursDuProf, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent, type CoursJour } from './horaire';
+import { absentA, classeOccupee, classesDe, classesDuProf, coursDuProf, estRemediation, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent, type CoursJour } from './horaire';
 import { etatLocal } from './occupation';
 import { PRIORITES_DEFAUT, type Priorites } from './priorites';
 
@@ -268,7 +268,7 @@ export function optionsPour(ds: Dataset, moi: string, date: string, h: number, a
   const construire = (jours: string[], semaineSuivante: boolean): OptionDeplacement[] =>
     jours.flatMap((d) =>
       coursDuProf(ds, moi, d)
-        .filter((c) => !c.deplace)
+        .filter((c) => !c.deplace && !estRemediation(c))
         .filter((c) => !(d === date && c.h === h))
         .filter((c) => !(d === aujourdhui && c.h <= heureFinie))
         .filter((c) => !dejaPropose(d, c.h) && !dejaRefuse(d, c.h))
@@ -350,7 +350,8 @@ export function opportunitesSemaine(ds: Dataset, moi: string, lundi: string, auj
       if (!heureLibre(ds, moi, date, h)) continue;
       const passe = date < aujourdhui || (date === aujourdhui && h <= heureFinie);
       if (passe) {
-        const nb = coursSansProf(ds, date, h).filter((c) => ds.cours.some((m) => m.prof === moi && m.classes.some((cl) => c.classes.includes(cl)))).length;
+        const miennes = new Set(classesDuProf(ds, moi));
+        const nb = coursSansProf(ds, date, h).filter((c) => c.classes.some((cl) => miennes.has(cl))).length;
         if (nb) res.set(`${date}|${h}`, { date, h, nb, etoile: false, passe: true });
         continue;
       }

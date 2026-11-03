@@ -13,7 +13,7 @@ import type { Dataset, Deplacement } from '../data/types';
 import { JOURS, MIDI, conge, deIso, dureeTxt, heureTxt, iso, jourSemaineIso, periode, plusJoursIso, prochainJourDeCours } from '../lib/calendar';
 import { optionsPour, verifierDeplacement, type OptionDeplacement } from '../logic/deplacements';
 import { PRIORITES_DEFAUT, type Priorites } from '../logic/priorites';
-import { absentA, classesDe, classesReservation, coursDuProf, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent } from '../logic/horaire';
+import { absentA, classesDe, classesReservation, coursDuProf, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent, classesDuProf } from '../logic/horaire';
 
 export type Occasion = OptionDeplacement;
 
@@ -603,7 +603,7 @@ export interface HeureLiberee {
 }
 
 /** Toutes les classes que tu as à ton horaire. */
-export const mesClasses = (ds: Dataset, moi: string): Set<string> => new Set(ds.cours.filter((c) => c.prof === moi).flatMap((c) => c.classes));
+export const mesClasses = (ds: Dataset, moi: string): Set<string> => new Set(classesDuProf(ds, moi));
 
 export function heuresLiberees(
   ds: Dataset,

@@ -5,7 +5,7 @@ import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { Entete } from '../ui/Entete';
-import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStage, sansStage } from '../logic/horaire';
+import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStage, sansStage, classesDuProf } from '../logic/horaire';
 import { capital, opportunitesSemaine, optionsPour, probable, type OptionDeplacement } from '../logic/deplacements';
 import type { Deplacement } from '../data/types';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
@@ -81,7 +81,7 @@ export function Horaire() {
   const dates = useMemo(() => [0, 1, 2, 3, 4].map((n) => plusJoursIso(lundi, n)), [lundi]);
 
   const moi = ds?.moi.nom ?? '';
-  const mesClasses = useMemo(() => (ds ? [...new Set(ds.cours.filter((c) => c.prof === moi).flatMap((c) => c.classes))].sort() : []), [ds, moi]);
+  const mesClasses = useMemo(() => (ds ? classesDuProf(ds, moi) : []), [ds, moi]);
   const classeVue = classe || mesClasses[0] || '';
   const salleVue = salle || 'BT004';
 

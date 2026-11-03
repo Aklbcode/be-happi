@@ -109,6 +109,17 @@ export function heuresDeLaClasse(ds: Dataset, classe: string, date: string): num
  * Les classes déjà récupérées (déplacement proposé ou validé, réservation pour la classe,
  * remédiation) sont retirées ; un cours dont toutes les classes sont récupérées disparaît.
  */
+/**
+ * Une remédiation (« Rem sciences », « Remédiation math »…) n'est pas un cours de la classe : elle
+ * ne fait pas d'un prof « le prof de la classe », elle ne se déplace pas et son absence ne libère
+ * pas d'heure pour la classe.
+ */
+export const estRemediation = (c: { matiere?: string }): boolean => /^\s*(rem\b|rem[eé]diation)/i.test(c.matiere ?? '');
+
+/** Les classes d'un prof (sans ses remédiations). */
+export const classesDuProf = (ds: Dataset, prof: string): string[] =>
+  [...new Set(ds.cours.filter((c) => c.prof === prof && !estRemediation(c)).flatMap((c) => c.classes))].sort();
+
 export function coursSansProf(ds: Dataset, date: string, h: number): Cours[] {
   if (enConge(date)) return [];
   const jour = jourSemaineIso(date);
@@ -118,7 +129,7 @@ export function coursSansProf(ds: Dataset, date: string, h: number): Cours[] {
   ]);
   const sortie: Cours[] = [];
   for (const c of ds.cours) {
-    if (c.jour !== jour || c.h !== h || !absentA(ds, c.prof, date, h)) continue;
+    if (c.jour !== jour || c.h !== h || estRemediation(c) || !absentA(ds, c.prof, date, h)) continue;
     const restantes = c.classes.filter((cl) => !recuperees.has(cl) && !enStage(ds, cl, date));
     if (!restantes.length) continue;
     sortie.push(restantes.length === c.classes.length ? c : { ...c, classes: restantes, classe: restantes.join(', ') });
@@ -147,7 +158,7 @@ export const niveau = (classe: string): number => {
 
 /** Règle de l'école : un prof du DI ne prend pas de classe du DS ; un prof du DS peut prendre le DI. */
 export function peutPrendre(ds: Dataset, moi: string, classe: string): boolean {
-  const mesNiveaux = ds.cours.filter((c) => c.prof === moi).flatMap((c) => c.classes.map(niveau));
+  const mesNiveaux = ds.cours.filter((c) => c.prof === moi && !estRemediation(c)).flatMap((c) => c.classes.map(niveau));
   const enseigneDS = mesNiveaux.some((n) => n >= 3);
   return enseigneDS || niveau(classe) <= 2;
 }

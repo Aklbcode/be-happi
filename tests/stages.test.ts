@@ -53,3 +53,12 @@ test('une heure libérée par un stage peut recevoir un cours avancé', async ()
   // Sans le stage, MOI a cours à cette heure : pas d'option.
   assert.equal(optionsPour({ ...base, stages: [] }, 'MOI', LUNDI, 3, LUNDI, 0).length, 0);
 });
+
+test('une remédiation n’est pas un cours : ni « mes classes », ni déplacée, ni heure libérée', async () => {
+  const { classesDuProf, coursSansProf: sansProf } = await import('../src/logic/horaire');
+  const rem: Cours = { id: 'r1', prof: 'MOI', jour: 1, h: 5, classe: '3GA, 3GB', classes: ['3GA', '3GB'], local: 'BF109', matiere: 'Rem sciences' };
+  const remAbs: Cours = { id: 'r2', prof: 'AUTRE', jour: 1, h: 6, classe: '6B', classes: ['6B'], local: 'BF109', matiere: 'Remédiation math' };
+  const d: Dataset = { ...ds, cours: [...ds.cours, rem, remAbs], stages: [] };
+  assert.ok(!classesDuProf(d, 'MOI').includes('3GA'));
+  assert.equal(sansProf(d, LUNDI, 6).length, 0);
+});

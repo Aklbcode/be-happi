@@ -3,7 +3,7 @@
 
 import type { Dataset } from '../data/types';
 import { JOURS, MIDI, deIso, dureeTxt, estJourDeCours, iso, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso } from '../lib/calendar';
-import { coursDuProf, coursSansProf, nomAffiche, sansStage, stageDe } from './horaire';
+import { coursDuProf, coursSansProf, nomAffiche, sansStage, stageDe, classesDuProf } from './horaire';
 import { etatLocal } from './occupation';
 import { optionsPour, opportunitesSemaine } from './deplacements';
 import { PRIORITES_DEFAUT, type Priorites } from './priorites';
@@ -119,7 +119,7 @@ export function remarquesProf(ds: Dataset, moi: string, maintenant: Date, heureP
   }
 
   // 3. Une de mes classes a perdu beaucoup d'heures ces 4 dernières semaines.
-  const mesClasses = new Set(ds.cours.filter((c) => c.prof === moi).flatMap((c) => c.classes));
+  const mesClasses = new Set(classesDuProf(ds, moi));
   const perdues = new Map<string, number>();
   for (const x of heuresSansProf(ds, plusJoursIso(auj, -28), plusJoursIso(auj, -1))) {
     if (x.recup) continue;
