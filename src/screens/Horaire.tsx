@@ -107,13 +107,19 @@ export function Horaire() {
   }, [parHeure]);
   // Souris : survoler une heure libérée montre ses options ; survoler un cours montre où il peut aller.
   const [survol, setSurvol] = useState<string | null>(null);
+  // Au doigt : l'heure libérée touchée une fois (ses flèches restent affichées).
+  const [apercu, setApercu] = useState<string | null>(null);
+  const pointeur = useRef('mouse');
+  const appuiLong = useRef(false);
+  const minuteurAppui = useRef<number | undefined>(undefined);
   const survolees = useMemo(() => {
-    if (!survol) return null;
-    const ici = parHeure.get(survol);
+    const cle = survol ?? apercu;
+    if (!cle) return null;
+    const ici = parHeure.get(cle);
     if (ici?.length) return ici.slice(0, 4);
-    const depuis = [...parHeure.values()].flat().filter((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}` === survol);
+    const depuis = [...parHeure.values()].flat().filter((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}` === cle);
     return depuis.length ? depuis : null;
-  }, [survol, parHeure]);
+  }, [survol, apercu, parHeure]);
 
   // Glisser-déposer : prendre un cours qui peut bouger et le lâcher sur une heure encadrée.
   // Souris : on glisse tout de suite ; doigt : appui long (0,3 s) puis on glisse.
@@ -324,7 +330,16 @@ export function Horaire() {
       return;
     }
     if ((c.type === 'possible' || c.type === 'etoile' || (c.type === 'libre-maint' && c.nb)) && c.nb) {
-      setSel(sel && sel.date === c.date && sel.h === c.h ? null : { date: c.date, h: c.h });
+      // Au doigt : un premier toucher montre les flèches ; un second (ou un appui long) ouvre le choix.
+      // À la souris, le survol montre déjà les flèches : un clic ouvre le choix.
+      if (pointeur.current !== 'mouse' && apercu !== c.cle && !appuiLong.current) {
+        setApercu(c.cle);
+        setSel(null);
+      } else {
+        setApercu(null);
+        setSel({ date: c.date, h: c.h });
+      }
+      appuiLong.current = false;
       if (aide) {
         setAide(false);
         try {
@@ -333,13 +348,17 @@ export function Horaire() {
           /* rien */
         }
       }
-    } else setSel(null);
+    } else {
+      setSel(null);
+      setApercu(null);
+    }
   }
 
   const changerSemaine = (n: number) => {
     setDecalage((d) => d + n);
     setSens(n);
     setSel(null);
+    setApercu(null);
     setJourIdx(null);
   };
 
@@ -515,8 +534,25 @@ export function Horaire() {
                   onClick={() => toucher(c)}
                   cliquable={vue === 'moi'}
                   onSurvol={(e, dedans) => {
+                    pointeur.current = e.pointerType;
                     if (e.pointerType !== 'mouse' || vue !== 'moi' || glisse.current?.actif) return;
                     setSurvol(dedans ? c.cle : null);
+                  }}
+                  onAppui={(e, debut) => {
+                    pointeur.current = e.pointerType;
+                    window.clearTimeout(minuteurAppui.current);
+                    if (!debut || e.pointerType === 'mouse' || !c.nb || !['possible', 'etoile', 'libre-maint'].includes(c.type)) return;
+                    // Appui long sur une heure libérée : le choix s'ouvre directement.
+                    minuteurAppui.current = window.setTimeout(() => {
+                      appuiLong.current = true;
+                      setApercu(null);
+                      setSel({ date: c.date, h: c.h });
+                      try {
+                        navigator.vibrate?.(15);
+                      } catch {
+                        /* rien */
+                      }
+                    }, 450);
                   }}
                 />
               ))}
@@ -561,7 +597,8 @@ export function Horaire() {
       </>
       )}
 
-      {vue === 'moi' && !sel && mode === 'semaine' && aide && (
+      {apercu && !sel && <p className="petit fort" style={{ margin: 0 }}>Touche encore cette heure, ou garde le doigt appuyé, pour choisir le cours.</p>}
+      {vue === 'moi' && !sel && !apercu && mode === 'semaine' && aide && (
         <p className="petit" style={{ margin: 0 }}>
           {meilleures.length
             ? `${meilleures.length === 1 ? 'La flèche montre le meilleur cours' : `Les ${meilleures.length} flèches montrent les meilleurs cours`} à avancer. Survole ou touche une heure libérée pour voir les autres possibilités.`
@@ -589,16 +626,13 @@ export function Horaire() {
                     {o.meilleur && <span className="puce puce--indigo">Le plus avantageux</span>}
                     {o.semaineSuivante && !o.meilleur && <span className="puce" style={{ background: 'var(--sarcelle)', color: '#fff' }}>S+1</span>}
                   </span>
-                  <span className="petit">
-                    Local {o.local}
-                    {o.localChange ? ` (${o.localPrevu} pris)` : ''} · prof, classes et local vérifiés
-                  </span>
-                  {o.avantages.slice(0, 2).map((a) => (
-                    <span key={a} className="avantage">
-                      <Icon nom={a.startsWith('Attention') ? 'attention' : 'coche'} taille={16} epaisseur={2.2} />
-                      {a}
+                  {/* Une seule ligne : le gain principal (ou, à défaut, le point d'attention). */}
+                  {o.avantages[0] && (
+                    <span className="avantage">
+                      <Icon nom={o.avantages[0].startsWith('Attention') ? 'attention' : 'coche'} taille={16} epaisseur={2.2} />
+                      {o.avantages[0].replace(/^Attention : (.)/, (_, l: string) => l.toUpperCase())}
                     </span>
-                  ))}
+                  )}
                 </span>
                 <Icon nom="droite" />
               </a>
@@ -674,12 +708,15 @@ export function Horaire() {
   );
 }
 
-function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol }: { c: Case; cible: boolean; origine: boolean; mobile: boolean; onClick: () => void; cliquable: boolean; onSurvol: (e: EvPointeur, dedans: boolean) => void }) {
+function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol, onAppui }: { c: Case; cible: boolean; origine: boolean; mobile: boolean; onClick: () => void; cliquable: boolean; onSurvol: (e: EvPointeur, dedans: boolean) => void; onAppui: (e: EvPointeur, debut: boolean) => void }) {
   const extra = `${cible ? ' case--cible' : ''}${origine ? ' case--origine' : ''}${mobile ? ' case--mobile' : ''}`;
   const commun = {
     'data-cle': c.cle,
     onPointerEnter: (e: EvPointeur) => onSurvol(e, true),
     onPointerLeave: (e: EvPointeur) => onSurvol(e, false),
+    onPointerDown: (e: EvPointeur) => onAppui(e, true),
+    onPointerUp: (e: EvPointeur) => onAppui(e, false),
+    onPointerCancel: (e: EvPointeur) => onAppui(e, false),
   } as Record<string, unknown>;
   switch (c.type) {
     case 'vide':
