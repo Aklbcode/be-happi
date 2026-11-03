@@ -7,11 +7,11 @@ import { ecranActif } from '../options';
 import { Entete } from '../ui/Entete';
 import { Icon } from '../ui/Icon';
 import { Regle, type TonRegle } from '../ui/Regle';
-import { ChoixJour, prochainsJours } from '../ui/Choix';
+import { ChoixJour, HeuresNeuf, prochainsJours } from '../ui/Choix';
 import { FeuilleAide } from '../ui/FeuilleAide';
 import { journeeClasse, journeeLocal, journeeProf, profsLibres, rechercher, toutesLesClasses, triClasse, type Trouve } from '../logic/ouest';
 import { nomAffiche } from '../logic/horaire';
-import { JOURS, MIDI, PERIODES, deIso, estJourDeCours, jourSemaineIso, periode, situation } from '../lib/calendar';
+import { MIDI, PERIODES, estJourDeCours, periode, situation } from '../lib/calendar';
 import { lien } from '../lib/route';
 
 const CLE_RECENTS = 'behappi-ouest-recents';
@@ -38,6 +38,7 @@ export function OuEst({ params }: { params: URLSearchParams }) {
   const jours = useMemo(() => prochainsJours(maintenant, 5), [maintenant]);
   const [date, setDate] = useState(params.get('date') ?? (estJourDeCours(maintenant) ? aujourdhui : jours[0]));
   const [texte, setTexte] = useState('');
+  const [tousLibres, setTousLibres] = useState(false);
   const [hChoisie, setHChoisie] = useState<number | null>(null);
   const [aide, setAide] = useState<{ h: number; classe?: string } | null>(null);
   const q = params.get('q') ?? '';
@@ -138,37 +139,48 @@ export function OuEst({ params }: { params: URLSearchParams }) {
               </a>
             )}
 
-            <section className="carte" aria-label="Qui est libre ?">
-              <div className="rangee rangee--entre">
-                <h2 className="titre-m">Qui est libre ?</h2>
-                <span className="puce puce--indigo">{libres.filter((l) => l.fourche).length} en fourche</span>
-              </div>
-              <div className="heures-9" role="group" aria-label="Choisir l'heure (profs en fourche)">
-                {PERIODES.map((p, i) => (
-                  <button key={p.h} aria-pressed={p.h === hLibre} onClick={() => setHChoisie(p.h)} aria-label={`H${p.h}, ${parHeure[i]} profs en fourche`}>
-                    <b>H{p.h}</b>
-                    <small>{parHeure[i]}</small>
-                  </button>
-                ))}
-              </div>
-              <span className="petit">
-                {JOURS[jourSemaineIso(date)]} {deIso(date).getDate()}/{deIso(date).getMonth() + 1} · H{hLibre} · {periode(hLibre).debut}. En plein : en fourche (à l’école). En pointillé : avant ou après leurs cours.
-              </span>
-              <div className="rangee enrouler">
-                {libres.slice(0, 30).map((l) => (
-                  <button key={l.prof} className={`filtre${l.fourche ? '' : ' filtre--pale'}`} onClick={() => ouvrir({ type: 'prof', nom: l.prof })}>
+            <section className="carte pile pile--12" aria-label="Qui est libre ?">
+              <h2 className="titre-m">Qui est libre ?</h2>
+              <HeuresNeuf h={hLibre} onChoisir={setHChoisie} compte={(x) => parHeure[x - 1] ?? 0} legende="profs en fourche" />
+              {(() => {
+                const fourche = libres.filter((l) => l.fourche);
+                const autres = libres.filter((l) => !l.fourche);
+                const puce = (l: (typeof libres)[number], pale: boolean) => (
+                  <button key={l.prof} className={`filtre${pale ? ' filtre--pale' : ''}`} onClick={() => ouvrir({ type: 'prof', nom: l.prof })}>
                     {nomAffiche(l.prof)}
                   </button>
-                ))}
-                {!libres.length && <span className="petit">Personne de libre à cette heure.</span>}
-              </div>
-              <div className="rangee enrouler">
-                {estAuj && hLibre >= (hNow ?? 1) && (
-                  <button className="bouton bouton--prim" onClick={() => setAide({ h: hLibre })}>
-                    <Icon nom="message" taille={18} /> Demander un coup de main
-                  </button>
-                )}
-              </div>
+                );
+                return (
+                  <>
+                    <div className="pile pile--8">
+                      <h3 className="petit fort">À l’école, en fourche · {fourche.length}</h3>
+                      <div className="rangee enrouler" style={{ gap: 6 }}>
+                        {fourche.map((l) => puce(l, false))}
+                        {!fourche.length && <span className="petit">Personne en fourche à cette heure.</span>}
+                      </div>
+                    </div>
+                    {autres.length > 0 && (
+                      <div className="pile pile--8">
+                        {tousLibres ? (
+                          <>
+                            <h3 className="petit fort">Pas encore arrivés ou déjà partis · {autres.length}</h3>
+                            <div className="rangee enrouler" style={{ gap: 6 }}>{autres.map((l) => puce(l, true))}</div>
+                          </>
+                        ) : (
+                          <button className="lien-action" style={{ alignSelf: 'flex-start' }} onClick={() => setTousLibres(true)}>
+                            Voir aussi les {autres.length} pas encore arrivés ou déjà partis
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              {estAuj && hLibre >= (hNow ?? 1) && (
+                <button className="bouton bouton--prim" style={{ alignSelf: 'flex-start' }} onClick={() => setAide({ h: hLibre })}>
+                  <Icon nom="message" taille={18} /> Demander un coup de main
+                </button>
+              )}
             </section>
             <section className="pile pile--8" aria-label="Classes">
               <h2 className="titre-s">Les classes</h2>

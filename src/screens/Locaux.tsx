@@ -9,10 +9,11 @@ import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { etatLocal, libreJusque } from '../logic/occupation';
 import { coursDuProf } from '../logic/horaire';
-import { JOURS_COURTS, PERIODES, deIso, estJourDeCours, iso, jourSemaineIso, periode, prochainJourDeCours, situation } from '../lib/calendar';
+import { JOURS_COURTS, PERIODES, deIso, estJourDeCours, iso, jourSemaineIso, prochainJourDeCours, situation } from '../lib/calendar';
 import type { Local } from '../data/types';
 import { batiment, nomEtage, type CodeBatiment } from '../data/batiments';
 import { MiniPlan } from '../ui/MiniPlan';
+import { HeuresNeuf } from '../ui/Choix';
 
 /** D'ouest en est, comme sur le terrain. */
 const COLONNES: CodeBatiment[] = ['C', 'F', 'T'];
@@ -83,22 +84,14 @@ export function Locaux({ params }: { params: URLSearchParams }) {
         ))}
       </div>
     ) : (
-      <span className="aucun" aria-label="aucun local libre">—</span>
+      <span className="aucun" aria-label="aucun local libre" />
     );
 
   return (
-    <section className="ecran ecran--large" aria-label="Locaux">
+    <section className="ecran ecran--moyen" aria-label="Locaux">
       <h1 className="visuellement-cache">Locaux</h1>
 
-      {/* Les 9 heures d'un coup : l'heure et le nombre de locaux libres. */}
-      <div className="heures-9" role="group" aria-label="Choisir l'heure (nombre de locaux libres)">
-        {PERIODES.map((p, i) => (
-          <button key={p.h} aria-pressed={p.h === h} onClick={() => setH(p.h)} aria-label={`H${p.h}, ${libresParHeure[i]?.length ?? 0} locaux libres`}>
-            <b>H{p.h}</b>
-            <small>{libresParHeure[i]?.length ?? 0}</small>
-          </button>
-        ))}
-      </div>
+      <HeuresNeuf h={h} onChoisir={setH} compte={(x) => libresParHeure[x - 1]?.length ?? 0} legende="locaux libres" />
 
       <div className="rangee enrouler filtres-discrets" role="group" aria-label="Filtres">
         {(
@@ -118,15 +111,10 @@ export function Locaux({ params }: { params: URLSearchParams }) {
 
       <section className="carte carte--serree" aria-label="Locaux libres">
         <div className="rangee rangee--entre">
-          <div className="pile pile--8">
-            <span className="puce puce--grise" style={{ alignSelf: 'flex-start' }}>
-              <Icon nom="calendrier" taille={15} />
-              {JOURS_COURTS[jourSemaineIso(date)]}. {d.getDate()}/{d.getMonth() + 1}
-            </span>
-            <h2 className="titre-s">
-              H{h} · {periode(h).debut} – {periode(h).fin}
-            </h2>
-          </div>
+          <h2 className="titre-s locaux-titre">
+            <Icon nom="calendrier" taille={16} />
+            {JOURS_COURTS[jourSemaineIso(date)]}. {d.getDate()}/{d.getMonth() + 1} · H{h} · {libres.length} libre{libres.length > 1 ? 's' : ''}
+          </h2>
           <MiniPlan />
         </div>
 
@@ -151,21 +139,15 @@ export function Locaux({ params }: { params: URLSearchParams }) {
               ))}
             </Fragment>
           ))}
-        </div>
-
-        {/* Les préfabriqués (le long des terrains), sous les trois bâtiments. */}
-        <div className="bande">
-          <span className="bande-tete">
-            <b>PR</b>
-          </span>
-          {salles(dans('PR'))}
-        </div>
-
-        <div className="bande">
-          <span className="bande-tete">
-            <b>Autres</b>
-          </span>
-          {salles(dans('Autres'), true)}
+          {/* Les préfabriqués (le long des terrains), puis le reste : même tableau, sur toute la largeur. */}
+          <span className="campus-etage" role="rowheader">PR</span>
+          <div className="campus-case campus-case--large" role="cell" aria-label="Préfabriqués">
+            {salles(dans('PR'))}
+          </div>
+          <span className="campus-etage" role="rowheader">Autres</span>
+          <div className="campus-case campus-case--large" role="cell" aria-label="Autres locaux">
+            {salles(dans('Autres'), true)}
+          </div>
         </div>
 
         {!libres.length && <p className="petit">Aucun local libre à cette heure avec ces filtres.</p>}

@@ -968,3 +968,43 @@ html[data-teams] .barre-choix { bottom: calc(env(safe-area-inset-bottom, 0px) + 
 .explorer { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 14px; border: 1px dashed var(--trait); }
 .rond--actif { background: var(--indigo); color: var(--sur-indigo); border-color: transparent; }
 @media (prefers-reduced-motion: reduce) { .grille .case--origine { animation: none; } }
+
+/* ---- Passe de design (Locaux, Où est ?, Matériel) : un même repère pour l'heure, des listes calmes. ---- */
+.ecran--moyen { max-width: 760px; }
+.heures-legende { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; color: var(--texte-2); }
+.heures-legende b { color: var(--encre); font-weight: 700; }
+.heures-9 button.heure--vide small { opacity: 0.45; }
+.heures-9 button { transition: background 0.15s ease, border-color 0.15s ease; }
+
+/* Locaux : un seul tableau, des lignes fines, des numéros alignés. */
+.locaux-titre { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.locaux-titre svg { color: var(--discret); }
+.campus { gap: 0; grid-template-columns: 44px repeat(3, minmax(0, 1fr)); }
+.campus-tete { background: transparent; border-radius: 0; border-bottom: 2px solid var(--trait); padding: 8px 2px; }
+.campus-etage { justify-content: flex-start; padding-left: 2px; border-bottom: 1px solid var(--trait-2); min-height: 48px; }
+.campus-case { border: 0; border-radius: 0; border-bottom: 1px solid var(--trait-2); padding: 7px 4px; min-height: 48px; align-items: center; }
+.campus-case + .campus-case { border-left: 1px solid var(--trait-2); }
+.campus-case--large { grid-column: span 3; border-left: 0 !important; }
+.campus > :nth-last-child(-n + 2) { border-bottom: 0; }
+.salles-libres { grid-template-columns: repeat(auto-fill, 52px); gap: 6px; }
+.campus-case--large .salles-libres { grid-template-columns: repeat(auto-fill, 52px); }
+.campus-case--large .salles-libres--large { display: flex; flex-wrap: wrap; }
+.libre { height: 34px; min-width: 52px; border-radius: 10px; font-size: 13px; }
+.salles-libres--large .libre { padding: 0 12px; min-height: 34px; font-size: 13px; white-space: nowrap; }
+.aucun { display: block; }
+@media (max-width: 420px) {
+  .campus { grid-template-columns: 40px repeat(3, minmax(0, 1fr)); }
+  .campus-etage { font-size: 11px; }
+  .salles-libres, .campus-case--large .salles-libres { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; }
+  .libre { min-width: 0; font-size: 12.5px; }
+}
+
+/* Matériel : une liste, une ligne par matériel. */
+.liste-materiel { gap: 0; padding: 4px 16px; }
+.materiel-classe { padding: 10px 0; border-bottom: 1px solid var(--trait-2); }
+.materiel-ligne { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--trait-2); }
+.materiel-ligne:last-child { border-bottom: 0; }
+.materiel-ligne .petit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.materiel-ligne--pris { opacity: 0.6; }
+.materiel-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.materiel-actions .lien-action { font-size: 13px; }

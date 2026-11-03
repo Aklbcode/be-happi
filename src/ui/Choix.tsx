@@ -37,3 +37,32 @@ export function ChoixHeure({ h, onChoisir, sous }: { h: number; onChoisir: (h: n
     </div>
   );
 }
+
+/**
+ * Les 9 heures d'un coup, chacune avec un nombre (locaux libres, profs en fourche…). Au-dessus :
+ * l'heure choisie (début – fin) et ce que compte le nombre : le même repère sur tous les écrans.
+ */
+export function HeuresNeuf({ h, onChoisir, compte, legende }: { h: number; onChoisir: (h: number) => void; compte: (h: number) => number; legende: string }) {
+  const p = PERIODES.find((x) => x.h === h) ?? PERIODES[0];
+  return (
+    <div className="pile" style={{ gap: 6 }}>
+      <div className="heures-legende">
+        <b>
+          H{p.h} · {p.debut} – {p.fin}
+        </b>
+        <span>{legende}</span>
+      </div>
+      <div className="heures-9" role="group" aria-label={`Choisir l'heure (${legende})`}>
+        {PERIODES.map((x) => {
+          const n = compte(x.h);
+          return (
+            <button key={x.h} aria-pressed={x.h === h} className={n ? '' : 'heure--vide'} onClick={() => onChoisir(x.h)} aria-label={`H${x.h}, ${n} ${legende}`}>
+              <b>H{x.h}</b>
+              <small>{n}</small>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
