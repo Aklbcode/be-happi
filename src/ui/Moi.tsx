@@ -42,6 +42,21 @@ function estSombre(): boolean {
 }
 
 /** Soleil / lune : passer du clair au sombre en un geste (pas dans Teams, qui impose son thème). */
+/**
+ * Les initiales : ouvrent « Moi » (espaces, thème, validations…). Sur l'écran d'accueil de chaque
+ * espace, pour pouvoir toujours changer d'espace (ex. revenir de Secrétariat à Prof).
+ */
+export function BoutonMoi() {
+  const { ds } = useStore();
+  const { ouvrir } = useMoi();
+  if (!ds) return null;
+  return (
+    <button onClick={ouvrir} className="rond rond--nuit" aria-label="Moi et mes espaces">
+      {initiales(ds.moi.prenom, ds.moi.nom)}
+    </button>
+  );
+}
+
 export function BoutonTheme() {
   const [sombre, setSombre] = useState(estSombre);
   if (indiceTeams()) return null;

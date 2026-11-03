@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../data/store';
 import type { Absence } from '../data/types';
 import { Entete } from '../ui/Entete';
+import { BoutonMoi } from '../ui/Moi';
 import { Icon } from '../ui/Icon';
 import { Remarques } from '../ui/Remarques';
 import { ChoixJour, prochainsJours } from '../ui/Choix';
@@ -70,7 +71,7 @@ export function Absences({ params }: { params: URLSearchParams }) {
 
   return (
     <section className="ecran ecran--large" aria-label="Absences">
-      <Entete titre="Absences" sous={dateLongue(deIso(date)).replace(/^./, (x) => x.toUpperCase())} />
+      <Entete titre="Absences" sous={dateLongue(deIso(date)).replace(/^./, (x) => x.toUpperCase())} droite={<BoutonMoi />} />
       <ChoixJour
         jours={jours}
         date={date}
