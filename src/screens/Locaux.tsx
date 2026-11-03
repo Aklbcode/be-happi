@@ -132,14 +132,6 @@ export function Locaux({ params }: { params: URLSearchParams }) {
           <MiniPlan />
         </div>
 
-        {/* Au nord, le long des terrains de sport. */}
-        <div className="bande">
-          <span className="bande-tete">
-            <b>PR</b>
-          </span>
-          {salles(dans('PR'))}
-        </div>
-
         {/* D'ouest (rue Papleux) en est (chaussée de Mons), étages alignés. */}
         <div className="campus" role="table" aria-label="Locaux libres par bâtiment et par étage">
           <span role="columnheader" />
@@ -161,6 +153,14 @@ export function Locaux({ params }: { params: URLSearchParams }) {
               ))}
             </Fragment>
           ))}
+        </div>
+
+        {/* Les préfabriqués (le long des terrains), sous les trois bâtiments. */}
+        <div className="bande">
+          <span className="bande-tete">
+            <b>PR</b>
+          </span>
+          {salles(dans('PR'))}
         </div>
 
         <div className="bande">
