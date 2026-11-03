@@ -145,6 +145,9 @@ async function adresse(): Promise<string> {
 let choix: { mail: string; libres: string[] } | null = null;
 export const choixEnAttente = (): { mail: string; libres: string[] } | null => choix;
 
+/** Ce que le script sait de la personne connectée (il fait foi : c'est lui qui a reconnu l'adresse). */
+export const moiDuScript = (): { nom: string; roles: string[] } | null => (etat ? { nom: etat.moi.nom || '', roles: etat.moi.roles ?? [] } : null);
+
 /** Les noms encore libres qui contiennent ce texte (3 lettres au moins, 8 réponses au plus). */
 export async function chercherNom(texte: string): Promise<string[]> {
   const r = await script('chercher', { texte });

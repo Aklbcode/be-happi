@@ -7,7 +7,7 @@ import { jour, localDans, num, profilsAvec, reconnaitre, rolesDe, sansAccents, t
 import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement, Stage, DateEcole } from './types';
 import { iso, plusJoursIso } from '../lib/calendar';
 import { repondreSimulation, simulationActive } from './simulation';
-import { googleActif, repondreGoogle } from './google';
+import { googleActif, moiDuScript, repondreGoogle } from './google';
 
 export { localDans, reconnaitre } from './champs';
 
@@ -213,8 +213,10 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
   const absentes = (Object.keys(L) as (keyof typeof L)[]).filter((k) => !ids[L[k]]);
 
   const [profsItems, rol] = await Promise.all([itemsDe(L.profs), itemsDe(L.roles)]);
-  const nom = reconnaitre(profsItems.map((p) => p.fields), email);
-  const roles = rolesDe(rol.map((r) => r.fields), email);
+  // Version Google : le script a déjà reconnu la personne ; sinon, comme Power Apps.
+  const duScript = googleActif() ? moiDuScript() : null;
+  const nom = duScript?.nom || reconnaitre(profsItems.map((p) => p.fields), email);
+  const roles = duScript?.roles.length ? duScript.roles : rolesDe(rol.map((r) => r.fields), email);
   const personnel = !!nom || roles.length > 0;
   // Depuis la mi-août de l'année scolaire en cours : assez pour le tableau de bord de l'année.
   const maintenant = new Date();
