@@ -6,9 +6,10 @@ import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { Entete } from '../ui/Entete';
 import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStage, sansStage } from '../logic/horaire';
-import { opportunitesSemaine, optionsPour } from '../logic/deplacements';
+import { capital, opportunitesSemaine, optionsPour, probable, type OptionDeplacement } from '../logic/deplacements';
+import type { Deplacement } from '../data/types';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
-import { aller, lien } from '../lib/route';
+import { aller } from '../lib/route';
 import { couleurMatiere } from '../logic/couleurs';
 
 type Vue = 'moi' | 'classe' | 'local';
@@ -44,7 +45,7 @@ const aideVue = (): boolean => {
 };
 
 export function Horaire() {
-  const { ds, maintenant, aujourdhui, minutes, heureFinie, priorites, montrerToast } = useStore();
+  const { ds, maintenant, aujourdhui, minutes, heureFinie, priorites, changerPriorites, proposer, retirer, montrerToast } = useStore();
   // Pendant un congé, on ouvre directement la première semaine de cours (au plus 3 semaines plus loin).
   const [depart] = useState(() => {
     const b = jourSemaine(maintenant) >= 6 ? plusJours(maintenant, 8 - jourSemaine(maintenant)) : lundiDe(maintenant);
@@ -61,7 +62,13 @@ export function Horaire() {
   const vue = 'moi' as Vue;
   const classe = '';
   const salle = '';
-  const [sel, setSel] = useState<{ date: string; h: number } | null>(null);
+  // Œil : tous les déplacements possibles (même ceux qui te coûtent), avec tes préférences.
+  const [explorer, setExplorer] = useState(false);
+  // Le cours choisi (en attente de « Proposer »), l'animation, la proposition qu'on peut encore annuler.
+  const [choix, setChoix] = useState<OptionDeplacement | null>(null);
+  const [envol, setEnvol] = useState<{ texte: string; x0: number; y0: number; x1: number; y1: number; w: number; h: number } | null>(null);
+  const [fait, setFait] = useState<Deplacement | null>(null);
+  const [envoi, setEnvoi] = useState(false);
   const [detail, setDetail] = useState<CoursJour | null>(null);
   const [passee, setPassee] = useState<Case | null>(null);
   const grilleRef = useRef<HTMLDivElement>(null);
@@ -80,19 +87,24 @@ export function Horaire() {
 
   const opps = useMemo(() => (ds && vue === 'moi' ? opportunitesSemaine(ds, moi, lundi, aujourdhui, finieEff, priorites) : new Map()), [ds, vue, moi, lundi, aujourdhui, finieEff, priorites]);
 
-  const options = useMemo(() => (ds && sel ? optionsPour(ds, moi, sel.date, sel.h, aujourdhui, finieEff, priorites) : []), [ds, sel, moi, aujourdhui, finieEff, priorites]);
 
   // Le meilleur cours à avancer pour chaque heure libérée de la semaine : une flèche directement sur l'horaire.
   const parHeure = useMemo(() => {
     const m = new Map<string, ReturnType<typeof optionsPour>>();
     if (!ds || vue !== 'moi') return m;
-    for (const o of opps.values()) if (!o.passe) m.set(`${o.date}|${o.h}`, optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff, priorites));
+    for (const o of opps.values()) {
+      if (o.passe) continue;
+      // D'office : seulement ce que le prof a toutes les chances d'accepter. L'œil montre tout.
+      const l = optionsPour(ds, moi, o.date, o.h, aujourdhui, finieEff, priorites);
+      const g = explorer ? l : l.filter(probable);
+      if (g.length) m.set(`${o.date}|${o.h}`, g);
+    }
     return m;
-  }, [ds, vue, opps, moi, aujourdhui, finieEff, priorites]);
+  }, [ds, vue, opps, moi, aujourdhui, finieEff, priorites, explorer]);
   // Ce qu'on montre d'office : seulement les meilleures propositions (vraiment avantageuses pour toi),
   // 3 au plus, un cours ne part que vers une seule heure. Les autres : au survol ou au toucher.
   const meilleures = useMemo(() => {
-    const tous = [...parHeure.values()].map((l) => l[0]).filter((o) => o && o.meilleur && o.avantageProf && !o.semaineSuivante);
+    const tous = [...parHeure.values()].map((l) => l[0]).filter((o) => o && probable(o) && !o.semaineSuivante);
     tous.sort((a, b) => b.score - a.score);
     const pris = new Set<string>();
     const res: typeof tous = [];
@@ -109,11 +121,8 @@ export function Horaire() {
   const [survol, setSurvol] = useState<string | null>(null);
   // Au doigt : l'heure libérée touchée une fois (ses flèches restent affichées).
   const [apercu, setApercu] = useState<string | null>(null);
-  const pointeur = useRef('mouse');
-  const appuiLong = useRef(false);
-  const minuteurAppui = useRef<number | undefined>(undefined);
   const survolees = useMemo(() => {
-    const cle = survol ?? apercu;
+    const cle = apercu ?? survol;
     if (!cle) return null;
     const ici = parHeure.get(cle);
     if (ici?.length) return ici.slice(0, 4);
@@ -139,7 +148,6 @@ export function Horaire() {
     const g = glisse.current;
     if (!g) return;
     g.actif = true;
-    setSel(null);
     setSurvol(g.cle);
     try {
       navigator.vibrate?.(12);
@@ -185,7 +193,7 @@ export function Horaire() {
     if (annule) return;
     const cible = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-cle]')?.dataset.cle;
     const o = [...parHeure.values()].flat().find((x) => origineDe(x) === g.cle && `${x.date}|${x.h}` === cible);
-    if (o) aller('deplacer', { date: o.date, h: o.h, o: o.cle });
+    if (o) setChoix(o);
     else if (cible !== g.cle) montrerToast('Lâche le cours sur une heure encadrée');
   }
   // Pendant le glisser au doigt, la page ne doit pas défiler.
@@ -232,17 +240,19 @@ export function Horaire() {
         if (c) return { cle, date, h: p.h, type: passe ? 'passe' : 'cours', haut: c.classe, bas: c.local, cours: c };
         if (part && part.statut === 'Validé') return { cle, date, h: p.h, type: 'perdue', haut: `→ ${JOURS_COURTS[jourSemaineIso(part.date)].toLowerCase()}. H${part.hVide}` };
         const o = opps.get(cle);
-        if (date === aujourdhui && sit.enCours && p.h === sit.h) return { cle, date, h: p.h, type: 'libre-maint', haut: 'Libre', bas: 'en cours', nb: o?.nb };
+        const nb = parHeure.get(cle)?.length ?? 0;
+        if (date === aujourdhui && sit.enCours && p.h === sit.h) return { cle, date, h: p.h, type: 'libre-maint', haut: 'Libre', bas: 'en cours', nb };
         if (o && o.passe) return { cle, date, h: p.h, type: 'perdue', nb: o.nb };
         // ✦ seulement là où arrive une des meilleures propositions (celles dessinées d'office).
-        if (o) return { cle, date, h: p.h, type: meilleures.some((m) => `${m.date}|${m.h}` === cle) ? 'etoile' : 'possible', nb: o.nb };
+        // Sans proposition à montrer (d'office : rien de vraiment avantageux), l'heure reste simplement libre.
+        if (o && nb) return { cle, date, h: p.h, type: meilleures.some((m) => `${m.date}|${m.h}` === cle) ? 'etoile' : 'possible', nb };
         // Un cours qui saute parce que la classe est en stage : l'heure est libre, on dit pourquoi.
         const enStageIci = ds.cours.find((x) => x.prof === moi && x.jour === jourSemaineIso(date) && x.h === p.h && !sansStage(ds, x, date));
         if (enStageIci) return { cle, date, h: p.h, type: 'stage', haut: enStageIci.classe, bas: 'stage' };
         return { cle, date, h: p.h, type: 'vide' };
       }),
     );
-  }, [ds, dates, vue, classeVue, salleVue, moi, opps, meilleures, aujourdhui, heureFinie, sit.enCours, sit.h]);
+  }, [ds, dates, vue, classeVue, salleVue, moi, opps, parHeure, meilleures, aujourdhui, heureFinie, sit.enCours, sit.h]);
 
   // Flèches : du cours de départ vers l'heure libérée.
   const dessiner = useCallback(() => {
@@ -259,9 +269,10 @@ export function Horaire() {
       return { x: r.left - gr.left + r.width / 2, y: r.top - gr.top + r.height / 2, w: r.width, h: r.height };
     };
     const res: Fleche[] = [];
-    // Une heure touchée ou survolée : ses options, animées. Sinon : les meilleures propositions seulement.
-    const aDessiner = sel ? options.slice(0, 4) : survolees ?? meilleures;
-    const vif = !!sel || !!survolees;
+    // Un cours choisi : sa seule flèche. Une heure touchée ou survolée : ses options, animées.
+    // Sinon : les meilleures propositions seulement.
+    const aDessiner = choix ? [choix] : survolees ?? meilleures;
+    const vif = !!choix || !!survolees;
     aDessiner.forEach((o) => {
       const cible = centre(`${o.date}|${o.h}`);
       const dateCase = o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO;
@@ -290,7 +301,7 @@ export function Horaire() {
       });
     });
     setFleches(res);
-  }, [sel, options, vue, meilleures, survolees]);
+  }, [choix, vue, meilleures, survolees]);
 
   useLayoutEffect(() => {
     dessiner();
@@ -307,7 +318,7 @@ export function Horaire() {
   const d5 = deIso(dates[4]);
   const libelleSemaine = d1.getMonth() === d5.getMonth() ? `${d1.getDate()} – ${d5.getDate()} ${MOIS[d5.getMonth()]}` : `${d1.getDate()} ${MOIS[d1.getMonth()]} – ${d5.getDate()} ${MOIS[d5.getMonth()]}`;
   const colonneAuj = dates.indexOf(aujourdhui);
-  const origines = new Set((sel ? options : survolees ?? []).map((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}`));
+  const origines = new Set((choix ? [choix] : survolees ?? []).map((o) => `${o.semaineSuivante ? plusJoursIso(o.dateO, -7) : o.dateO}|${o.hO}`));
   const cibles = new Set((survolees ?? []).map((o) => `${o.date}|${o.h}`));
   const mobiles = new Set([...parHeure.values()].flat().map(origineDe));
   const aiguille = (() => {
@@ -317,29 +328,83 @@ export function Horaire() {
     return top;
   })();
 
+  const jourCourt = (d: string) => `${JOURS_COURTS[jourSemaineIso(d)].toLowerCase()}.`;
+
+  /** Le cours choisi glisse vers l'heure libérée, puis la barre « Proposer » apparaît. */
+  function choisir(o: OptionDeplacement) {
+    setApercu(null);
+    setFait(null);
+    const g = grilleRef.current;
+    const reduit = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const el = (cle: string) => g?.querySelector<HTMLElement>(`[data-cle="${cle}"]`)?.getBoundingClientRect();
+    const a = el(origineDe(o));
+    const b = el(`${o.date}|${o.h}`);
+    const gr = g?.getBoundingClientRect();
+    if (!a || !b || !gr || reduit) {
+      setChoix(o);
+      return;
+    }
+    setEnvol({ texte: o.classe, x0: a.left - gr.left, y0: a.top - gr.top, x1: b.left - gr.left, y1: b.top - gr.top, w: a.width, h: a.height });
+    window.setTimeout(() => {
+      setEnvol(null);
+      setChoix(o);
+    }, 520);
+  }
+
+  async function confirmer() {
+    if (!choix) return;
+    setEnvoi(true);
+    try {
+      const d = await proposer({ absent: choix.absent, date: choix.date, hVide: choix.h, classe: choix.classe, hOrigine: choix.hO, dateOrigine: choix.dateO });
+      setChoix(null);
+      setFait(d ?? null);
+    } catch (e) {
+      montrerToast(`Impossible : ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setEnvoi(false);
+    }
+  }
+
+  async function annuler(d: Deplacement) {
+    try {
+      await retirer(d);
+      setFait(null);
+      setDetail(null);
+      montrerToast('Proposition retirée : ton cours reste à sa place');
+    } catch (e) {
+      montrerToast(`Impossible : ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
+  // « Proposé » reste annulable quelques secondes.
+  useEffect(() => {
+    if (!fait) return;
+    const id = window.setTimeout(() => setFait(null), 8000);
+    return () => window.clearTimeout(id);
+  }, [fait]);
+
   function toucher(c: Case) {
     if (vue !== 'moi' || ignorerClic.current) return;
     if (c.type === 'perdue') {
-      setSel(null);
       setPassee(c);
       return;
     }
     if (c.cours) {
-      setSel(null);
+      // Une heure libérée est ouverte et ce cours peut y aller : c'est le choix.
+      const o = apercu ? (parHeure.get(apercu) ?? []).find((x) => origineDe(x) === c.cle) : undefined;
+      if (o) {
+        choisir(o);
+        return;
+      }
+      setApercu(null);
+      setChoix(null);
       setDetail(c.cours);
       return;
     }
     if ((c.type === 'possible' || c.type === 'etoile' || (c.type === 'libre-maint' && c.nb)) && c.nb) {
-      // Au doigt : un premier toucher montre les flèches ; un second (ou un appui long) ouvre le choix.
-      // À la souris, le survol montre déjà les flèches : un clic ouvre le choix.
-      if (pointeur.current !== 'mouse' && apercu !== c.cle && !appuiLong.current) {
-        setApercu(c.cle);
-        setSel(null);
-      } else {
-        setApercu(null);
-        setSel({ date: c.date, h: c.h });
-      }
-      appuiLong.current = false;
+      // Un toucher : les flèches ; un second toucher sur la même heure : on les retire.
+      setChoix(null);
+      setApercu(apercu === c.cle ? null : c.cle);
       if (aide) {
         setAide(false);
         try {
@@ -349,16 +414,16 @@ export function Horaire() {
         }
       }
     } else {
-      setSel(null);
       setApercu(null);
+      setChoix(null);
     }
   }
 
   const changerSemaine = (n: number) => {
     setDecalage((d) => d + n);
     setSens(n);
-    setSel(null);
     setApercu(null);
+    setChoix(null);
     setJourIdx(null);
   };
 
@@ -388,6 +453,19 @@ export function Horaire() {
         sous={vue === 'moi' ? undefined : vue === 'classe' ? `Horaire de la ${classeVue}` : `Occupation de ${salleVue}`}
         droite={
           <>
+            <button
+              className={`rond rond--petit${explorer ? ' rond--actif' : ''}`}
+              aria-pressed={explorer}
+              aria-label={explorer ? 'Revenir aux meilleures propositions' : 'Voir tous les déplacements possibles'}
+              title={explorer ? 'Revenir aux meilleures propositions' : 'Voir tous les déplacements possibles'}
+              onClick={() => {
+                setExplorer((v) => !v);
+                setApercu(null);
+                setChoix(null);
+              }}
+            >
+              <Icon nom="oeil" taille={18} />
+            </button>
             <button className="rond rond--petit" aria-label="Semaine précédente" onClick={() => changerSemaine(-1)}>
               <Icon nom="gauche" taille={18} />
             </button>
@@ -398,12 +476,33 @@ export function Horaire() {
         }
         apres={
           decalage !== depart ? (
-            <button className="puce puce--indigo puce--bouton" onClick={() => { setDecalage(depart); setSel(null); }}>
+            <button className="puce puce--indigo puce--bouton" onClick={() => { setDecalage(depart); setApercu(null); setChoix(null); }}>
               Revenir à cette semaine
             </button>
           ) : undefined
         }
       />
+
+      {explorer && (
+        <div className="explorer" aria-label="Tous les déplacements possibles">
+          <span className="petit">
+            <b>Tous les déplacements possibles</b>, même ceux qui te coûtent. Ce qui compte pour toi :
+          </span>
+          <div className="rangee enrouler" style={{ gap: 6 }}>
+            {(
+              [
+                ['finTot', 'Finir plus tôt'],
+                ['debutTard', 'Commencer plus tard'],
+                ['fourches', 'Moins de fourches'],
+              ] as const
+            ).map(([k, libelle]) => (
+              <button key={k} className={`puce puce--bouton${priorites[k] ? ' puce--indigo' : ''}`} aria-pressed={priorites[k]} onClick={() => changerPriorites({ ...priorites, [k]: !priorites[k] })}>
+                {priorites[k] && <Icon nom="coche" taille={13} epaisseur={2.6} />} {libelle}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {mode === 'jour' && (() => {
         const idx = jourIdx ?? (colonneAuj >= 0 ? colonneAuj : Math.max(0, dates.findIndex((d) => !conge(deIso(d)))));
@@ -501,6 +600,7 @@ export function Horaire() {
         onPointerUp={(e) => finGlisse(e)}
         onPointerCancel={(e) => finGlisse(e, true)}
       >
+        {envol && <Envol {...envol} />}
         {fantome && (
           <div className="fantome" style={{ transform: `translate(${fantome.x}px, ${fantome.y}px)` }}>
             {fantome.texte}
@@ -528,31 +628,14 @@ export function Horaire() {
                 <CaseHoraire
                   key={c.cle}
                   c={c}
-                  cible={(!!sel && sel.date === c.date && sel.h === c.h) || cibles.has(c.cle)}
+                  cible={apercu === c.cle || (!!choix && `${choix.date}|${choix.h}` === c.cle) || cibles.has(c.cle)}
                   origine={origines.has(c.cle)}
                   mobile={mobiles.has(c.cle)}
                   onClick={() => toucher(c)}
                   cliquable={vue === 'moi'}
                   onSurvol={(e, dedans) => {
-                    pointeur.current = e.pointerType;
                     if (e.pointerType !== 'mouse' || vue !== 'moi' || glisse.current?.actif) return;
                     setSurvol(dedans ? c.cle : null);
-                  }}
-                  onAppui={(e, debut) => {
-                    pointeur.current = e.pointerType;
-                    window.clearTimeout(minuteurAppui.current);
-                    if (!debut || e.pointerType === 'mouse' || !c.nb || !['possible', 'etoile', 'libre-maint'].includes(c.type)) return;
-                    // Appui long sur une heure libérée : le choix s'ouvre directement.
-                    minuteurAppui.current = window.setTimeout(() => {
-                      appuiLong.current = true;
-                      setApercu(null);
-                      setSel({ date: c.date, h: c.h });
-                      try {
-                        navigator.vibrate?.(15);
-                      } catch {
-                        /* rien */
-                      }
-                    }, 450);
                   }}
                 />
               ))}
@@ -597,49 +680,54 @@ export function Horaire() {
       </>
       )}
 
-      {apercu && !sel && <p className="petit fort" style={{ margin: 0 }}>Touche encore cette heure, ou garde le doigt appuyé, pour choisir le cours.</p>}
-      {vue === 'moi' && !sel && !apercu && mode === 'semaine' && aide && (
+      {(() => {
+        // Une heure libérée ouverte : qui est absent, et quoi faire.
+        const ici = apercu ? parHeure.get(apercu) ?? [] : [];
+        if (!ici.length || choix) return null;
+        const absents = [...new Set(ici.map((o) => nomAffiche(o.absent)))];
+        return (
+          <p className="petit indication">
+            <b>{capital(jourCourt(ici[0].date))} H{ici[0].h}</b> · {absents.join(', ')} {absents.length > 1 ? 'absents' : 'absent·e'} · touche le cours à avancer, ou encore l’heure pour fermer.
+          </p>
+        );
+      })()}
+      {vue === 'moi' && !apercu && !choix && mode === 'semaine' && aide && (
         <p className="petit" style={{ margin: 0 }}>
           {meilleures.length
-            ? `${meilleures.length === 1 ? 'La flèche montre le meilleur cours' : `Les ${meilleures.length} flèches montrent les meilleurs cours`} à avancer. Survole ou touche une heure libérée pour voir les autres possibilités.`
-            : opps.size
-              ? 'Pas de déplacement vraiment avantageux cette semaine. Survole ou touche une heure libérée pour voir les possibilités.'
-              : 'Aucun cours à avancer cette semaine.'}
+            ? 'Touche une heure libérée : ses flèches apparaissent. Touche ensuite le cours à avancer.'
+            : explorer
+              ? 'Aucun déplacement possible cette semaine.'
+              : 'Pas de déplacement vraiment avantageux cette semaine. L’œil, en haut, montre toutes les possibilités.'}
         </p>
       )}
 
-      <Feuille ouverte={!!sel && options.length > 0} onFermer={() => setSel(null)} titre="Déplacements possibles">
-        {sel && (
-          <>
-            <span className="surtitre">
-              {JOURS[jourSemaineIso(sel.date)]} · H{sel.h} · {periode(sel.h).debut}
+      {choix && (
+        <div className="barre-choix" role="dialog" aria-label="Proposer ce déplacement">
+          <div className="pile grandit" style={{ gap: 2, minWidth: 0 }}>
+            <b>
+              {choix.classe} · {jourCourt(choix.dateO)} H{choix.hO} → {jourCourt(choix.date)} H{choix.h}
+            </b>
+            <span className="petit">
+              {nomAffiche(choix.absent)} absent·e · {(choix.avantages[0] ?? '').replace(/^Attention : (.)/, (_, l: string) => l.toUpperCase())}
             </span>
-            <h2 className="titre-l">{options.length > 1 ? `${options.length} cours peuvent venir ici` : 'Un cours peut venir ici'}</h2>
-            {options.slice(0, 4).map((o) => (
-              <a key={o.cle} className="option" href={lien('deplacer', { date: o.date, h: o.h, o: o.cle })} style={{ textDecoration: 'none' }}>
-                <span className="pile grandit" style={{ gap: 6 }}>
-                  <span className="rangee rangee--entre">
-                    <span className="titre-s">
-                      {o.classe} · {o.semaineSuivante ? 'semaine prochaine, ' : ''}
-                      {JOURS[jourSemaineIso(o.dateO)]} H{o.hO}
-                    </span>
-                    {o.meilleur && <span className="puce puce--indigo">Le plus avantageux</span>}
-                    {o.semaineSuivante && !o.meilleur && <span className="puce" style={{ background: 'var(--sarcelle)', color: '#fff' }}>S+1</span>}
-                  </span>
-                  {/* Une seule ligne : le gain principal (ou, à défaut, le point d'attention). */}
-                  {o.avantages[0] && (
-                    <span className="avantage">
-                      <Icon nom={o.avantages[0].startsWith('Attention') ? 'attention' : 'coche'} taille={16} epaisseur={2.2} />
-                      {o.avantages[0].replace(/^Attention : (.)/, (_, l: string) => l.toUpperCase())}
-                    </span>
-                  )}
-                </span>
-                <Icon nom="droite" />
-              </a>
-            ))}
-          </>
-        )}
-      </Feuille>
+          </div>
+          <button className="bouton bouton--prim" disabled={envoi} onClick={() => void confirmer()}>
+            {envoi ? '…' : 'Proposer'}
+          </button>
+          <button className="rond rond--petit" aria-label="Ne pas proposer" onClick={() => setChoix(null)}>
+            <Icon nom="fermer" taille={16} />
+          </button>
+        </div>
+      )}
+      {fait && !choix && (
+        <div className="barre-choix barre-choix--fait" role="status">
+          <Icon nom="coche" taille={18} epaisseur={2.4} />
+          <span className="grandit">Proposé. L’éducateur va valider.</span>
+          <button className="bouton bouton--sec" onClick={() => void annuler(fait)}>
+            Annuler
+          </button>
+        </div>
+      )}
 
       <Feuille ouverte={!!passee} onFermer={() => setPassee(null)} titre="Heure passée">
         {passee && (() => {
@@ -694,6 +782,32 @@ export function Horaire() {
               {detail.classe} · {detail.local}
             </h2>
             <p className="texte">{detail.matiere}{detail.deplace ? ` · déplacé depuis ${JOURS[jourSemaineIso(detail.deplace.date)]} H${detail.deplace.h} (${detail.deplace.statut.toLowerCase()})` : ''}</p>
+            {(() => {
+              // Une proposition liée à ce cours (il part, ou il arrive ici) : qui est absent, et l'annuler.
+              const d = ds.deplacements.find(
+                (x) =>
+                  x.prof === moi &&
+                  x.statut !== 'Refusé' &&
+                  ((detail.deplace && x.date === detail.date && x.hVide === detail.h && x.dateOrigine === detail.deplace.date && x.hOrigine === detail.deplace.h) ||
+                    (!detail.deplace && x.dateOrigine === detail.date && x.hOrigine === detail.h)),
+              );
+              if (!d) return null;
+              return (
+                <div className="carte carte--grise pile pile--8">
+                  <span className="texte">
+                    {d.dateOrigine === detail.date && d.hOrigine === detail.h ? `Proposé vers ${JOURS[jourSemaineIso(d.date)]} H${d.hVide}` : `Avancé ici depuis ${JOURS[jourSemaineIso(d.dateOrigine)]} H${d.hOrigine}`} · {nomAffiche(d.absent)} absent·e ·{' '}
+                    <b>{d.statut === 'Validé' ? 'validé' : 'en attente'}</b>
+                  </span>
+                  {d.statut === 'En attente' ? (
+                    <button className="bouton bouton--sec" onClick={() => void annuler(d)}>
+                      Annuler ma proposition
+                    </button>
+                  ) : (
+                    <span className="petit">Déjà validé : pour l’annuler, demande à l’éducateur.</span>
+                  )}
+                </div>
+              );
+            })()}
             {detail.date > aujourdhui || (detail.date === aujourdhui && detail.h > heureFinie) ? (
               <button className="bouton bouton--prim" onClick={() => { setDetail(null); aller('locaux', { date: detail.date, h: detail.h }); }}>
                 <Icon nom="porte" /> Changer de local
@@ -708,15 +822,12 @@ export function Horaire() {
   );
 }
 
-function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol, onAppui }: { c: Case; cible: boolean; origine: boolean; mobile: boolean; onClick: () => void; cliquable: boolean; onSurvol: (e: EvPointeur, dedans: boolean) => void; onAppui: (e: EvPointeur, debut: boolean) => void }) {
+function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol }: { c: Case; cible: boolean; origine: boolean; mobile: boolean; onClick: () => void; cliquable: boolean; onSurvol: (e: EvPointeur, dedans: boolean) => void }) {
   const extra = `${cible ? ' case--cible' : ''}${origine ? ' case--origine' : ''}${mobile ? ' case--mobile' : ''}`;
   const commun = {
     'data-cle': c.cle,
     onPointerEnter: (e: EvPointeur) => onSurvol(e, true),
     onPointerLeave: (e: EvPointeur) => onSurvol(e, false),
-    onPointerDown: (e: EvPointeur) => onAppui(e, true),
-    onPointerUp: (e: EvPointeur) => onAppui(e, false),
-    onPointerCancel: (e: EvPointeur) => onAppui(e, false),
   } as Record<string, unknown>;
   switch (c.type) {
     case 'vide':
@@ -776,3 +887,24 @@ function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol, 
     }
   }
 }
+
+/** Le cours choisi glisse vers l'heure libérée (une demi-seconde). */
+function Envol({ texte, x0, y0, x1, y1, w, h }: { texte: string; x0: number; y0: number; x1: number; y1: number; w: number; h: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    ref.current?.animate(
+      [
+        { transform: `translate(${x0}px, ${y0}px) scale(1)` },
+        { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 18}px) scale(1.08)`, offset: 0.5 },
+        { transform: `translate(${x1}px, ${y1}px) scale(1)` },
+      ],
+      { duration: 480, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' },
+    );
+  }, [x0, y0, x1, y1]);
+  return (
+    <div ref={ref} className="envol" style={{ width: w, height: h, transform: `translate(${x0}px, ${y0}px)` }} aria-hidden="true">
+      {texte}
+    </div>
+  );
+}
+

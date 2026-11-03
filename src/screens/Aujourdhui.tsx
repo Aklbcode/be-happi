@@ -6,7 +6,7 @@ import { ecranActif } from '../options';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { coursDuProf, coursSansProf, nomAffiche, peutPrendre, type CoursJour } from '../logic/horaire';
-import { heureLibre, optionsPour, type OptionDeplacement } from '../logic/deplacements';
+import { heureLibre, optionsPour, probable, type OptionDeplacement } from '../logic/deplacements';
 import { etatLocal } from '../logic/occupation';
 import { JOURS, MIDI, RECRES, conge, dateLongue, estJourDeCours, jourSemaineIso, periode, prochainJourDeCours, situation, iso } from '../lib/calendar';
 import { blagueDuJour } from '../data/blagues';
@@ -51,7 +51,8 @@ export function Aujourdhui() {
     let meilleure: OptionDeplacement | null = null;
     if (jourCours) {
       for (let h = Math.max(finieEff + 1, 1); h <= 9; h++) {
-        const opts = optionsPour(ds, moi, aujourdhui, h, aujourdhui, finieEff, priorites);
+        // Seulement ce que le prof a toutes les chances d'accepter (comme l'horaire).
+        const opts = optionsPour(ds, moi, aujourdhui, h, aujourdhui, finieEff, priorites).filter(probable);
         if (opts.length) optionsParHeure.set(h, opts);
         for (const o of opts) if (!meilleure || o.score > meilleure.score) meilleure = o;
       }

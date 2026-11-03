@@ -45,7 +45,8 @@ export interface Store {
   changerClasseEleve: (c: string) => void;
   reserver: (r: Omit<Reservation, 'prof'>) => Promise<void>;
   annulerReservation: (r: Reservation) => Promise<void>;
-  proposer: (d: Omit<Deplacement, 'prof' | 'statut'>) => Promise<void>;
+  /** Enregistre la proposition (« En attente ») et la renvoie (pour pouvoir l'annuler aussitôt). */
+  proposer: (d: Omit<Deplacement, 'prof' | 'statut'>) => Promise<Deplacement | undefined>;
   /** Retirer sa propre proposition encore en attente (comme « Annuler » dans Power Apps). */
   retirer: (d: Deplacement) => Promise<void>;
   /** Valider ou refuser une proposition (revérifiée sur les données les plus fraîches). */
@@ -270,6 +271,7 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
       // En démo, un identifiant unique même pour plusieurs demandes envoyées d'un coup.
       complet.id = demo ? `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : await (await sp()).enregistrerDeplacement(complet).catch(relireSiConflit);
       maj((x) => ({ ...x, deplacements: [...x.deplacements, complet] }));
+      return complet;
     },
     [demo, ds, horodatage, maj, sp, relireSiConflit],
   );

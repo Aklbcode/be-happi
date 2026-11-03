@@ -189,35 +189,36 @@ export function Validations() {
               {sel.d.classe} : {trajet(sel.d)}
             </h2>
             <p className="texte">
-              {sel.a.verif.controles.find((c) => c.cle === 'absent')?.ok
-                ? `${nomAffiche(sel.d.absent)} est absent·e en H${sel.d.hVide} (${periode(sel.d.hVide).debut} – ${periode(sel.d.hVide).fin}).`
-                : `Proposée quand ${nomAffiche(sel.d.absent)} était noté·e absent·e en H${sel.d.hVide} (${periode(sel.d.hVide).debut} – ${periode(sel.d.hVide).fin}).`}
-              {sel.a.matiere ? ` Cours : ${sel.a.matiere}.` : ''}
+              {nomAffiche(sel.d.absent)} absent·e en H{sel.d.hVide}
+              {sel.a.matiere ? ` · ${sel.a.matiere}` : ''}
             </p>
 
-            <h3 className="titre-s">Contrôles, revérifiés maintenant</h3>
-            <ul className="controles">
-              {sel.a.verif.controles.map((c) => (
-                <li key={c.cle} className={c.ok ? '' : 'controle--ko'}>
-                  <Icon nom={c.ok ? 'coche' : 'fermer'} taille={16} epaisseur={2.4} />
-                  <span>
-                    <b>{c.libelle}</b>
-                    {c.detail ? ` · ${c.detail}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {/* Tout va bien : une ligne. Un contrôle en échec : seulement lui, en clair. */}
+            {sel.a.verif.ok ? (
+              <span className="avantage">
+                <Icon nom="coche" taille={16} epaisseur={2.4} /> Tout est vérifié (prof et classe libres, local {sel.a.verif.local})
+              </span>
+            ) : (
+              <ul className="controles">
+                {sel.a.verif.controles
+                  .filter((c) => !c.ok)
+                  .map((c) => (
+                    <li key={c.cle} className="controle--ko">
+                      <Icon nom="fermer" taille={16} epaisseur={2.4} />
+                      <span>
+                        <b>{c.libelle}</b>
+                        {c.detail ? ` · ${c.detail}` : ''}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            )}
 
-            {sel.a.avantages.length > 0 && (
-              <>
-                <h3 className="titre-s">Pour {nomAffiche(sel.d.prof)}</h3>
-                {sel.a.avantages.map((t) => (
-                  <span key={t} className="avantage">
-                    <Icon nom={t.startsWith('Attention') ? 'attention' : 'coche'} taille={16} epaisseur={2.2} />
-                    {t}
-                  </span>
-                ))}
-              </>
+            {sel.a.avantages[0] && (
+              <span className="avantage">
+                <Icon nom={sel.a.avantages[0].startsWith('Attention') ? 'attention' : 'coche'} taille={16} epaisseur={2.2} />
+                {sel.a.avantages[0]}
+              </span>
             )}
 
             {fait ? (

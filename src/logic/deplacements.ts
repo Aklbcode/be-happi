@@ -61,7 +61,18 @@ export interface OptionDeplacement {
   gainMinutes: number;
   avantages: string[];
   resume: string;
+  /** Le prof viendrait un jour où il n'avait pas cours. */
+  jourVide: boolean;
+  /** Partir du milieu de sa journée y laisse une fourche. */
+  creeFourche: boolean;
 }
+
+/**
+ * Un déplacement que le prof a toutes les chances d'accepter : il y gagne (arriver plus tard ou
+ * partir plus tôt), sans contrepartie (pas de journée plus longue, pas de jour de cours en plus,
+ * pas de nouvelle fourche). C'est ce que l'horaire montre d'office.
+ */
+export const probable = (o: OptionDeplacement): boolean => o.avantageProf && !o.allonge && !o.jourVide && !o.creeFourche && o.score >= 2;
 
 const jourDe = (date: string) => JOURS[jourSemaineIso(date)];
 const lundiIso = (date: string) => plusJoursIso(date, 1 - jourSemaineIso(date));
@@ -158,7 +169,7 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
   return { ok: controles.every((c) => c.ok), controles, local, localPrevu, localChange };
 }
 
-type Avantages = Pick<OptionDeplacement, 'score' | 'avantageProf' | 'allonge' | 'gainMinutes' | 'avantages' | 'resume' | 'memeJour'>;
+type Avantages = Pick<OptionDeplacement, 'score' | 'avantageProf' | 'allonge' | 'gainMinutes' | 'avantages' | 'resume' | 'memeJour' | 'jourVide' | 'creeFourche'>;
 
 /**
  * Ce que le déplacement change pour le prof (et pour la classe), pesé selon ce qui compte pour lui :
@@ -235,7 +246,7 @@ export function evaluer(ds: Dataset, moi: string, c: CoursJour, d: string, date:
   const quand = semaineSuivante ? `${jO} ${deIso(d).getDate()} (semaine prochaine)` : jO;
   const resume = avantageProf ? `${dureeTxt(gainMinutes || PG * 50)} de moins ${jO}` : combleFourche ? 'comble ta fourche' : 'échange simple';
 
-  return { score, avantageProf, allonge, gainMinutes, avantages, resume: `${resume} · depuis ${quand} H${c.h}`, memeJour };
+  return { score, avantageProf, allonge, gainMinutes, avantages, resume: `${resume} · depuis ${quand} H${c.h}`, memeJour, jourVide, creeFourche };
 }
 
 export function optionsPour(ds: Dataset, moi: string, date: string, h: number, aujourdhui: string, heureFinie: number, p: Priorites = PRIORITES_DEFAUT): OptionDeplacement[] {
