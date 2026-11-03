@@ -39,7 +39,7 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
         <Tour taille={38} />
         <span>
           <b>IPES App</b>
-          <small>IPES Tubize</small>
+          <small>Tubize</small>
         </span>
       </a>
       <button className="menu-espace" onClick={ouvrir}>
