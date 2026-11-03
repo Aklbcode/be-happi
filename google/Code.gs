@@ -368,3 +368,247 @@ function supprimer(nom, id) {
   if (i >= 0) f.deleteRow(i + 2);
   return { status: 204 };
 }
+
+// =====================================================================================
+// Absences de l'école, chaque matin, sans toucher à l'Excel de l'école (lecture seule).
+//
+// Power Automate (licence de l'école) envoie le fichier Excel « Absences enseignants » en pièce
+// jointe à l'adresse Gmail de ce Sheet, à 8h20 et à 9h, avec l'objet « IPES-APP-ABSENCES <code> »
+// (le code = les 8 premiers caractères de la clé, pour que personne d'autre ne puisse en envoyer).
+// Toutes les 10 minutes, ce script regarde s'il y a un nouveau mail, lit l'Excel (sans le convertir
+// ni le copier) et met à jour l'onglet Absences pour aujourd'hui et les 14 jours suivants :
+//   - une absence de l'Excel qui manque est ajoutée (CreePar = « Excel de l'école ») ;
+//   - une absence ajoutée ainsi qui a disparu de l'Excel est retirée ;
+//   - les absences encodées à la main ou dans l'app ne sont jamais touchées.
+// Les noms que le script ne reconnaît pas vont dans l'onglet « Import » (à vérifier).
+//
+// Mise en route : dans Apps Script, choisir la fonction « installerImportAbsences » puis Exécuter
+// (une seule fois ; Google demande l'autorisation de lire les mails).
+// =====================================================================================
+
+const SOURCE_EXCEL = "Excel de l'école";
+const OBJET_ABSENCES = 'IPES-APP-ABSENCES';
+
+function installerImportAbsences() {
+  ScriptApp.getProjectTriggers()
+    .filter((t) => t.getHandlerFunction() === 'importerAbsencesMail')
+    .forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('importerAbsencesMail').timeBased().everyMinutes(10).create();
+  importerAbsencesMail();
+}
+
+function importerAbsencesMail() {
+  const fils = GmailApp.search(`subject:"${OBJET_ABSENCES} ${CLE.slice(0, 8)}" is:unread has:attachment newer_than:2d`, 0, 5);
+  if (!fils.length) return;
+  // Le plus récent suffit : il contient tout.
+  const messages = fils.flatMap((f) => f.getMessages()).filter((m) => m.isUnread());
+  messages.sort((a, b) => b.getDate() - a.getDate());
+  const piece = messages[0].getAttachments().find((p) => /\.xlsx$/i.test(p.getName()));
+  if (piece) ecrire(() => appliquerAbsencesExcel(lireClasseurXlsx(Utilities.unzip(piece.copyBlob())), new Date()));
+  messages.forEach((m) => m.markRead());
+}
+
+// ---------- Lecture d'un .xlsx (sans conversion) ----------
+
+const entites = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n))).replace(/&amp;/g, '&');
+
+/** Les fichiers du zip → { feuilles: { nom: lignes[][] } } (seulement le texte et les nombres). */
+function lireClasseurXlsx(blobs) {
+  const fichiers = {};
+  blobs.forEach((b) => (fichiers[b.getName()] = b));
+  const texte = (n) => (fichiers[n] ? fichiers[n].getDataAsString('UTF-8') : '');
+  const partages = [];
+  (texte('xl/sharedStrings.xml').match(/<si>[\s\S]*?<\/si>/g) || []).forEach((si) => {
+    partages.push(entites((si.match(/<t[^>]*>[\s\S]*?<\/t>/g) || []).map((t) => t.replace(/<[^>]+>/g, '')).join('')));
+  });
+  const liens = {};
+  (texte('xl/_rels/workbook.xml.rels').match(/<Relationship [^>]*>/g) || []).forEach((r) => {
+    const id = (r.match(/Id="([^"]+)"/) || [])[1];
+    const cible = (r.match(/Target="([^"]+)"/) || [])[1];
+    if (id && cible) liens[id] = cible.replace(/^\/?xl\//, '').replace(/^\//, '');
+  });
+  const feuilles = [];
+  (texte('xl/workbook.xml').match(/<sheet [^>]*>/g) || []).forEach((s) => {
+    const nom = entites((s.match(/name="([^"]*)"/) || [])[1] || '');
+    const rid = (s.match(/r:id="([^"]+)"/) || [])[1];
+    if (rid && liens[rid]) feuilles.push({ nom, chemin: `xl/${liens[rid]}` });
+  });
+  return {
+    noms: feuilles.map((f) => f.nom),
+    lire: (nom) => {
+      const f = feuilles.find((x) => x.nom === nom);
+      return f ? lignesFeuille(texte(f.chemin), partages) : [];
+    },
+  };
+}
+
+function colonne(ref) {
+  let n = 0;
+  for (const c of ref.replace(/\d+/g, '')) n = n * 26 + (c.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+function lignesFeuille(xml, partages) {
+  const lignes = [];
+  (xml.match(/<row[^>]*>[\s\S]*?<\/row>|<row[^>]*\/>/g) || []).forEach((row) => {
+    const r = Number((row.match(/ r="(\d+)"/) || [])[1]) - 1;
+    const ligne = [];
+    (row.match(/<c [^>]*\/>|<c [^>]*>[\s\S]*?<\/c>/g) || []).forEach((c) => {
+      const ref = (c.match(/ r="([A-Z]+\d+)"/) || [])[1];
+      if (!ref) return;
+      const type = (c.match(/ t="([^"]+)"/) || [])[1];
+      const v = (c.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+      let val = '';
+      if (type === 's' && v !== undefined) val = partages[Number(v)] || '';
+      else if (type === 'inlineStr') val = entites((c.match(/<t[^>]*>([\s\S]*?)<\/t>/) || [])[1] || '');
+      else if (type === 'str') val = entites(v || '');
+      else if (v !== undefined) val = Number(v);
+      ligne[colonne(ref)] = val;
+    });
+    lignes[r] = ligne;
+  });
+  return lignes;
+}
+
+// ---------- De l'Excel aux absences ----------
+
+const PERIODES_MIN = [[0, 0], [505, 555], [560, 610], [625, 675], [675, 725], [725, 775], [775, 825], [825, 875], [885, 935], [935, 985]];
+const isoDate = (d) => Utilities.formatDate(d, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+
+/** « Ma 03-11 » → date de l'année scolaire en cours (août à juillet). */
+function dateFeuille(nom, aujourdhui) {
+  const m = /(\d{1,2})-(\d{1,2})/.exec(nom);
+  if (!m) return null;
+  const jour = Number(m[1]);
+  const mois = Number(m[2]);
+  const debut = aujourdhui.getMonth() >= 7 ? aujourdhui.getFullYear() : aujourdhui.getFullYear() - 1;
+  const an = mois >= 8 ? debut : debut + 1;
+  return `${an}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`;
+}
+
+/** Une note « Départ 9h20 retour 12h05 », « RETOUR 13H30 »… → [de, à] ; sinon null. */
+function heuresDeNote(note) {
+  const t = [];
+  String(note).replace(/(\d{1,2})\s*[hH]\s*(\d{2})?/g, (_, h, m) => t.push(Number(h) * 60 + Number(m || 0)));
+  const bas = String(note).toLowerCase();
+  const debutApres = (min) => { for (let i = 1; i <= 9; i++) if (PERIODES_MIN[i][1] > min) return i; return 9; };
+  const finAvant = (min) => { let a = 1; for (let i = 1; i <= 9; i++) if (PERIODES_MIN[i][0] < min) a = i; return a; };
+  if (bas.indexOf('départ') >= 0 && bas.indexOf('retour') >= 0 && t.length >= 2) return [debutApres(t[0]), finAvant(t[1])];
+  if (bas.indexOf('retour') >= 0 && t.length) return [1, finAvant(t[0])];
+  if (bas.indexOf('départ') >= 0 && t.length) return [debutApres(t[0]), 9];
+  return null;
+}
+
+function distance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+/** Le nom de l'Excel → le nom de l'horaire (fautes de frappe, initiales, homonymes). */
+function resoudreProf(nomExcel, jourNum, heures, profs, horaires) {
+  const n = simple(nomExcel);
+  if (!n) return '';
+  const base = (p) => simple(nomSeul(p));
+  const exact = profs.filter((p) => simple(p) === n || base(p) === n);
+  if (exact.length === 1) return exact[0];
+  let cands = exact.length ? exact : profs.filter((p) => base(p).length >= 4 && (n.indexOf(base(p)) === 0 || base(p).indexOf(n) === 0));
+  if (!cands.length) {
+    const proches = profs.filter((p) => distance(base(p), n) <= 2);
+    if (proches.length) cands = proches;
+  }
+  if (cands.length <= 1) return cands[0] || '';
+  // Homonymes : celui dont l'horaire de ce jour colle aux classes listées.
+  const score = (p) => Object.keys(heures).filter((h) => horaires.some((c) => c.prof === p && c.jour === jourNum && c.h === Number(h) && simple(c.classes).indexOf(simple(heures[h]).slice(0, 3)) >= 0)).length;
+  cands.sort((a, b) => score(b) - score(a));
+  return score(cands[0]) > score(cands[1]) ? cands[0] : '';
+}
+
+/** Lit les feuilles d'aujourd'hui à J+14 et met l'onglet Absences à jour. */
+function appliquerAbsencesExcel(classeur, maintenant) {
+  const aujourdhui = isoDate(maintenant);
+  const fin = isoDate(new Date(maintenant.getTime() + 14 * 86400000));
+  const profs = lignes('Profs').map((p) => String(p.Title));
+  const horaires = lignes('Horaires').map((c) => ({ prof: String(c.Title), jour: Number(c.JourNum), h: Number(c.Heure), classes: String(c.Classes || '') }));
+  const voulues = {};
+  const inconnus = [];
+  classeur.noms.forEach((nom) => {
+    const date = dateFeuille(nom, maintenant);
+    if (!date || date < aujourdhui || date > fin) return;
+    const jourNum = new Date(`${date}T12:00:00`).getDay();
+    const l = classeur.lire(nom);
+    l.forEach((r, i) => {
+      if (!r || String(r[1] || '').trim() !== 'H1') return;
+      [0, 8].forEach((col) => {
+        const nomExcel = String(r[col] || '').trim();
+        if (!nomExcel || nomExcel === 'Prof absent') return;
+        const heures = {};
+        let note = null;
+        let jusque = date;
+        for (let k = 0; k < 9; k++) {
+          const ligne = l[i + k] || [];
+          const h = Number(String(ligne[col + 1] || '').replace(/\D/g, ''));
+          const classe = String(ligne[col + 2] || '').trim();
+          if (h && /\d/.test(classe)) heures[h] = classe;
+          const marque = ligne[col];
+          if (k > 0 && marque !== '' && marque !== undefined && marque !== null) {
+            if (typeof marque === 'number' && marque > 40000 && marque < 60000) {
+              const d = isoDate(new Date(Math.round((marque - 25569) * 86400000) + 43200000));
+              if (d > jusque) jusque = d;
+            } else if (heuresDeNote(marque)) note = heuresDeNote(marque);
+          }
+        }
+        const prof = resoudreProf(nomExcel, jourNum, heures, profs, horaires);
+        if (!prof) {
+          inconnus.push([date, nomExcel]);
+          return;
+        }
+        let deH = 1;
+        let aH = 9;
+        const hs = Object.keys(heures).map(Number).sort((a, b) => a - b);
+        const tous = horaires.filter((c) => c.prof === prof && c.jour === jourNum).map((c) => c.h);
+        if (note) [deH, aH] = note;
+        else if (hs.length && tous.length && hs.length < tous.length && tous.some((h) => hs.indexOf(h) < 0)) [deH, aH] = [hs[0], hs[hs.length - 1]];
+        // Une date de retour notée : absent jusque-là, jours de semaine compris.
+        for (let d = date; d <= jusque && d <= fin; d = isoDate(new Date(new Date(`${d}T12:00:00`).getTime() + 86400000))) {
+          const js = new Date(`${d}T12:00:00`).getDay();
+          if (js === 0 || js === 6) continue;
+          const cle = `${prof}|${d}`;
+          if (!voulues[cle] || d === date) voulues[cle] = { Title: prof, DateAbs: d, DeH: d === date ? deH : 1, AH: d === date ? aH : 9 };
+        }
+      });
+    });
+  });
+
+  // Mise à jour de l'onglet Absences.
+  const f = SpreadsheetApp.getActive().getSheetByName('Absences');
+  const t = tableau(f);
+  const iT = t.entetes.indexOf('Title');
+  const iD = t.entetes.indexOf('DateAbs');
+  const iC = t.entetes.indexOf('CreePar');
+  const deja = {};
+  for (let r = t.valeurs.length - 1; r >= 0; r--) {
+    const ligne = t.valeurs[r];
+    const d = String(valeur(ligne[iD]) || '').slice(0, 10);
+    if (!d || d < aujourdhui || d > fin) continue;
+    const cle = `${String(ligne[iT]).trim()}|${d}`;
+    if (iC >= 0 && ligne[iC] === SOURCE_EXCEL && !voulues[cle]) f.deleteRow(r + 2); // retirée de l'Excel
+    else deja[cle] = true;
+  }
+  const maintenantIso = new Date().toISOString();
+  const nouvelles = Object.keys(voulues).filter((k) => !deja[k]).map((k) => Object.assign({ Created: maintenantIso, CreePar: SOURCE_EXCEL, Version: 1 }, voulues[k]));
+  if (nouvelles.length) {
+    colonnesAvec(f, t, { Title: 1, DateAbs: 1, DeH: 1, AH: 1 });
+    f.getRange(f.getLastRow() + 1, 1, nouvelles.length, t.entetes.length).setValues(nouvelles.map((o) => t.entetes.map((h) => (o[h] === undefined ? '' : o[h]))));
+  }
+
+  // Journal : ce qui a été fait, et les noms à vérifier.
+  const classeurG = SpreadsheetApp.getActive();
+  const journal = classeurG.getSheetByName('Import') || classeurG.insertSheet('Import');
+  if (journal.getLastRow() === 0) journal.appendRow(['Quand', 'Ajoutées', 'Nom non reconnu (date)']);
+  journal.appendRow([maintenantIso, nouvelles.length, inconnus.map(([d, n]) => `${n} (${d})`).join(', ')]);
+  return { ajoutees: nouvelles.length, inconnus };
+}

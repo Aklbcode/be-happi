@@ -135,3 +135,17 @@ test('un nom en double : le prof choisit le sien une fois, puis il est reconnu',
   // Le nom est pris : un autre ne peut plus le réclamer.
   assert.equal(appeler({ action: 'associer', cle: CLE, mail: 'autre.personne@ecole.example', nom: 'MARTIN (math)' }).status, 409);
 });
+
+test('import de l’Excel : heures d’une sortie, date d’une feuille, nom mal écrit ou homonyme', () => {
+  const f = contexte as unknown as Record<string, (...a: unknown[]) => unknown>;
+  assert.equal(JSON.stringify(f.heuresDeNote('Départ 9h20 retour 12h05')), '[2,4]');
+  assert.equal(JSON.stringify(f.heuresDeNote('RETOUR 13H30')), '[1,6]');
+  assert.equal(f.heuresDeNote('2026-11-17'), null);
+  assert.equal(f.dateFeuille('Ma 03-11', new Date('2026-11-03T09:00:00')), '2026-11-03');
+  assert.equal(f.dateFeuille('Lu 15-03', new Date('2026-11-03T09:00:00')), '2027-03-15');
+  const profs = ['MARTIN (math)', 'MARTIN (sport)', 'LAMBERTINI', 'DURANDO'];
+  const horaires = [{ prof: 'MARTIN (sport)', jour: 2, h: 3, classes: '4GB' }, { prof: 'MARTIN (math)', jour: 2, h: 3, classes: '3GA' }];
+  assert.equal(f.resoudreProf('Martin J.', 2, { 3: '4GB' }, profs, horaires), 'MARTIN (sport)');
+  assert.equal(f.resoudreProf('LAMBERTNI', 2, {}, profs, horaires), 'LAMBERTINI');
+  assert.equal(f.resoudreProf('Inconnu', 2, {}, profs, horaires), '');
+});
