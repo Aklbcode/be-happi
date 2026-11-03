@@ -42,14 +42,6 @@ export function MenuLateral({ actif, pastilles = {} }: { actif: Ecran; pastilles
           <small>Tubize</small>
         </span>
       </a>
-      <button className="menu-espace" onClick={ouvrir}>
-        <Icon nom={p.icone} taille={20} />
-        <span>
-          <small>Espace</small>
-          <b>{p.nom}</b>
-        </span>
-        {profils.length > 1 && <Icon nom="echange" taille={18} />}
-      </button>
       <nav className="menu-nav">
         {p.onglets.map((o) => lienMenu(o.ecran, o.long ?? o.libelle, o.icone))}
         {profils.includes('prof') && profil !== 'eleve' && OPTIONS.decale && (
