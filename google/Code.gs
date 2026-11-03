@@ -641,6 +641,13 @@ function creer(nom, champs, mail, moi) {
   const maintenant = new Date().toISOString();
   const o = Object.assign({}, champs, { ID: Utilities.getUuid().slice(0, 13), Version: 1, Created: maintenant, CreePar: mail, Modified: maintenant, ModifiePar: mail });
   f.appendRow(t.entetes.map((h) => versCellule(o[h])));
+  if (nom === 'Absences') {
+    try {
+      notifierDeplacements([{ Title: champs.Title, DateAbs: versCellule(champs.DateAbs), DeH: champs.DeH, AH: champs.AH }], new Date());
+    } catch (e) {
+      /* une notification ratée ne bloque jamais l'encodage */
+    }
+  }
   return { status: 201, item: { id: o.ID, eTag: `"${o.ID},1"`, createdDateTime: maintenant, lastModifiedDateTime: maintenant, createdBy: { user: { displayName: mail, email: mail } }, lastModifiedBy: { user: { displayName: mail } }, fields: Object.assign({ Created: maintenant }, champs) } };
 }
 
@@ -941,6 +948,104 @@ function appliquerAbsencesExcel(classeur, maintenant) {
   }
 
   // Journal : ce qui a été fait, et les noms à vérifier.
-  journaliser(nouvelles.length, inconnus, '');
+  const prevenus = nouvelles.length ? notifierDeplacements(nouvelles, maintenant) : 0;
+  journaliser(nouvelles.length, inconnus, prevenus ? `${prevenus} prof(s) prévenu(s) par mail` : '');
   return { ajoutees: nouvelles.length, inconnus };
+}
+
+// =====================================================================================
+// Prévenir les profs : une nouvelle absence libère des heures ; les profs qui ont la même classe
+// plus tard dans la semaine, et qui sont libres à cette heure-là, reçoivent un mail (une seule fois
+// par heure libérée). Mêmes règles de base que l'app : mêmes classes, prof libre, jamais H5,
+// pas de classe en stage, pas d'heure déjà passée. L'app revérifie tout avant de proposer.
+// Il faut l'adresse du prof (colonne Email de l'onglet Profs, remplie à sa première ouverture).
+// Pour couper : mettre NOTIFIER à false.
+// =====================================================================================
+
+const NOTIFIER = true;
+const FINS_MIN = [0, 555, 610, 675, 725, 775, 825, 875, 935, 985];
+const MAX_MAILS = 60;
+const JOURS_NOMS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+
+const classesDe = (t) => String(t || '').split(/[,;]/).map((x) => x.trim().toUpperCase()).filter(Boolean).sort().join(', ');
+const jourIso = (d) => new Date(`${d}T12:00:00`).getDay();
+const plusJours = (d, n) => isoDate(new Date(new Date(`${d}T12:00:00`).getTime() + n * 86400000));
+
+/** Les occasions nées de ces absences : { prof: [{ date, h, classes, depuisDate, depuisH }] }. */
+function occasionsDe(nouvelles, maintenant) {
+  fuseau = fuseau || SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const aujourdhui = isoDate(maintenant);
+  const minutes = Number(Utilities.formatDate(maintenant, fuseau, 'H')) * 60 + Number(Utilities.formatDate(maintenant, fuseau, 'm'));
+  const horaires = lignes('Horaires').map((c) => ({ prof: String(c.Title), jour: Number(c.JourNum), h: Number(c.Heure), classes: classesDe(c.Classes) })).filter((c) => c.prof && c.h && c.classes);
+  const absences = lignes('Absences').map((a) => ({ prof: String(a.Title), date: String(a.DateAbs || '').slice(0, 10), de: Number(a.DeH) || 1, a: Number(a.AH) || 9 }));
+  const stages = lignes('Stages').flatMap((x) => String(x.Title || '').split(/[,;]/).map((c) => ({ classe: c.trim().toUpperCase(), du: String(x.Du || '').slice(0, 10), au: String(x.Au || x.Du || '').slice(0, 10) })));
+  const absent = (p, d, h) => absences.some((a) => a.prof === p && a.date === d && a.de <= h && h <= a.a);
+  const enStage = (k, d) => k.split(', ').some((c) => stages.some((x) => x.classe === c && x.du <= d && d <= x.au));
+  const occupe = (p, j, h) => horaires.some((c) => c.prof === p && c.jour === j && c.h === h);
+  const parProf = {};
+  nouvelles.forEach((n) => {
+    const x = String(n.Title || '');
+    const d = String(n.DateAbs || '').slice(0, 10);
+    const j = jourIso(d);
+    if (!x || !d || d < aujourdhui || j < 1 || j > 5) return;
+    const de = Number(n.DeH) || 1;
+    const a = Number(n.AH) || 9;
+    horaires.filter((c) => c.prof === x && c.jour === j && c.h >= de && c.h <= a && c.h !== 5).forEach((libere) => {
+      if (d === aujourdhui && FINS_MIN[libere.h] - 50 <= minutes) return; // heure déjà commencée
+      if (enStage(libere.classes, d)) return;
+      // Les cours de cette classe plus tard dans la semaine, chez un prof libre à cette heure-là.
+      for (let k = 0; k <= 5 - j; k++) {
+        const d2 = plusJours(d, k);
+        const j2 = j + k;
+        horaires
+          .filter((c) => c.prof !== x && c.classes === libere.classes && c.jour === j2 && (k > 0 || c.h > libere.h))
+          .forEach((c) => {
+            if (occupe(c.prof, j, libere.h) || absent(c.prof, d, libere.h) || absent(c.prof, d2, c.h)) return;
+            (parProf[c.prof] = parProf[c.prof] || []).push({ date: d, h: libere.h, classes: libere.classes, depuisDate: d2, depuisH: c.h });
+          });
+      }
+    });
+  });
+  return parProf;
+}
+
+/** Envoie un mail aux profs concernés (une fois par heure libérée et par prof). Renvoie le nombre de profs prévenus. */
+function notifierDeplacements(nouvelles, maintenant) {
+  if (!NOTIFIER || typeof MailApp === 'undefined') return 0;
+  const parProf = occasionsDe(nouvelles, maintenant);
+  const noms = Object.keys(parProf);
+  if (!noms.length) return 0;
+  const mails = {};
+  lignes('Profs').forEach((p) => { const m = avecMail(p); if (m) mails[String(p.Title)] = m; });
+  const classeur = SpreadsheetApp.getActive();
+  const journal = classeur.getSheetByName('Notifications') || classeur.insertSheet('Notifications');
+  if (journal.getLastRow() === 0) journal.appendRow(['Clé', 'Prof', 'Envoyé le']);
+  const deja = new Set(journal.getLastRow() > 1 ? journal.getRange(2, 1, journal.getLastRow() - 1, 1).getValues().map((l) => String(l[0])) : []);
+  let envoyes = 0;
+  noms.forEach((prof) => {
+    if (envoyes >= MAX_MAILS || !mails[prof]) return;
+    const neuves = parProf[prof].filter((o) => !deja.has(`${prof}|${o.date}|${o.h}`));
+    if (!neuves.length) return;
+    const quand = (d, h) => `${JOURS_NOMS[jourIso(d)]} ${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))} H${h}`;
+    const lignesTexte = neuves.map((o) => `• ${quand(o.date, o.h)} est libérée pour la ${o.classes} : tu peux y avancer ton cours du ${quand(o.depuisDate, o.depuisH)}.`);
+    const corps = [
+      'Bonjour,',
+      '',
+      'Une nouvelle absence libère une heure que tu pourrais utiliser :',
+      ...lignesTexte,
+      '',
+      'Ouvre IPES App dans Teams (onglet Horaire) : l\'app revérifie tout et te propose le déplacement. Rien n\'est fait sans toi, et l\'éducateur valide.',
+      '',
+      'IPES App',
+    ].join('\n');
+    try {
+      MailApp.sendEmail({ to: mails[prof], subject: `IPES App · une heure libérée pour ta ${neuves[0].classes}`, body: corps, name: 'IPES App' });
+      neuves.forEach((o) => journal.appendRow([`${prof}|${o.date}|${o.h}`, prof, new Date().toISOString()]));
+      neuves.forEach((o) => deja.add(`${prof}|${o.date}|${o.h}`));
+      envoyes++;
+    } catch (e) {
+      /* quota de mails atteint : on réessaiera au prochain import */
+    }
+  });
+  return envoyes;
 }

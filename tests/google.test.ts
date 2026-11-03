@@ -54,6 +54,7 @@ function feuille(nom: string) {
 }
 
 const deuxChiffres = (n: number) => String(n).padStart(2, '0');
+const mailsEnvoyes: { to: string; subject: string; body: string }[] = [];
 // Le cache Google (quelques minutes) : une Map suffit.
 const memoireCache = new Map<string, string>();
 const cache = {
@@ -64,10 +65,11 @@ const cache = {
   remove: (k: string) => void memoireCache.delete(k),
 };
 const contexte = vm.createContext({
-  SpreadsheetApp: { getActive: () => ({ getSheetByName: (n: string) => (classeur[n] ? feuille(n) : null), getSpreadsheetTimeZone: () => 'Europe/Brussels' }) },
+  SpreadsheetApp: { getActive: () => ({ getSheetByName: (n: string) => (classeur[n] ? feuille(n) : null), insertSheet: (n: string) => ((classeur[n] = []), feuille(n)), getSpreadsheetTimeZone: () => 'Europe/Brussels' }) },
   ContentService: { createTextOutput: (s: string) => ({ setMimeType: () => s }), MimeType: { JSON: 'json' } },
   LockService: { getScriptLock: () => ({ waitLock: () => undefined, releaseLock: () => undefined }) },
   CacheService: { getScriptCache: () => cache },
+  MailApp: { sendEmail: (m: { to: string; subject: string; body: string }) => void mailsEnvoyes.push(m) },
   Utilities: {
     getUuid: () => `${Math.random().toString(16).slice(2, 10)}-${Math.random().toString(16).slice(2, 10)}`,
     // Le test tourne à l'heure locale de la machine : assez pour des dates à minuit.
@@ -268,4 +270,20 @@ test('deux réservations du même local à la même heure : la seconde est refus
   assert.equal(deux.status, 409);
   assert.match(deux.erreur, /vient d’être réservé/);
   assert.equal(creerX(prof, 'Réservations', { ...r, Heure: 4 }).status, 201);
+});
+
+test('une absence encodée libère une heure : le prof qui a la classe plus tard est prévenu une fois', () => {
+  // Lundi prochain : MARTIN (sport) a la 5TQB en H2 ; LAMBERT l'a en H3 et il est libre en H2.
+  // (dans plus de deux semaines : loin des absences des autres tests)
+  const lundi = (() => { const d = new Date(); d.setDate(d.getDate() + 14 + ((8 - d.getDay()) % 7 || 7)); return iso(d); })();
+  classeur.Horaires.push(['MARTIN (sport)', 1, 2, '5TQB', 'GYM', 'Sport']);
+  (contexte.onEdit as () => void)();
+  mailsEnvoyes.length = 0;
+  assert.equal(creerX(educ, 'Absences', { Title: 'MARTIN (sport)', DateAbs: `${lundi}T12:00:00Z`, DeH: 1, AH: 9 }).status, 201);
+  assert.equal(mailsEnvoyes.length, 1);
+  assert.equal(mailsEnvoyes[0].to, prof);
+  assert.match(mailsEnvoyes[0].body, /H2 est libérée pour la 5TQB : tu peux y avancer ton cours du lundi .* H3/);
+  // La même heure encore : pas de deuxième mail.
+  creerX(educ, 'Absences', { Title: 'MARTIN (sport)', DateAbs: `${lundi}T12:00:00Z`, DeH: 2, AH: 2 });
+  assert.equal(mailsEnvoyes.length, 1);
 });
