@@ -1,13 +1,13 @@
-// En-tête commun des écrans : retour éventuel, titre, sous-titre, et le rond « Moi » (espace, thème).
+// En-tête commun des écrans : retour éventuel, titre, sous-titre. Le rond « Moi » (initiales) n'est que sur Aujourd'hui.
 // En démo, la pastille « Démo » ouvre aussi la feuille « Moi » pour essayer les autres espaces.
 
 import type { ReactNode } from 'react';
 import { useStore } from '../data/store';
 import { Icon } from './Icon';
-import { BoutonTheme, initiales, useMoi } from './Moi';
+import { BoutonTheme, useMoi } from './Moi';
 
 export function Entete({ titre, sous, retour, droite, apres, titreCache }: { titre: string; sous?: string; retour?: string; droite?: ReactNode; apres?: ReactNode; /** Le titre est déjà dans l'onglet : gardé pour les lecteurs d'écran seulement. */ titreCache?: boolean }) {
-  const { ds, demo, simulation, profil } = useStore();
+  const { demo, simulation } = useStore();
   const { ouvrir } = useMoi();
   return (
     <header className="entete">
@@ -34,9 +34,6 @@ export function Entete({ titre, sous, retour, droite, apres, titreCache }: { tit
             Démo
           </button>
         )}
-        <button className="rond rond--nuit" onClick={ouvrir} aria-label={`Moi et mes espaces (espace ${profil})`}>
-          {!ds ? '…' : profil === 'eleve' && (demo || !ds.moi.nom) ? 'É' : initiales(ds.moi.prenom, ds.moi.nom)}
-        </button>
       </div>
     </header>
   );
