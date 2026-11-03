@@ -183,16 +183,22 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
     return () => window.clearInterval(id);
   }, [reseauKo, charger]);
   useEffect(() => {
-    if (demo) return;
+    if (demo || simulation) return;
     let derniere = Date.now();
-    const revenir = () => {
-      if (document.visibilityState !== 'visible' || Date.now() - derniere < 60000) return;
+    const relire = (attente: number) => {
+      if (document.visibilityState !== 'visible' || Date.now() - derniere < attente) return;
       derniere = Date.now();
       void charger();
     };
+    // De retour dans l'app après une minute : on relit. Laissée ouverte et utilisée : toutes les 10 min.
+    const revenir = () => relire(60000);
+    const id = window.setInterval(() => document.hasFocus() && relire(600000), 60000);
     document.addEventListener('visibilitychange', revenir);
-    return () => document.removeEventListener('visibilitychange', revenir);
-  }, [demo, charger]);
+    return () => {
+      document.removeEventListener('visibilitychange', revenir);
+      window.clearInterval(id);
+    };
+  }, [demo, simulation, charger]);
 
   const montrerToast = useCallback((t: string) => {
     setToast(t);
@@ -224,6 +230,15 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
   }, []);
 
   const sp = useCallback(() => import('./sharepoint'), []);
+  /** Quelqu'un d'autre a été plus rapide (409) ou a modifié la ligne (412) : on relit, puis on dit pourquoi. */
+  const relireSiConflit = useCallback(
+    (e: unknown): never => {
+      const status = Number((e as { status?: number } | null)?.status);
+      if (status === 409 || status === 412) void charger();
+      throw e;
+    },
+    [charger],
+  );
   const maj = useCallback((f: (x: Dataset) => Dataset) => setDs((x) => (x ? f(x) : x)), []);
   const horodatage = useCallback(() => (demo ? maintenant : new Date()).toISOString(), [demo, maintenant]);
   const moiAffiche = ds ? `${ds.moi.prenom} ${nomAffiche(ds.moi.nom)}`.trim() || ds.moi.email || '' : '';
@@ -233,10 +248,10 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
       if (!ds) return;
       const titulaire = titulaireDe(ds, r.local, r.date, r.h);
       const complete: Reservation = { ...r, prof: ds.moi.nom, ...(titulaire ? { absent: titulaire } : {}) };
-      complete.id = demo ? `demo-r-${Date.now()}-${r.h}` : await (await sp()).enregistrerReservation(complete);
+      complete.id = demo ? `demo-r-${Date.now()}-${r.h}` : await (await sp()).enregistrerReservation(complete).catch(relireSiConflit);
       maj((x) => ({ ...x, reservations: [...x.reservations, complete] }));
     },
-    [demo, ds, maj, sp],
+    [demo, ds, maj, sp, relireSiConflit],
   );
 
   const annulerReservation = useCallback(
@@ -253,10 +268,10 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
       // En démo, l'heure affichée suit le lundi simulé.
       const complet: Deplacement = { ...d, prof: ds.moi.nom, statut: 'En attente', creeLe: horodatage() };
       // En démo, un identifiant unique même pour plusieurs demandes envoyées d'un coup.
-      complet.id = demo ? `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : await (await sp()).enregistrerDeplacement(complet);
+      complet.id = demo ? `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : await (await sp()).enregistrerDeplacement(complet).catch(relireSiConflit);
       maj((x) => ({ ...x, deplacements: [...x.deplacements, complet] }));
     },
-    [demo, ds, horodatage, maj, sp],
+    [demo, ds, horodatage, maj, sp, relireSiConflit],
   );
 
   const retirer = useCallback(

@@ -756,8 +756,6 @@ export function urgence(date: string, h: number, aujourdhui: string, minutes: nu
 }
 
 /** Une heure de l'horizon tombe-t-elle la semaine suivante ? */
-export const semaineSuivanteDe = (date: string, aujourdhui: string): boolean => lundiDe(date) > lundiDe(iso(prochainJourDeCours(deIso(aujourdhui), true)));
-
 // ---------------------------------------------------------------------------------------------
 // L'effet domino : quand ton cours part du milieu de la journée d'une classe, un collègue de
 // cette classe peut avancer son cours de fin de journée dans l'heure qui se libère. La classe

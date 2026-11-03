@@ -15,6 +15,7 @@ import { couleurMatiere } from '../logic/couleurs';
 import { moment, suiviDuProf } from '../logic/suivi';
 import { remarquesProf } from '../logic/remarques';
 import { Remarques } from '../ui/Remarques';
+import { CarteAlEcole } from '../ui/AlEcole';
 import { BoutonTheme, useMoi } from '../ui/Moi';
 import { Tour } from '../ui/Marque';
 
@@ -261,7 +262,7 @@ export function Aujourdhui() {
                 <strong className="fort">{x.classe}</strong> · {x.trajet}
                 {x.local ? ` · local ${x.local}` : ''}
               </span>
-              {x.statut === 'En attente' && <span className="petit">L'éducateur la voit dans IPES App et dans Power Apps.</span>}
+              {x.statut === 'En attente' && <span className="petit">L'éducateur la voit dans IPES App.</span>}
               {x.commentaire && (
                 <span className="texte">
                   « {x.commentaire} »{x.par ? ` · ${x.par}` : ''}
@@ -271,6 +272,8 @@ export function Aujourdhui() {
           ))}
         </section>
       )}
+
+      {ds && <CarteAlEcole ds={ds} date={aujourdhui} />}
 
       <Remarques remarques={remarques} />
 

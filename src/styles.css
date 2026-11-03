@@ -943,3 +943,11 @@ a.puce--demo { text-decoration: none; }
 .remarque-fleche { color: var(--discret); transition: transform 0.15s ease; display: flex; }
 .remarque--ouverte .remarque-fleche { transform: rotate(90deg); }
 .remarque-corps { gap: 6px; padding: 0 14px 14px 58px; }
+
+/* À l'école aujourd'hui : dates importantes, sorties, profs absents. */
+.ecole-jour { gap: 8px; }
+.ecole-ligne { display: flex; gap: 10px; align-items: flex-start; margin: 0; font-size: 14px; line-height: 1.4; }
+.ecole-ligne > svg { flex: none; margin-top: 1px; color: var(--indigo-encre); }
+.ecole-ligne .lien-action { font-size: 14px; }
+.ecole-bientot { border-top: 1px solid var(--trait); padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+.ecole-bientot .petit { margin: 0; }

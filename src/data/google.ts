@@ -55,15 +55,6 @@ export function utiliserReglagesGoogle(r: ReglagesGoogle | null, envoi?: Envoi, 
   identite = null;
 }
 
-export function oublierGoogle(): void {
-  try {
-    window.localStorage.removeItem(CLE_STOCKAGE);
-  } catch {
-    /* rien */
-  }
-  reglages = null;
-}
-
 // ---------- Appels au script ----------
 
 type Envoi = (url: string, corps: string) => Promise<any>;
@@ -95,7 +86,7 @@ async function script(action: string, donnees: Record<string, unknown> = {}): Pr
   if (!reglages) throw new ErreurScript(400, 'IPES App n’est pas reliée à un Google Sheet.');
   const mail = await adresse();
   const url = `https://script.google.com/macros/s/${reglages.script}/exec`;
-  const corps = JSON.stringify({ action, cle: reglages.cle, mail, ...donnees });
+  const corps = JSON.stringify({ action, cle: reglages.cle, mail, appareil: appareil(), ...donnees });
   // Une lecture qui échoue sur le réseau (téléphone qui sort de veille, Google lent à démarrer) est
   // retentée deux fois. Une écriture, jamais : elle a peut-être été faite.
   const essais = action === 'lire' || action === 'qui' ? 3 : 1;
@@ -103,6 +94,11 @@ async function script(action: string, donnees: Record<string, unknown> = {}): Pr
   for (let i = 1; ; i++) {
     try {
       r = await envoyer(url, corps);
+      // Le script est occupé (beaucoup de monde à 8h) : une lecture attend un peu et réessaie.
+      if (Number(r?.status) === 503 && i < essais) {
+        await new Promise((ok) => setTimeout(ok, i * 1500));
+        continue;
+      }
       break;
     } catch (e) {
       if (i >= essais || !erreurReseau(e)) throw erreurReseau(e) ? new ErreurScript(503, MESSAGE_RESEAU) : e;
@@ -115,6 +111,20 @@ async function script(action: string, donnees: Record<string, unknown> = {}): Pr
 }
 
 // ---------- Qui est connecté ? ----------
+
+/** Un numéro au hasard propre à cet appareil (le script note chaque nouvel appareil d'une adresse). */
+function appareil(): string {
+  try {
+    let a = window.localStorage.getItem('latour-appareil');
+    if (!a) {
+      a = (crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`).slice(0, 36);
+      window.localStorage.setItem('latour-appareil', a);
+    }
+    return a;
+  } catch {
+    return '';
+  }
+}
 
 let mailForce: string | undefined;
 let identite: Promise<string> | null = null;
@@ -134,6 +144,12 @@ async function adresse(): Promise<string> {
 /** Noms encore libres quand l'adresse n'a pas été reconnue (le prof choisit le sien une fois). */
 let choix: { mail: string; libres: string[] } | null = null;
 export const choixEnAttente = (): { mail: string; libres: string[] } | null => choix;
+
+/** Les noms encore libres qui contiennent ce texte (3 lettres au moins, 8 réponses au plus). */
+export async function chercherNom(texte: string): Promise<string[]> {
+  const r = await script('chercher', { texte });
+  return Array.isArray(r.noms) ? r.noms.map(String) : [];
+}
 
 /** « C'est moi » : relie l'adresse Teams à ce nom dans le Sheet. */
 export async function associer(nom: string): Promise<void> {
@@ -161,6 +177,38 @@ interface Etat {
   lu: number;
 }
 
+/** Forme compacte du script (une ligne = un tableau de valeurs). */
+interface ListeCompacte {
+  cols: string[];
+  lignes: unknown[][];
+}
+
+const SYSTEME = ['ID', 'Version', 'Created', 'CreePar', 'Modified', 'ModifiePar'];
+
+/** Lignes compactes → éléments au format SharePoint (comme le reste de l'app les attend). */
+export function deplier(l: ListeCompacte): { colonnes: string[]; items: ItemG[] } {
+  const iId = l.cols.indexOf('ID');
+  const items = l.lignes.map((r, i): ItemG => {
+    const o: Record<string, unknown> = {};
+    l.cols.forEach((c, j) => (o[c] = r[j]));
+    const id = iId >= 0 ? String(o.ID ?? '') : `L${i + 2}`;
+    const fields: Record<string, unknown> = {};
+    for (const c of l.cols) if (!SYSTEME.includes(c) && o[c] !== '' && o[c] !== null && o[c] !== undefined) fields[c] = o[c];
+    if (o.Created) fields.Created = o.Created;
+    const par = String(o.CreePar ?? '');
+    return {
+      id,
+      eTag: `"${id},${o.Version || 1}"`,
+      createdDateTime: (o.Created as string) || undefined,
+      lastModifiedDateTime: (o.Modified as string) || undefined,
+      createdBy: { user: { displayName: par, email: par } },
+      lastModifiedBy: { user: { displayName: String(o.ModifiePar ?? '') } },
+      fields,
+    };
+  });
+  return { colonnes: l.cols.filter((c) => c && !SYSTEME.includes(c)), items: items.filter((x) => x.id) };
+}
+
 let etat: Etat | null = null;
 let promesse: Promise<Etat> | null = null;
 
@@ -169,14 +217,24 @@ function fraiche(): Promise<Etat> {
   if (etat && Date.now() - etat.lu < 4000) return Promise.resolve(etat);
   promesse ??= (async () => {
     try {
-      const q = await script('qui');
-      if (!q.nom && !(q.roles ?? []).length) {
-        choix = { mail: await adresse(), libres: q.libres ?? [] };
+      // Un seul aller-retour : le script renvoie les listes, ou de quoi choisir son nom.
+      let r: any;
+      try {
+        r = await script('lire');
+      } catch (e) {
+        // Ancien script (avant la version rapide) : il répond 403 à une adresse pas encore reliée.
+        if (!(e instanceof ErreurScript && e.status === 403)) throw e;
+        r = { moi: await script('qui') };
+      }
+      const moi = r.moi ?? {};
+      if (!moi.nom && !(moi.roles ?? []).length) {
+        choix = { mail: await adresse(), libres: moi.libres ?? [] };
         throw new ErreurScript(403, 'CHOIX_PROF');
       }
       choix = null;
-      const r = await script('lire');
-      etat = { moi: r.moi, listes: r.listes ?? {}, lu: Date.now() };
+      const listes: Etat['listes'] = {};
+      for (const [nom, l] of Object.entries<any>(r.listes ?? {})) listes[nom] = Array.isArray(l?.lignes) ? deplier(l) : l;
+      etat = { moi: { nom: moi.nom, roles: moi.roles ?? [] }, listes, lu: Date.now() };
       return etat;
     } finally {
       promesse = null;
@@ -230,7 +288,8 @@ export async function repondreGoogle(url: string, init: RequestInit = {}): Promi
       return { status: 201, corps: r.item };
     }
     if (m[2] && methode === 'DELETE') {
-      await script('supprimer', { liste: nom, id: m[2] });
+      const etag = (init.headers as Record<string, string> | undefined)?.['If-Match'];
+      await script('supprimer', { liste: nom, id: m[2], etag });
       if (etat?.listes[nom]) etat.listes[nom].items = etat.listes[nom].items.filter((x) => x.id !== m[2]);
       return { status: 204, corps: null };
     }

@@ -221,9 +221,6 @@ export function seances(ds: Dataset, aujourdhui: string, heureFinie: number): Se
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date) || a.h - b.h || a.prof.localeCompare(b.prof));
 }
 
-export const seancesDuProf = (ds: Dataset, prof: string, aujourdhui: string, heureFinie: number): Seance[] =>
-  seances(ds, aujourdhui, heureFinie).filter((s) => s.prof === prof);
-
 /** « 2026-10 » → « octobre 2026 ». */
 export function nomMois(mois: string): string {
   const [a, m] = mois.split('-').map(Number);

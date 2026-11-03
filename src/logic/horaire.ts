@@ -51,9 +51,6 @@ export function sansStage<T extends { classes: string[]; classe: string }>(ds: D
 export const absentA = (ds: Dataset, prof: string, date: string, h: number): boolean =>
   ds.absences.some((a) => a.prof === prof && a.date === date && h >= a.deH && h <= a.aH);
 
-export const estAbsentLeJour = (ds: Dataset, prof: string, date: string): boolean =>
-  ds.absences.some((a) => a.prof === prof && a.date === date);
-
 const actif = (d: Deplacement, avecAttente: boolean) =>
   d.statut === 'Validé' || (avecAttente && d.statut !== 'Refusé');
 

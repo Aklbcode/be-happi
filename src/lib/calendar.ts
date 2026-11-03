@@ -149,8 +149,3 @@ export function dateLongue(d: Date): string {
   return `${JOURS[jourSemaine(d)]} ${d.getDate()} ${MOIS[d.getMonth()]}`;
 }
 
-export function dateMoyenne(d: Date): string {
-  return `${JOURS_COURTS[jourSemaine(d)].toLowerCase()}. ${d.getDate()} ${MOIS[d.getMonth()].slice(0, 4)}${MOIS[d.getMonth()].length > 4 ? '.' : ''}`;
-}
-
-export const dateCourte = (d: Date): string => `${d.getDate()}/${d.getMonth() + 1}`;

@@ -37,7 +37,7 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
       const retenue = sel;
       await proposer({ absent: sel.absent, date: sel.date, hVide: sel.h, classe: sel.classe, hOrigine: sel.hO, dateOrigine: sel.dateO });
       setFaite(retenue);
-      montrerToast(demo ? 'Proposé ! (démo) Va la valider : École → Validations' : 'Proposé ! L’éducateur la voit dans IPES App et Power Apps.');
+      montrerToast(demo ? 'Proposé ! (démo) Va la valider : touche tes initiales → Validations' : 'Proposé ! L’éducateur la voit dans IPES App.');
     } catch (e) {
       montrerToast(`Impossible d'enregistrer : ${e instanceof Error ? e.message : e}`);
     } finally {
@@ -47,7 +47,7 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
 
   const etapes = [
     { t: 'Tu proposes', d: 'Maintenant, en un geste. Prof, classes et local sont vérifiés.', fait: envoye },
-    { t: 'L’éducateur valide ou refuse', d: 'Il voit ta demande dans IPES App et dans Power Apps ; tout est revérifié avant sa décision.', fait: false },
+    { t: 'L’éducateur valide ou refuse', d: 'Il voit ta demande dans IPES App ; tout est revérifié avant sa décision.', fait: false },
     { t: 'Tu vois sa réponse', d: 'Sur l’écran Aujourd’hui, avec son mot en cas de refus.', fait: false },
     {
       t: `Le local ${sel?.local ?? ''} est pour toi`,
@@ -158,7 +158,7 @@ export function Deplacer({ params }: { params: URLSearchParams }) {
                 </span>
                 <span className="pile grandit">
                   <span className="titre-s">Proposé !</span>
-                  <span className="petit">{demo ? 'Démo : valide-la toi-même dans École → Validations.' : 'L’éducateur la voit dans IPES App et Power Apps.'}</span>
+                  <span className="petit">{demo ? 'Démo : valide-la toi-même (tes initiales → Validations).' : 'L’éducateur la voit dans IPES App.'}</span>
                 </span>
                 <a className="bouton bouton--pale bouton--petit" href={lien('aujourdhui')}>OK</a>
               </div>

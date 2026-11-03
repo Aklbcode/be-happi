@@ -350,4 +350,3 @@ export function opportunitesSemaine(ds: Dataset, moi: string, lundi: string, auj
   return res;
 }
 
-export const texteAbsent = (nom: string): string => nomAffiche(nom);

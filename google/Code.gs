@@ -1,39 +1,74 @@
 /**
- * La Tour – version Google Sheets.
+ * IPES App – version Google Sheets.
  *
  * Ce script vit DANS le Google Sheet privé (Extensions → Apps Script). Il est la seule porte
- * d'entrée vers les données : La Tour lui envoie la clé secrète et l'adresse du prof connecté
- * (donnée par Teams) ; il ne répond qu'aux profs de l'onglet Profs (ou de l'onglet Roles).
+ * d'entrée vers les données : l'app lui envoie la clé secrète et l'adresse du prof connecté
+ * (donnée par Teams) ; il ne répond qu'aux personnes de l'onglet Profs (ou de l'onglet Roles).
  *
  * Déploiement : Déployer → Nouveau déploiement → Application Web
  *   - Exécuter en tant que : moi
  *   - Qui a accès : tout le monde
  * puis donner l'adresse « …/exec » à la personne qui fabrique le paquet Teams.
+ * Après chaque collage d'une nouvelle version : Déployer → Gérer les déploiements → ✏️ → Nouvelle version.
  *
  * Chaque onglet = une liste. Ligne 1 : les noms de colonnes. Les colonnes ID, Version, Created,
  * CreePar, Modified et ModifiePar sont gérées par le script (une ligne ajoutée à la main reçoit
  * son ID au prochain chargement).
+ *
+ * Rapide pour beaucoup d'utilisateurs : les listes sont gardées en mémoire (cache Google) quelques
+ * minutes ; toute écriture de l'app, tout import et toute modification à la main dans le Sheet
+ * vident ce cache.
  *
  * Ce modèle est public : la vraie clé n'y est jamais. Elle est écrite dans la copie collée dans le Sheet.
  */
 
 const CLE = '__CLE__';
 
-/** Les onglets lisibles et modifiables par l'app (mêmes noms que les listes SharePoint). */
+/** Les onglets lisibles par l'app (mêmes noms que les listes SharePoint). */
 const LISTES = [
   'Horaires', 'Profs', 'Absences', 'Réservations', 'Deplacements', 'Infos', 'Signalements', 'Roles',
-  'Decisions', 'Materiel', 'Changements', 'HorairesEleves', 'CapReussite', 'Resultats', 'Stages',
+  'Decisions', 'Materiel', 'Changements', 'HorairesEleves', 'CapReussite', 'Resultats', 'Stages', 'Agenda',
 ];
 /** Ce que l'app ne peut jamais modifier. */
-const LECTURE_SEULE = ['Horaires', 'Profs', 'Roles', 'HorairesEleves', 'Resultats', 'Stages'];
+const LECTURE_SEULE = ['Horaires', 'Profs', 'Roles', 'HorairesEleves', 'Resultats', 'Stages', 'Agenda'];
 const SYSTEME = ['ID', 'Version', 'Created', 'CreePar', 'Modified', 'ModifiePar'];
+/** Colonnes jamais envoyées à l'app (pas de motif d'absence affiché). */
+const CACHEES = { Absences: ['Motif'] };
+
+/** Les colonnes que l'app peut remplir, liste par liste (rien d'autre n'est accepté). */
+const CHAMPS = {
+  Absences: ['Title', 'DateAbs', 'DeH', 'AH', 'Motif'],
+  'Réservations': ['Title', 'DateRes', 'Heure', 'Local', 'Classe', 'Absent'],
+  Deplacements: ['Title', 'DateDep', 'HeureVide', 'Classe', 'Collegue', 'HeureOrigine', 'DateOrigine', 'Statut'],
+  Infos: ['Title', 'DateInfo', 'Categorie'],
+  Signalements: ['Title', 'Statut', 'Urgence', 'Reponse'],
+  Decisions: ['Title', 'Statut', 'Commentaire', 'Collegue', 'Absent', 'DateDep', 'HeureVide', 'DateOrigine', 'HeureOrigine', 'Local'],
+  Materiel: ['Title', 'DateRes', 'Heure', 'Rack', 'Classe'],
+  Changements: ['Title', 'DateChg', 'Heure', 'Classe', 'TypeChg'],
+  CapReussite: ['Title', 'Eleve', 'EleveMail', 'DateCR', 'Heure', 'Matiere', 'Origine', 'Statut', 'Prof', 'Local'],
+};
+
+/** Les rôles de l'onglet Roles (sans accents ni majuscules), comme dans l'app. */
+const ROLES = {
+  educateur: ['educateur', 'educatrice', 'educateurs', 'educatrices'],
+  secretariat: ['secretariat', 'administratif', 'service administratif'],
+  direction: ['direction', 'directeur', 'directrice', 'sous-directeur', 'sous-directrice'],
+  technique: ['technique', 'service technique', 'entretien'],
+};
 
 /**
  * Les stages de départ : l'onglet « Stages » est créé avec ces lignes s'il n'existe pas encore
- * (classe, du, au, nom du stage). Ensuite, on le complète directement dans le Sheet.
+ * (classe, du, au, nom du stage ou de la sortie). Ensuite, on le complète directement dans le Sheet.
  * Le modèle public est vide ; la copie collée dans le Sheet porte les vraies périodes.
  */
 const STAGES_DEPART = [];
+
+/**
+ * Les dates importantes de l'école (réunions de parents, bulletins, conseils…) : l'onglet « Agenda »
+ * est créé avec ces lignes s'il n'existe pas encore (du, au, titre, heure). Ensuite, on le complète
+ * dans le Sheet. Le modèle public est vide ; la copie collée dans le Sheet porte les vraies dates.
+ */
+const AGENDA_DEPART = [];
 
 /**
  * Un lot à importer une seule fois (absences connues, sorties) : ajouté au premier chargement,
@@ -43,6 +78,457 @@ const STAGES_DEPART = [];
  */
 const LOTS = [];
 
+// ---------- Entrée ----------
+
+function doGet() {
+  return json({ ok: true, app: 'IPES App', message: 'Le script répond. Ouvre IPES App dans Teams.' });
+}
+
+function doPost(e) {
+  memoire = null;
+  // Un modèle collé sans sa clé ne répond à personne.
+  if (CLE.indexOf('__') === 0 || CLE.length < 20) return json({ status: 503, erreur: 'Script pas encore configuré (clé manquante).' });
+  let q;
+  try {
+    q = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+  } catch (err) {
+    return json({ status: 400, erreur: 'Requête illisible.' });
+  }
+  if (!q || q.cle !== CLE) return json({ status: 401, erreur: 'Clé refusée.' });
+  try {
+    const mail = String(q.mail || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail) || mail.length > 120) return json({ status: 401, erreur: 'Adresse manquante : ouvre IPES App dans Teams.' });
+    if (tropDeDemandes(mail)) return json({ status: 429, erreur: 'Trop de demandes en peu de temps : réessaie dans une minute.' });
+    try {
+      noterAppareil(mail, q.appareil);
+    } catch (err) {
+      /* le journal ne bloque jamais l'app */
+    }
+    if (q.action === 'qui') return json(qui(mail));
+    if (q.action === 'associer') return json(associer(mail, String(q.nom || '').slice(0, 120)));
+    if (q.action === 'chercher') return json(chercher(mail, String(q.texte || '')));
+    const moi = qui(mail);
+    if (!moi.nom && !moi.roles.length) {
+      // Pas encore reconnu : on renvoie de quoi choisir son nom (un seul aller-retour).
+      if (q.action === 'lire') return json({ status: 200, moi });
+      return json({ status: 403, erreur: 'Adresse inconnue.' });
+    }
+    if (q.action === 'lire') return json({ status: 200, moi, listes: listesPour(mail) });
+    const liste = String(q.liste || '');
+    if (q.action === 'creer') return json(ecrire(() => creer(liste, nettoyer(liste, q.fields), mail, moi)));
+    if (q.action === 'modifier') return json(ecrire(() => modifier(liste, String(q.id || ''), nettoyer(liste, q.fields), q.etag, mail, moi)));
+    if (q.action === 'supprimer') return json(ecrire(() => supprimer(liste, String(q.id || ''), q.etag, mail, moi)));
+    return json({ status: 400, erreur: 'Action inconnue.' });
+  } catch (err) {
+    const m = String(err && err.message ? err.message : err);
+    if (/^Pas autorisé/.test(m)) return json({ status: 403, erreur: m });
+    if (/Lock|timed out|verrou/i.test(m)) return json({ status: 503, erreur: 'Beaucoup de monde en même temps : réessaie dans un instant.' });
+    return json({ status: 500, erreur: m });
+  }
+}
+
+function json(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- Garde-fous ----------
+
+const cacheScript = () => (typeof CacheService === 'undefined' ? null : CacheService.getScriptCache());
+
+/** Plus de 90 demandes par minute pour une même adresse : on freine (boucle, abus). */
+function tropDeDemandes(mail) {
+  const c = cacheScript();
+  if (!c) return false;
+  const cle = `n|${mail}|${Math.floor(Date.now() / 60000)}`;
+  const n = Number(c.get(cle) || 0) + 1;
+  c.put(cle, String(n), 120);
+  return n > 90;
+}
+
+/**
+ * Journal des appareils (onglet « Appareils ») : chaque nouvel appareil d'une adresse y est noté
+ * une fois. Une adresse utilisée sur un appareil inattendu se voit ici.
+ */
+function noterAppareil(mail, appareil) {
+  const a = String(appareil || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 40);
+  const c = cacheScript();
+  if (!a || !c) return;
+  const cle = `a|${mail}|${a}`;
+  if (c.get(cle)) return;
+  c.put(cle, '1', 21600);
+  const classeur = SpreadsheetApp.getActive();
+  const f = classeur.getSheetByName('Appareils') || (classeur.insertSheet ? classeur.insertSheet('Appareils') : null);
+  if (!f) return;
+  if (f.getLastRow() === 0) f.appendRow(['Mail', 'Appareil', 'Vu la première fois']);
+  const deja = f.getLastRow() > 1 ? f.getRange(2, 1, f.getLastRow() - 1, 2).getValues() : [];
+  if (!deja.some((l) => String(l[0]) === mail && String(l[1]) === a)) f.appendRow([mail, a, new Date().toISOString()]);
+}
+
+/** Une valeur écrite par l'app : texte court ou nombre ; jamais une formule. */
+function sure(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'number') return isFinite(v) ? v : '';
+  if (typeof v === 'boolean') return v;
+  let s = String(v).slice(0, 1000);
+  // « =IMPORTXML(…) », « +… », « @… » : le Sheet le lirait comme une formule.
+  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`;
+  return s;
+}
+
+/** Garde seulement les colonnes prévues pour cette liste, avec des valeurs sûres. */
+function nettoyer(liste, champs) {
+  const permis = CHAMPS[liste] || [];
+  const o = {};
+  if (champs && typeof champs === 'object') Object.keys(champs).forEach((k) => { if (permis.indexOf(k) >= 0) o[k] = sure(champs[k]); });
+  return o;
+}
+
+let verrouille = false;
+
+/** Une écriture à la fois (deux profs qui prennent le même élève). Réentrant. Vide le cache ensuite. */
+function ecrire(f) {
+  if (verrouille) return f();
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(20000);
+  verrouille = true;
+  try {
+    return f();
+  } finally {
+    verrouille = false;
+    verrou.releaseLock();
+    invalider();
+  }
+}
+
+// ---------- Droits ----------
+
+const sansAccents = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const aRole = (moi, ...familles) => moi.roles.some((r) => familles.some((f) => ROLES[f].indexOf(sansAccents(r)) >= 0));
+const valideur = (moi) => aRole(moi, 'educateur', 'secretariat');
+const gestion = (moi) => aRole(moi, 'educateur', 'secretariat', 'direction');
+
+/**
+ * Qui peut faire quoi (le même partage que dans l'app, vérifié ici pour de bon) :
+ * - absences, infos, changements : éducateurs, secrétariat, direction ;
+ * - déplacements : un prof propose pour lui-même (« En attente ») et retire sa proposition tant
+ *   qu'elle attend ; seuls éducateurs et secrétariat valident, refusent ou annulent ;
+ * - réservations de local et de matériel : chacun pour soi (et la gestion pour les autres) ;
+ * - signalements : chacun en crée ; le service technique et la direction les traitent.
+ */
+function autoriser(action, liste, moi, mail, champs, ligne) {
+  const auteur = ligne && String(ligne.CreePar || '').toLowerCase() === mail;
+  const pourSoi = (col) => gestion(moi) || (moi.nom && String(champs[col] || '') === moi.nom);
+  let ok = false;
+  switch (liste) {
+    case 'Absences': case 'Infos': case 'Changements':
+      ok = gestion(moi);
+      break;
+    case 'Deplacements':
+      if (action === 'creer') ok = valideur(moi) || (pourSoi('Collegue') && String(champs.Statut || 'En attente') === 'En attente');
+      else if (action === 'supprimer') ok = valideur(moi) || (auteur && String(ligne.Statut) !== 'Validé');
+      else ok = valideur(moi);
+      break;
+    case 'Réservations': case 'Materiel':
+      if (action === 'creer') ok = pourSoi('Title');
+      else ok = gestion(moi) || auteur;
+      break;
+    case 'Decisions':
+      ok = action === 'creer' && valideur(moi);
+      break;
+    case 'Signalements':
+      ok = action === 'creer' || aRole(moi, 'technique', 'direction');
+      break;
+    case 'CapReussite':
+      ok = action !== 'supprimer' || gestion(moi) || auteur;
+      break;
+    default:
+      ok = false;
+  }
+  if (!ok) throw new Error('Pas autorisé pour ce rôle.');
+}
+
+// ---------- Qui est connecté ? ----------
+
+const simple = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const nomSeul = (t) => (t.indexOf(' (') >= 0 ? t.slice(0, t.indexOf(' (')) : t);
+const avecMail = (p) => { const m = String(p.Email || '').trim().toLowerCase(); return m && m !== '0' ? m : ''; };
+
+/**
+ * La personne qui correspond à cette adresse : la colonne Email de l'onglet Profs, sinon comme
+ * Power Apps (prenom.nom@… → NOM), seulement si un seul prof correspond et qu'aucune autre
+ * adresse ne l'a déjà pris. Renvoie aussi ses rôles (onglet Roles) et, si elle est inconnue, les
+ * noms encore libres pour qu'elle se reconnaisse.
+ */
+function qui(mail) {
+  const d = donnees();
+  const roles = d.roles.filter((r) => r[0] === mail).map((r) => r[1]);
+  let fiche = d.profs.find((p) => avecMail(p) === mail);
+  if (!fiche) {
+    const local = mail.split('@')[0];
+    const point = local.indexOf('.');
+    const cle = point >= 0 ? simple(local.slice(point + 1)) : '';
+    const trouves = cle ? d.profs.filter((p) => simple(nomSeul(String(p.Title || ''))) === cle) : [];
+    if (trouves.length === 1 && !avecMail(trouves[0])) {
+      fiche = trouves[0];
+      // Relié pour de bon : ce nom ne pourra plus être choisi par quelqu'un d'autre.
+      ecrire(() => ecrireMail(String(fiche.Title), mail));
+    }
+  }
+  if (fiche) return { status: 200, nom: String(fiche.Title), roles };
+  // Pas la liste complète des noms : la personne cherche le sien (voir chercher).
+  return { status: 200, nom: '', roles, inconnu: true, libres: [] };
+}
+
+/**
+ * Pas encore reconnu : chercher son nom parmi ceux qui n'ont pas encore d'adresse. Au moins
+ * 3 lettres, 8 réponses au plus : on retrouve son nom sans pouvoir lire toute la liste du personnel.
+ */
+function chercher(mail, texte) {
+  const t = simple(texte);
+  if (t.length < 3) return { status: 200, noms: [] };
+  if (qui(mail).nom) return { status: 200, noms: [] };
+  const noms = donnees().profs.filter((p) => !avecMail(p) && simple(String(p.Title || '')).indexOf(t) >= 0).map((p) => String(p.Title)).sort().slice(0, 8);
+  return { status: 200, noms };
+}
+
+/** Écrit l'adresse dans la colonne Email de l'onglet Profs, sur la ligne de ce nom (s'il est libre). */
+function ecrireMail(nom, mail) {
+  const f = SpreadsheetApp.getActive().getSheetByName('Profs');
+  const t = tableau(f);
+  const iNom = t.entetes.indexOf('Title');
+  const iMail = t.entetes.indexOf('Email');
+  if (iNom < 0 || iMail < 0) return false;
+  const i = t.valeurs.findIndex((l) => String(l[iNom]) === nom);
+  if (i < 0) return false;
+  const actuel = String(t.valeurs[i][iMail] || '').trim();
+  if (actuel && actuel !== '0') return false;
+  f.getRange(i + 2, iMail + 1).setValue(mail);
+  return true;
+}
+
+/** « C'est moi » : relie l'adresse au nom choisi, seulement si ce nom n'a pas encore d'adresse. */
+function associer(mail, nom) {
+  return ecrire(() => {
+    const deja = qui(mail);
+    if (deja.nom) return deja;
+    const f = SpreadsheetApp.getActive().getSheetByName('Profs');
+    const t = tableau(f);
+    const iNom = t.entetes.indexOf('Title');
+    const iMail = t.entetes.indexOf('Email');
+    if (iNom < 0 || iMail < 0) return { status: 500, erreur: "L'onglet Profs doit avoir les colonnes Title et Email." };
+    const i = t.valeurs.findIndex((l) => String(l[iNom]) === nom);
+    if (i < 0) return { status: 404, erreur: 'Nom introuvable.' };
+    const actuel = String(t.valeurs[i][iMail] || '').trim();
+    if (actuel && actuel !== '0') return { status: 409, erreur: 'Ce nom est déjà relié à une autre adresse. Demande à la personne qui gère IPES App.' };
+    f.getRange(i + 2, iMail + 1).setValue(mail);
+    invalider();
+    return qui(mail);
+  });
+}
+
+// ---------- Lecture ----------
+
+function tableau(f) {
+  const n = f.getLastRow();
+  const c = f.getLastColumn();
+  if (n < 1 || c < 1) return { entetes: [], valeurs: [] };
+  const tout = f.getRange(1, 1, n, c).getValues();
+  return { entetes: tout[0].map((h) => String(h).trim()), valeurs: tout.slice(1) };
+}
+
+let fuseau = '';
+
+/** Une date de cellule → texte : « 2026-11-02 » pour un jour, ISO complet si une heure est là. */
+function texteDate(v) {
+  fuseau = fuseau || SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const h = Utilities.formatDate(v, fuseau, 'HH:mm:ss');
+  return h === '00:00:00' ? Utilities.formatDate(v, fuseau, 'yyyy-MM-dd') : Utilities.formatDate(v, fuseau, "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
+function valeur(v) {
+  if (Object.prototype.toString.call(v) === '[object Date]') return texteDate(v);
+  if (typeof v === 'string') {
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v.trim());
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  return v;
+}
+
+const pleine = (l) => l.some((x) => x !== '' && x !== null);
+
+function lignes(nom) {
+  const f = SpreadsheetApp.getActive().getSheetByName(nom);
+  if (!f) return [];
+  const t = tableau(f);
+  return t.valeurs.filter(pleine).map((l) => {
+    const o = {};
+    t.entetes.forEach((h, j) => { if (h) o[h] = valeur(l[j]); });
+    return o;
+  });
+}
+
+/** Une ligne remplie (hors ID et Version) qui n'a pas encore d'ID : ajoutée à la main. */
+function sansId(t, l) {
+  const iId = t.entetes.indexOf('ID');
+  const iV = t.entetes.indexOf('Version');
+  if (iId < 0 || (l[iId] !== '' && l[iId] !== null)) return false;
+  return l.some((x, j) => j !== iId && j !== iV && x !== '' && x !== null);
+}
+
+/** Donne un ID aux lignes ajoutées à la main (absences du matin…). Renvoie true si une ligne a changé. */
+function numeroter(f, t) {
+  const iId = t.entetes.indexOf('ID');
+  const iV = t.entetes.indexOf('Version');
+  if (iId < 0) return false;
+  let change = false;
+  t.valeurs.forEach((l, i) => {
+    if (sansId(t, l)) {
+      f.getRange(i + 2, iId + 1).setValue(Utilities.getUuid().slice(0, 13));
+      if (iV >= 0) f.getRange(i + 2, iV + 1).setValue(1);
+      change = true;
+    }
+  });
+  return change;
+}
+
+function preparerOnglet(nom, entetes, depart) {
+  const classeur = SpreadsheetApp.getActive();
+  if (!classeur.insertSheet || classeur.getSheetByName(nom) || !depart.length) return;
+  const f = classeur.insertSheet(nom);
+  f.appendRow(entetes);
+  f.getRange(2, 1, depart.length, entetes.length).setValues(depart.map((l) => entetes.map((_, i) => (l[i] === undefined ? '' : l[i]))));
+}
+
+/**
+ * Tout le Sheet sous une forme compacte (une ligne = un tableau de valeurs), gardé dans le cache.
+ * Le premier qui trouve le cache vide le reconstruit ; les autres lisent la copie.
+ */
+function donnees() {
+  const enCache = lireCache();
+  if (enCache) return enCache;
+  const c = cacheScript();
+  const g = c ? generation(c) : '';
+  // Rangement (onglets à créer, lots, IDs manquants) : seulement quand il y a quelque chose à faire.
+  const classeur = SpreadsheetApp.getActive();
+  const aFaire = () => (classeur.insertSheet && ((!classeur.getSheetByName('Stages') && STAGES_DEPART.length) || (!classeur.getSheetByName('Agenda') && AGENDA_DEPART.length))) || lotsEnAttente();
+  if (aFaire()) {
+    ecrire(() => {
+      preparerOnglet('Stages', ['Title', 'Du', 'Au', 'Stage'], STAGES_DEPART);
+      preparerOnglet('Agenda', ['Du', 'Au', 'Title', 'Heure'], AGENDA_DEPART);
+      importerLots();
+    });
+  }
+  const listes = {};
+  let profs = [];
+  let roles = [];
+  LISTES.forEach((nom) => {
+    const f = classeur.getSheetByName(nom);
+    if (!f) return;
+    let t = tableau(f);
+    if (t.valeurs.some((l) => sansId(t, l))) {
+      ecrire(() => numeroter(f, t));
+      t = tableau(f);
+    }
+    const garder = t.entetes.map((h, j) => (h && (CACHEES[nom] || []).indexOf(h) < 0 ? j : -1)).filter((j) => j >= 0);
+    const rangs = t.valeurs.filter(pleine).map((l) => garder.map((j) => valeur(l[j])));
+    const cols = garder.map((j) => t.entetes[j]);
+    if (nom === 'Profs') profs = rangs.map((l) => ({ Title: l[cols.indexOf('Title')], Email: cols.indexOf('Email') >= 0 ? l[cols.indexOf('Email')] : '' }));
+    if (nom === 'Roles') {
+      // Les rôles restent ici : chacun ne reçoit que les siens (voir listesPour).
+      roles = rangs.map((l) => [String(l[cols.indexOf('Title')] || '').trim().toLowerCase(), String(l[cols.indexOf('Role')] || '')]);
+      listes[nom] = { cols, lignes: [] };
+      return;
+    }
+    listes[nom] = { cols, lignes: rangs };
+  });
+  const d = { listes, profs, roles };
+  // Une écriture pendant la construction a changé la génération : cette copie n'est pas gardée.
+  ecrireCache(d, c && generation(c) === g ? g : '');
+  return d;
+}
+
+/** Les listes pour cette personne : tout, sauf les lignes Roles des autres. */
+function listesPour(mail) {
+  const d = donnees();
+  const listes = Object.assign({}, d.listes);
+  const mesRoles = d.roles.filter((r) => r[0] === mail);
+  if (listes.Roles) listes.Roles = { cols: ['Title', 'Role'], lignes: mesRoles.map((r) => [r[0], r[1]]) };
+  return listes;
+}
+
+// ---------- Cache (morceaux de 90 Ko : le cache Google limite chaque valeur à 100 Ko) ----------
+
+const CACHE_DUREE = 300;
+const MORCEAU = 90000;
+let memoire = null;
+
+/** La génération du cache : changée à chaque écriture, pour qu'une copie construite avant ne serve plus. */
+function generation(c) {
+  let g = c.get('d|g');
+  if (!g) {
+    g = Utilities.getUuid().slice(0, 8);
+    c.put('d|g', g, 21600);
+  }
+  return g;
+}
+
+function lireCache() {
+  if (memoire) return memoire;
+  const c = cacheScript();
+  if (!c) return null;
+  const [n0, g0] = String(c.get('d|n') || '').split('|');
+  const n = Number(n0 || 0);
+  if (!n || g0 !== generation(c)) return null;
+  const cles = Array.from({ length: n }, (_, i) => `d|${i}`);
+  const morceaux = c.getAll(cles);
+  if (cles.some((k) => typeof morceaux[k] !== 'string')) return null;
+  try {
+    memoire = JSON.parse(cles.map((k) => morceaux[k]).join(''));
+    return memoire;
+  } catch (e) {
+    return null;
+  }
+}
+
+function ecrireCache(d, g) {
+  memoire = d;
+  const c = cacheScript();
+  if (!c || !g) return;
+  const texte = JSON.stringify(d);
+  const o = {};
+  let n = 0;
+  for (let i = 0; i < texte.length; i += MORCEAU) o[`d|${n++}`] = texte.slice(i, i + MORCEAU);
+  try {
+    c.putAll(o, CACHE_DUREE);
+    c.put('d|n', `${n}|${g}`, CACHE_DUREE);
+  } catch (e) {
+    /* trop gros pour le cache : on relira le Sheet, c'est tout */
+  }
+}
+
+/** Après une écriture : la prochaine lecture relit le Sheet. */
+function invalider() {
+  memoire = null;
+  const c = cacheScript();
+  if (!c) return;
+  c.put('d|g', Utilities.getUuid().slice(0, 8), 21600);
+  c.remove('d|n');
+}
+
+/**
+ * Modification à la main dans le Sheet (absence du matin…) : le cache est vidé, l'app la voit
+ * tout de suite. Déclencheur simple : rien à installer.
+ */
+function onEdit() {
+  try {
+    invalider();
+  } catch (e) {
+    /* le cache expirera de lui-même */
+  }
+}
+
+// ---------- Lots (une seule fois) ----------
+
 function ajouterLignes(nom, lignesLot, cle) {
   const f = SpreadsheetApp.getActive().getSheetByName(nom);
   if (!f || !lignesLot.length) return 0;
@@ -50,9 +536,16 @@ function ajouterLignes(nom, lignesLot, cle) {
   const deja = new Set(lignes(nom).map(cle));
   const nouvelles = lignesLot.filter((o) => !deja.has(cle(o)));
   if (!nouvelles.length) return 0;
-  const valeurs = nouvelles.map((o) => t.entetes.map((h) => (o[h] === undefined ? '' : o[h])));
+  const avecId = t.entetes.indexOf('ID') >= 0;
+  const valeurs = nouvelles.map((o) => t.entetes.map((h) => (h === 'ID' && avecId ? Utilities.getUuid().slice(0, 13) : h === 'Version' ? 1 : o[h] === undefined ? '' : o[h])));
   f.getRange(f.getLastRow() + 1, 1, valeurs.length, t.entetes.length).setValues(valeurs);
   return nouvelles.length;
+}
+
+function lotsEnAttente() {
+  if (!LOTS.length || typeof PropertiesService === 'undefined') return false;
+  const props = PropertiesService.getScriptProperties();
+  return LOTS.some((lot) => lot.id && !props.getProperty(`lot-${lot.id}`));
 }
 
 /**
@@ -83,226 +576,10 @@ function retirerStages(nom) {
   for (let r = t.valeurs.length - 1; r >= 0; r--) if (String(t.valeurs[r][i]).trim() === nom) f.deleteRow(r + 2);
 }
 
-function preparerStages() {
-  const classeur = SpreadsheetApp.getActive();
-  if (classeur.getSheetByName('Stages')) return;
-  const f = classeur.insertSheet('Stages');
-  f.appendRow(['Title', 'Du', 'Au', 'Stage']);
-  STAGES_DEPART.forEach((l) => f.appendRow(l));
-}
-
-function doGet() {
-  return json({ ok: true, app: 'La Tour', message: 'Le script répond. Ouvre La Tour dans Teams.' });
-}
-
-function doPost(e) {
-  let q;
-  try {
-    q = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-  } catch (err) {
-    return json({ status: 400, erreur: 'Requête illisible.' });
-  }
-  if (q.cle !== CLE) return json({ status: 401, erreur: 'Clé refusée.' });
-  try {
-    const mail = String(q.mail || '').trim().toLowerCase();
-    if (!mail) return json({ status: 401, erreur: 'Adresse manquante : ouvre La Tour dans Teams.' });
-    if (q.action === 'qui') return json(qui(mail));
-    if (q.action === 'associer') return json(associer(mail, String(q.nom || '')));
-    const moi = qui(mail);
-    if (!moi.nom && !moi.roles.length) return json({ status: 403, erreur: 'Adresse inconnue.' });
-    if (q.action === 'lire') return json({ status: 200, moi, listes: toutLire() });
-    if (q.action === 'creer') return json(ecrire(() => creer(q.liste, q.fields || {}, mail)));
-    if (q.action === 'modifier') return json(ecrire(() => modifier(q.liste, q.id, q.fields || {}, q.etag, mail)));
-    if (q.action === 'supprimer') return json(ecrire(() => supprimer(q.liste, q.id)));
-    return json({ status: 400, erreur: 'Action inconnue.' });
-  } catch (err) {
-    return json({ status: 500, erreur: String(err && err.message ? err.message : err) });
-  }
-}
-
-function json(o) {
-  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
-}
-
-let verrouille = false;
-
-/** Une écriture à la fois (deux profs qui prennent le même élève). Réentrant : pas de double verrou. */
-function ecrire(f) {
-  if (verrouille) return f();
-  const verrou = LockService.getScriptLock();
-  verrou.waitLock(20000);
-  verrouille = true;
-  try {
-    return f();
-  } finally {
-    verrouille = false;
-    verrou.releaseLock();
-  }
-}
-
-// ---------- Qui est connecté ? ----------
-
-const simple = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-const nomSeul = (t) => (t.indexOf(' (') >= 0 ? t.slice(0, t.indexOf(' (')) : t);
-
-/**
- * Le prof qui correspond à cette adresse : la colonne Email de l'onglet Profs, sinon comme
- * Power Apps (prenom.nom@… → NOM), seulement si un seul prof correspond et qu'aucune autre
- * adresse ne l'a déjà pris. Renvoie aussi ses rôles (onglet Roles) et, s'il est inconnu, les noms
- * encore libres pour qu'il se reconnaisse.
- */
-function qui(mail) {
-  const profs = lignes('Profs');
-  const roles = lignes('Roles')
-    .filter((r) => String(r.Title || '').trim().toLowerCase() === mail)
-    .map((r) => String(r.Role || ''));
-  const avecMail = (p) => { const m = String(p.Email || '').trim().toLowerCase(); return m && m !== '0' ? m : ''; };
-  let fiche = profs.find((p) => avecMail(p) === mail);
-  if (!fiche) {
-    const local = mail.split('@')[0];
-    const point = local.indexOf('.');
-    const cle = point >= 0 ? simple(local.slice(point + 1)) : '';
-    const trouves = cle ? profs.filter((p) => simple(nomSeul(String(p.Title || ''))) === cle) : [];
-    if (trouves.length === 1 && !avecMail(trouves[0])) {
-      fiche = trouves[0];
-      // Relié pour de bon : ce nom ne pourra plus être choisi par quelqu'un d'autre.
-      ecrire(() => ecrireMail(String(fiche.Title), mail));
-    }
-  }
-  if (fiche) return { status: 200, nom: String(fiche.Title), roles };
-  const libres = profs.filter((p) => !avecMail(p)).map((p) => String(p.Title)).sort();
-  return { status: 200, nom: '', roles, inconnu: true, libres };
-}
-
-/** Écrit l'adresse dans la colonne Email de l'onglet Profs, sur la ligne de ce nom. */
-function ecrireMail(nom, mail) {
-  const f = SpreadsheetApp.getActive().getSheetByName('Profs');
-  const t = tableau(f);
-  const iNom = t.entetes.indexOf('Title');
-  const iMail = t.entetes.indexOf('Email');
-  if (iNom < 0 || iMail < 0) return false;
-  const i = t.valeurs.findIndex((l) => String(l[iNom]) === nom);
-  if (i < 0) return false;
-  f.getRange(i + 2, iMail + 1).setValue(mail);
-  return true;
-}
-
-/** « C'est moi » : relie l'adresse au nom choisi, seulement si ce nom n'a pas encore d'adresse. */
-function associer(mail, nom) {
-  return ecrire(() => {
-    const deja = qui(mail);
-    if (deja.nom) return deja;
-    const f = SpreadsheetApp.getActive().getSheetByName('Profs');
-    const t = tableau(f);
-    const iNom = t.entetes.indexOf('Title');
-    const iMail = t.entetes.indexOf('Email');
-    if (iNom < 0 || iMail < 0) return { status: 500, erreur: "L'onglet Profs doit avoir les colonnes Title et Email." };
-    const i = t.valeurs.findIndex((l) => String(l[iNom]) === nom);
-    if (i < 0) return { status: 404, erreur: 'Nom introuvable.' };
-    const actuel = String(t.valeurs[i][iMail] || '').trim();
-    if (actuel && actuel !== '0') return { status: 409, erreur: 'Ce nom est déjà relié à une autre adresse. Demande à la personne qui gère La Tour.' };
-    f.getRange(i + 2, iMail + 1).setValue(mail);
-    return qui(mail);
-  });
-}
-
-// ---------- Lecture ----------
-
-function tableau(f) {
-  const n = f.getLastRow();
-  const c = f.getLastColumn();
-  if (n < 1 || c < 1) return { entetes: [], valeurs: [] };
-  const tout = f.getRange(1, 1, n, c).getValues();
-  return { entetes: tout[0].map((h) => String(h).trim()), valeurs: tout.slice(1) };
-}
-
-/** Une date de cellule → texte : « 2026-11-02 » pour un jour, ISO complet si une heure est là. */
-function texteDate(v) {
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
-  const h = Utilities.formatDate(v, tz, 'HH:mm:ss');
-  return h === '00:00:00' ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : Utilities.formatDate(v, tz, "yyyy-MM-dd'T'HH:mm:ssXXX");
-}
-
-function valeur(v) {
-  if (Object.prototype.toString.call(v) === '[object Date]') return texteDate(v);
-  if (typeof v === 'string') {
-    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v.trim());
-    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  }
-  return v;
-}
-
-function lignes(nom) {
-  const f = SpreadsheetApp.getActive().getSheetByName(nom);
-  if (!f) return [];
-  const t = tableau(f);
-  return t.valeurs
-    .filter((l) => l.some((x) => x !== '' && x !== null))
-    .map((l) => {
-      const o = {};
-      t.entetes.forEach((h, j) => { if (h) o[h] = valeur(l[j]); });
-      return o;
-    });
-}
-
-/** Donne un ID aux lignes ajoutées à la main (absences du matin…). */
-function numeroter(f) {
-  const t = tableau(f);
-  const iId = t.entetes.indexOf('ID');
-  const iV = t.entetes.indexOf('Version');
-  if (iId < 0) return;
-  t.valeurs.forEach((l, i) => {
-    const vide = !l.some((x, j) => j !== iId && j !== iV && x !== '' && x !== null);
-    if (!vide && (l[iId] === '' || l[iId] === null)) {
-      f.getRange(i + 2, iId + 1).setValue(Utilities.getUuid().slice(0, 13));
-      if (iV >= 0) f.getRange(i + 2, iV + 1).setValue(1);
-    }
-  });
-}
-
-function item(o) {
-  const fields = {};
-  Object.keys(o).forEach((k) => { if (SYSTEME.indexOf(k) < 0 && o[k] !== '' && o[k] !== null) fields[k] = o[k]; });
-  if (o.Created) fields.Created = o.Created;
-  return {
-    id: String(o.ID),
-    eTag: `"${o.ID},${o.Version || 1}"`,
-    createdDateTime: o.Created || undefined,
-    lastModifiedDateTime: o.Modified || undefined,
-    createdBy: { user: { displayName: o.CreePar || '', email: o.CreePar || '' } },
-    lastModifiedBy: { user: { displayName: o.ModifiePar || '' } },
-    fields,
-  };
-}
-
-function toutLire() {
-  const classeur = SpreadsheetApp.getActive();
-  const sortie = {};
-  ecrire(() => {
-    if (classeur.insertSheet) preparerStages();
-    importerLots();
-    LISTES.forEach((nom) => { const f = classeur.getSheetByName(nom); if (f) numeroter(f); });
-  });
-  LISTES.forEach((nom) => {
-    const f = classeur.getSheetByName(nom);
-    if (!f) return;
-    const t = tableau(f);
-    sortie[nom] = {
-      colonnes: t.entetes.filter((h) => h && SYSTEME.indexOf(h) < 0),
-      // Onglet sans colonne ID (Horaires, Profs…) : la ligne sert d'identifiant (lecture seule).
-      items: lignes(nom)
-        .map((o, i) => (t.entetes.indexOf('ID') < 0 ? Object.assign({}, o, { ID: `L${i + 2}` }) : o))
-        .filter((o) => o.ID !== '' && o.ID !== undefined)
-        .map(item),
-    };
-  });
-  return sortie;
-}
-
 // ---------- Écriture ----------
 
 function feuille(nom) {
-  if (LISTES.indexOf(nom) < 0 || LECTURE_SEULE.indexOf(nom) >= 0) throw new Error(`Liste non modifiable : ${nom}`);
+  if (LISTES.indexOf(nom) < 0 || LECTURE_SEULE.indexOf(nom) >= 0 || !CHAMPS[nom]) throw new Error(`Liste non modifiable : ${nom}`);
   const f = SpreadsheetApp.getActive().getSheetByName(nom);
   if (!f) throw new Error(`Onglet introuvable : ${nom}`);
   return f;
@@ -315,41 +592,70 @@ function versCellule(v) {
   return v;
 }
 
+/** Ajoute les colonnes manquantes (seulement celles prévues pour la liste, et les colonnes système). */
 function colonnesAvec(f, t, champs) {
-  const manquantes = Object.keys(champs).filter((k) => k && t.entetes.indexOf(k) < 0 && SYSTEME.indexOf(k) < 0);
-  manquantes.forEach((k) => {
-    f.getRange(1, t.entetes.length + 1).setValue(k);
-    t.entetes.push(k);
-  });
-  SYSTEME.forEach((k) => {
-    if (t.entetes.indexOf(k) < 0) {
+  Object.keys(champs).concat(SYSTEME).forEach((k) => {
+    if (k && t.entetes.indexOf(k) < 0) {
       f.getRange(1, t.entetes.length + 1).setValue(k);
       t.entetes.push(k);
     }
   });
 }
 
-function creer(nom, champs, mail) {
+/**
+ * Deux personnes au même moment : le premier enregistré gagne. Même local à la même heure, ou même
+ * classe (ou même prof) déjà déplacée vers cette heure-là → refusé ; l'app relit et propose autre chose.
+ * (Le matériel a plusieurs exemplaires par rack : c'est l'app qui compte.)
+ */
+const CONFLITS = {
+  'Réservations': [[['DateRes', 'Heure', 'Local'], 'Ce local vient d’être réservé par quelqu’un d’autre.']],
+  Deplacements: [
+    [['DateDep', 'HeureVide', 'Classe'], 'Cette classe a déjà un cours proposé à cette heure-là.'],
+    [['DateDep', 'HeureVide', 'Collegue'], 'Tu as déjà proposé un cours à cette heure-là.'],
+  ],
+};
+
+/** Le message du conflit, ou '' s'il n'y en a pas. */
+function enConflit(nom, t, champs) {
+  const norm = (v) => String(valeur(v)).slice(0, 10).trim().toUpperCase();
+  const iS = t.entetes.indexOf('Statut');
+  const conflit = (CONFLITS[nom] || []).find(([cles]) => {
+    if (cles.some((k) => champs[k] === '' || champs[k] === undefined)) return false;
+    const idx = cles.map((k) => t.entetes.indexOf(k));
+    if (idx.some((i) => i < 0)) return false;
+    return t.valeurs.some((l) => idx.every((i, n) => norm(l[i]) === norm(versCellule(champs[cles[n]]))) && !(iS >= 0 && String(l[iS]) === 'Refusé'));
+  });
+  return conflit ? conflit[1] : '';
+}
+
+/** La ligne du Sheet sous forme d'objet (pour vérifier l'auteur, le statut…). */
+const objetLigne = (t, i) => Object.fromEntries(t.entetes.map((h, j) => [h, valeur(t.valeurs[i][j])]));
+
+function creer(nom, champs, mail, moi) {
   const f = feuille(nom);
+  autoriser('creer', nom, moi, mail, champs, null);
   const t = tableau(f);
+  const conflit = enConflit(nom, t, champs);
+  if (conflit) return { status: 409, erreur: conflit };
   colonnesAvec(f, t, champs);
   const maintenant = new Date().toISOString();
   const o = Object.assign({}, champs, { ID: Utilities.getUuid().slice(0, 13), Version: 1, Created: maintenant, CreePar: mail, Modified: maintenant, ModifiePar: mail });
   f.appendRow(t.entetes.map((h) => versCellule(o[h])));
-  return { status: 201, item: item(Object.assign({}, o, Object.fromEntries(Object.keys(champs).map((k) => [k, champs[k]])))) };
+  return { status: 201, item: { id: o.ID, eTag: `"${o.ID},1"`, createdDateTime: maintenant, lastModifiedDateTime: maintenant, createdBy: { user: { displayName: mail, email: mail } }, lastModifiedBy: { user: { displayName: mail } }, fields: Object.assign({ Created: maintenant }, champs) } };
 }
 
 function trouver(f, id) {
   const t = tableau(f);
   const iId = t.entetes.indexOf('ID');
-  const i = t.valeurs.findIndex((l) => String(l[iId]) === String(id));
+  const i = iId < 0 || !id ? -1 : t.valeurs.findIndex((l) => String(l[iId]) === String(id));
   return { t, i };
 }
 
-function modifier(nom, id, champs, etag, mail) {
+function modifier(nom, id, champs, etag, mail, moi) {
   const f = feuille(nom);
   const { t, i } = trouver(f, id);
   if (i < 0) return { status: 404, erreur: 'Élément introuvable.' };
+  autoriser('modifier', nom, moi, mail, champs, objetLigne(t, i));
   colonnesAvec(f, t, champs);
   const iV = t.entetes.indexOf('Version');
   const version = Number(t.valeurs[i][iV]) || 1;
@@ -362,10 +668,14 @@ function modifier(nom, id, champs, etag, mail) {
   return { status: 200, eTag: `"${id},${version + 1}"`, fields: champs };
 }
 
-function supprimer(nom, id) {
+function supprimer(nom, id, etag, mail, moi) {
   const f = feuille(nom);
-  const { i } = trouver(f, id);
-  if (i >= 0) f.deleteRow(i + 2);
+  const { t, i } = trouver(f, id);
+  if (i < 0) return { status: 204 };
+  autoriser('supprimer', nom, moi, mail, {}, objetLigne(t, i));
+  const version = Number(t.valeurs[i][t.entetes.indexOf('Version')]) || 1;
+  if (etag && etag !== `"${id},${version}"`) return { status: 412, erreur: 'Modifié entre-temps.' };
+  f.deleteRow(i + 2);
   return { status: 204 };
 }
 
@@ -398,14 +708,29 @@ function installerImportAbsences() {
 }
 
 function importerAbsencesMail() {
+  if (CLE.indexOf('__') === 0) return;
   const fils = GmailApp.search(`subject:"${OBJET_ABSENCES} ${CLE.slice(0, 8)}" is:unread has:attachment newer_than:2d`, 0, 5);
   if (!fils.length) return;
   // Le plus récent suffit : il contient tout.
   const messages = fils.flatMap((f) => f.getMessages()).filter((m) => m.isUnread());
+  if (!messages.length) return;
   messages.sort((a, b) => b.getDate() - a.getDate());
-  const piece = messages[0].getAttachments().find((p) => /\.xlsx$/i.test(p.getName()));
-  if (piece) ecrire(() => appliquerAbsencesExcel(lireClasseurXlsx(Utilities.unzip(piece.copyBlob())), new Date()));
+  try {
+    const piece = messages[0].getAttachments().find((p) => /\.xlsx$/i.test(p.getName()));
+    if (piece) ecrire(() => appliquerAbsencesExcel(lireClasseurXlsx(Utilities.unzip(piece.copyBlob())), new Date()));
+    else journaliser(0, [], 'Mail reçu sans fichier .xlsx');
+  } catch (err) {
+    // Un fichier illisible ne doit pas être relu toutes les 10 minutes : on le note et on passe.
+    journaliser(0, [], `Erreur : ${String(err && err.message ? err.message : err).slice(0, 200)}`);
+  }
   messages.forEach((m) => m.markRead());
+}
+
+function journaliser(ajoutees, inconnus, remarque) {
+  const classeur = SpreadsheetApp.getActive();
+  const journal = classeur.getSheetByName('Import') || classeur.insertSheet('Import');
+  if (journal.getLastRow() === 0) journal.appendRow(['Quand', 'Ajoutées', 'Nom non reconnu (date)', 'Remarque']);
+  journal.appendRow([new Date().toISOString(), ajoutees, inconnus.map(([d, n]) => `${n} (${d})`).join(', '), remarque || '']);
 }
 
 // ---------- Lecture d'un .xlsx (sans conversion) ----------
@@ -473,7 +798,7 @@ function lignesFeuille(xml, partages) {
 // ---------- De l'Excel aux absences ----------
 
 const PERIODES_MIN = [[0, 0], [505, 555], [560, 610], [625, 675], [675, 725], [725, 775], [775, 825], [825, 875], [885, 935], [935, 985]];
-const isoDate = (d) => Utilities.formatDate(d, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+const isoDate = (d) => Utilities.formatDate(d, (fuseau = fuseau || SpreadsheetApp.getActive().getSpreadsheetTimeZone()), 'yyyy-MM-dd');
 
 /** « Ma 03-11 » → date de l'année scolaire en cours (août à juillet). */
 function dateFeuille(nom, aujourdhui) {
@@ -589,26 +914,33 @@ function appliquerAbsencesExcel(classeur, maintenant) {
   const iT = t.entetes.indexOf('Title');
   const iD = t.entetes.indexOf('DateAbs');
   const iC = t.entetes.indexOf('CreePar');
+  const iDe = t.entetes.indexOf('DeH');
+  const iA = t.entetes.indexOf('AH');
   const deja = {};
   for (let r = t.valeurs.length - 1; r >= 0; r--) {
     const ligne = t.valeurs[r];
     const d = String(valeur(ligne[iD]) || '').slice(0, 10);
     if (!d || d < aujourdhui || d > fin) continue;
     const cle = `${String(ligne[iT]).trim()}|${d}`;
-    if (iC >= 0 && ligne[iC] === SOURCE_EXCEL && !voulues[cle]) f.deleteRow(r + 2); // retirée de l'Excel
-    else deja[cle] = true;
+    const excel = iC >= 0 && ligne[iC] === SOURCE_EXCEL;
+    if (excel && !voulues[cle]) f.deleteRow(r + 2); // retirée de l'Excel
+    else {
+      // Heures changées dans l'Excel : la ligne importée suit (une ligne encodée à la main, jamais).
+      if (excel && iDe >= 0 && iA >= 0 && (Number(ligne[iDe]) !== voulues[cle].DeH || Number(ligne[iA]) !== voulues[cle].AH)) {
+        f.getRange(r + 2, iDe + 1).setValue(voulues[cle].DeH);
+        f.getRange(r + 2, iA + 1).setValue(voulues[cle].AH);
+      }
+      deja[cle] = true;
+    }
   }
   const maintenantIso = new Date().toISOString();
-  const nouvelles = Object.keys(voulues).filter((k) => !deja[k]).map((k) => Object.assign({ Created: maintenantIso, CreePar: SOURCE_EXCEL, Version: 1 }, voulues[k]));
+  const nouvelles = Object.keys(voulues).filter((k) => !deja[k]).map((k) => Object.assign({ ID: Utilities.getUuid().slice(0, 13), Created: maintenantIso, CreePar: SOURCE_EXCEL, Version: 1 }, voulues[k]));
   if (nouvelles.length) {
     colonnesAvec(f, t, { Title: 1, DateAbs: 1, DeH: 1, AH: 1 });
     f.getRange(f.getLastRow() + 1, 1, nouvelles.length, t.entetes.length).setValues(nouvelles.map((o) => t.entetes.map((h) => (o[h] === undefined ? '' : o[h]))));
   }
 
   // Journal : ce qui a été fait, et les noms à vérifier.
-  const classeurG = SpreadsheetApp.getActive();
-  const journal = classeurG.getSheetByName('Import') || classeurG.insertSheet('Import');
-  if (journal.getLastRow() === 0) journal.appendRow(['Quand', 'Ajoutées', 'Nom non reconnu (date)']);
-  journal.appendRow([maintenantIso, nouvelles.length, inconnus.map(([d, n]) => `${n} (${d})`).join(', ')]);
+  journaliser(nouvelles.length, inconnus, '');
   return { ajoutees: nouvelles.length, inconnus };
 }

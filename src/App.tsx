@@ -99,7 +99,7 @@ function Coquille() {
           <span className="bulle-chargement">
             <Icon nom="etincelle" taille={30} />
           </span>
-          <p className="texte">Connexion à SharePoint…</p>
+          <p className="texte">{googleActif() ? 'Chargement de ton horaire…' : 'Connexion à SharePoint…'}</p>
         </section>
       ) : (
         vue
@@ -123,7 +123,7 @@ function NonAutorise() {
     <section className="ecran">
       <div className="carte">
         <h1 className="titre-l">Cet écran n’est pas ouvert à ton espace</h1>
-        <p className="texte">Il dépend de ton rôle dans la liste Roles du site SharePoint. Si c’est une erreur, demande à la direction de t’y ajouter.</p>
+        <p className="texte">Il dépend de ton rôle (onglet Roles). Si c’est une erreur, demande à la personne qui gère IPES App de t’y ajouter.</p>
         <a className="bouton bouton--prim" href={`#/${descProfil(profil).accueil}`}>
           Revenir à l’accueil
         </a>

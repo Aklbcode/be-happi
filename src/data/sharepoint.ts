@@ -2,10 +2,9 @@
 // Les données ne quittent pas Microsoft 365 : le navigateur parle directement à Graph.
 
 import { config } from '../config';
-import { jeton } from '../lib/auth';
 import { LOCAUX } from './locaux';
 import { jour, localDans, num, profilsAvec, reconnaitre, rolesDe, sansAccents, txt, val, versUtcMidi, ALIAS, type Champs } from './champs';
-import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement, Stage } from './types';
+import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement, Stage, DateEcole } from './types';
 import { iso, plusJoursIso } from '../lib/calendar';
 import { repondreSimulation, simulationActive } from './simulation';
 import { googleActif, repondreGoogle } from './google';
@@ -46,7 +45,8 @@ async function appel(url: string, init: RequestInit = {}): Promise<any> {
     if (r.status >= 400) throw new ErreurGraph(r.status, String(r.corps));
     return r.corps;
   }
-  const t = await jeton();
+  // MSAL (connexion Microsoft) n'est chargé que pour SharePoint : la version Google s'en passe.
+  const t = await (await import('../lib/auth')).jeton();
   const r = await fetch(url.startsWith('http') ? url : GRAPH + url, {
     ...init,
     headers: {
@@ -166,6 +166,12 @@ function versStages(it: Item): Stage[] {
     .map((classe) => ({ id: it.id, classe, du, au, titre }));
 }
 
+function versDateEcole(it: Item): DateEcole {
+  const C = config.champs.agenda;
+  const du = jour(val(it.fields, C.du));
+  return { du, au: jour(val(it.fields, C.au)) || du, titre: txt(val(it.fields, C.titre)), heure: txt(val(it.fields, C.heure)) || undefined };
+}
+
 function versSeance(it: Item): SeanceCR {
   const C = config.champs.capReussite;
   const o = txt(val(it.fields, C.origine));
@@ -270,9 +276,9 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
     };
   }
 
-  const [hor, abs, res, dep, inf, sig, dec, mat, chg, cr, rsl, stg] = await Promise.all([
+  const [hor, abs, res, dep, inf, sig, dec, mat, chg, cr, rsl, stg, agd] = await Promise.all([
     itemsDe(L.horaires), itemsDe(L.absences), itemsDe(L.reservations), itemsDe(L.deplacements), itemsDe(L.infos),
-    itemsDe(L.signalements), itemsDe(L.decisions), itemsDe(L.materiel), itemsDe(L.changements), itemsDe(L.capReussite), itemsDe(L.resultats), itemsDe(L.stages),
+    itemsDe(L.signalements), itemsDe(L.decisions), itemsDe(L.materiel), itemsDe(L.changements), itemsDe(L.capReussite), itemsDe(L.resultats), itemsDe(L.stages), itemsDe(L.agenda),
   ]);
 
   const cours: Cours[] = hor.map((it) => {
@@ -375,6 +381,7 @@ export async function chargerSharePoint(email: string, prenom: string): Promise<
     materiel,
     capReussite: cr.map(versSeance).filter((x) => x.date >= depuis),
     stages: stg.flatMap(versStages).filter((x) => x.du && x.au >= depuis),
+    agenda: agd.map(versDateEcole).filter((x) => x.du && x.titre && x.au >= depuis).sort((a, b) => a.du.localeCompare(b.du)),
     resultats: rsl.map(versResultat).filter((x) => x.eleve && x.matiere),
     absentes,
   };

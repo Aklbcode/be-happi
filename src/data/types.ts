@@ -180,6 +180,14 @@ export interface Resultat {
 }
 
 /** Une classe en stage (liste « Stages », facultative) : pas de cours pour elle du … au … inclus. */
+/** Une date importante de l'école (réunion de parents, bulletins, conseils, épreuves externes…). */
+export interface DateEcole {
+  du: string;          // AAAA-MM-JJ
+  au: string;          // AAAA-MM-JJ, inclus
+  titre: string;
+  heure?: string;      // « 16h45 – 19h30 »
+}
+
 export interface Stage {
   id?: string;
   classe: string;
@@ -218,6 +226,7 @@ export interface Dataset {
   capReussite?: SeanceCR[];
   /** Classes en stage (facultatif, liste « Stages »). */
   stages?: Stage[];
+  agenda?: DateEcole[];
   /** Résultats des bulletins (facultatif, liste « Resultats », personnel seulement). */
   resultats?: Resultat[];
   /** Listes absentes du site (clés de config.listes) : leurs écrans l'expliquent au lieu d'échouer. */

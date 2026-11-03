@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { iso, plusJours } from '../src/lib/calendar';
-import { lireParametre, utiliserReglagesGoogle, choixEnAttente, associer } from '../src/data/google';
+import { lireParametre, utiliserReglagesGoogle, choixEnAttente, associer, chercherNom } from '../src/data/google';
 import { chargerSharePoint, enregistrerReservation, modifierSeance, profil } from '../src/data/sharepoint';
 
 const CLE = 'cle-de-test-1234567890';
@@ -29,10 +29,11 @@ const classeur: Record<string, Cellule[][]> = {
     ['MARTIN (math)', 2, 4, '3GA', 'BC105', 'Histoire'],
   ],
   // Une absence tapée à la main : pas d'ID, une vraie date de cellule.
-  Absences: [['ID', 'Version', 'Title', 'DateAbs', 'DeH', 'AH'], ['', '', 'MARTIN (math)', new Date(`${J(1)}T00:00:00`), 1, 9]],
+  Absences: [['ID', 'Version', 'Title', 'DateAbs', 'DeH', 'AH', 'Motif'], ['', '', 'MARTIN (math)', new Date(`${J(1)}T00:00:00`), 1, 9, 'Médical']],
   Réservations: [['ID', 'Version', 'Title', 'DateRes', 'Heure', 'Local', 'Classe']],
   CapReussite: [['ID', 'Version', 'Title', 'Eleve', 'DateCR', 'Heure', 'Matiere', 'Origine', 'Statut', 'Prof', 'Local']],
-  Roles: [['Title', 'Role'], ['educ@ecole.example', 'Éducatrice']],
+  Roles: [['Title', 'Role'], ['educ@ecole.example', 'Éducatrice'], ['direction@ecole.example', 'Direction']],
+  Deplacements: [['ID', 'Version', 'Title', 'DateDep', 'HeureVide', 'Classe', 'Collegue', 'HeureOrigine', 'DateOrigine', 'Statut', 'Created', 'CreePar', 'Modified', 'ModifiePar']],
 };
 
 function feuille(nom: string) {
@@ -53,10 +54,20 @@ function feuille(nom: string) {
 }
 
 const deuxChiffres = (n: number) => String(n).padStart(2, '0');
+// Le cache Google (quelques minutes) : une Map suffit.
+const memoireCache = new Map<string, string>();
+const cache = {
+  get: (k: string) => memoireCache.get(k) ?? null,
+  getAll: (ks: string[]) => Object.fromEntries(ks.filter((k) => memoireCache.has(k)).map((k) => [k, memoireCache.get(k)])),
+  put: (k: string, v: string) => void memoireCache.set(k, v),
+  putAll: (o: Record<string, string>) => Object.entries(o).forEach(([k, v]) => memoireCache.set(k, v)),
+  remove: (k: string) => void memoireCache.delete(k),
+};
 const contexte = vm.createContext({
   SpreadsheetApp: { getActive: () => ({ getSheetByName: (n: string) => (classeur[n] ? feuille(n) : null), getSpreadsheetTimeZone: () => 'Europe/Brussels' }) },
   ContentService: { createTextOutput: (s: string) => ({ setMimeType: () => s }), MimeType: { JSON: 'json' } },
   LockService: { getScriptLock: () => ({ waitLock: () => undefined, releaseLock: () => undefined }) },
+  CacheService: { getScriptCache: () => cache },
   Utilities: {
     getUuid: () => `${Math.random().toString(16).slice(2, 10)}-${Math.random().toString(16).slice(2, 10)}`,
     // Le test tourne à l'heure locale de la machine : assez pour des dates à minuit.
@@ -81,10 +92,14 @@ test('le réglage « ID~clé » se lit, et rien d’autre', () => {
   assert.equal(lireParametre(''), null);
 });
 
-test('le script refuse une mauvaise clé et une adresse inconnue', () => {
+test('le script refuse une mauvaise clé ; une adresse inconnue ne reçoit aucune liste', () => {
   assert.equal(appeler({ action: 'lire', cle: 'faux', mail: 'luc.lambert@ecole.example' }).status, 401);
-  assert.equal(appeler({ action: 'lire', cle: CLE, mail: 'eleve.x@ecole.example' }).status, 403);
+  const inconnu = appeler({ action: 'lire', cle: CLE, mail: 'eleve.x@ecole.example' });
+  assert.equal(inconnu.listes, undefined);
+  assert.equal(inconnu.moi.inconnu, true);
+  assert.equal(appeler({ action: 'creer', cle: CLE, mail: 'eleve.x@ecole.example', liste: 'Réservations', fields: { Title: 'X' } }).status, 403);
   assert.equal(appeler({ action: 'lire', cle: CLE, mail: '' }).status, 401);
+  assert.equal(appeler({ action: 'lire', cle: CLE, mail: 'pas une adresse' }).status, 401);
 });
 
 test('le script ne laisse jamais modifier l’horaire ni la liste des profs', () => {
@@ -128,7 +143,10 @@ test('une écriture arrive dans le Sheet ; une modification croisée est refusé
 test('un nom en double : le prof choisit le sien une fois, puis il est reconnu', async () => {
   utiliserReglagesGoogle({ script: 'AKfycbxTESTTESTTESTTEST', cle: CLE }, envoi, 'jean.martin@ecole.example');
   await assert.rejects(chargerSharePoint('jean.martin@ecole.example', 'Jean'), /CHOIX_PROF/);
-  assert.deepEqual(choixEnAttente()?.libres, ['MARTIN (math)', 'MARTIN (sport)']);
+  // Pas de liste complète : on cherche son nom (3 lettres au moins).
+  assert.deepEqual(choixEnAttente()?.libres, []);
+  assert.deepEqual(await chercherNom('ma'), []);
+  assert.deepEqual(await chercherNom('martin'), ['MARTIN (math)', 'MARTIN (sport)']);
   await associer('MARTIN (math)');
   const ds = await chargerSharePoint('jean.martin@ecole.example', 'Jean');
   assert.equal(ds.moi.nom, 'MARTIN (math)');
@@ -170,4 +188,84 @@ test('une coupure réseau à la lecture est retentée ; une écriture ne l’est
   }, 'luc.lambert@ecole.example');
   await assert.rejects(enregistrerReservation({ prof: 'LAMBERT', date: J(3), h: 2, local: 'BF110', classe: '5TQB' }), /Pas de connexion/);
   assert.equal(ecritures, 1);
+});
+
+// ---------- Sécurité et droits ----------
+
+const prof = 'luc.lambert@ecole.example';
+const educ = 'educ@ecole.example';
+const lire = (mail: string) => appeler({ action: 'lire', cle: CLE, mail });
+const creerX = (mail: string, liste: string, fields: Record<string, unknown>) => appeler({ action: 'creer', cle: CLE, mail, liste, fields });
+
+test('ni motif d’absence, ni rôles des autres dans ce qui est envoyé', () => {
+  const r = lire(prof);
+  assert.ok(!r.listes.Absences.cols.includes('Motif'));
+  assert.equal(r.listes.Roles.lignes.length, 0);
+  assert.deepEqual(lire(educ).listes.Roles.lignes, [[educ, 'Éducatrice']]);
+});
+
+test('une formule ne passe jamais dans le Sheet ; colonnes système et inconnues refusées', () => {
+  const r = creerX(prof, 'Réservations', { Title: 'LAMBERT', Local: '=IMPORTXML("https://x.example";"//a")', Classe: '+cmd', CreePar: 'autre@ecole.example', Pirate: 'x' });
+  assert.equal(r.status, 201);
+  const e = classeur.Réservations[0];
+  const ligne = classeur.Réservations[classeur.Réservations.length - 1];
+  assert.equal(ligne[e.indexOf('Local')], `'=IMPORTXML("https://x.example";"//a")`);
+  assert.equal(ligne[e.indexOf('Classe')], "'+cmd");
+  assert.equal(ligne[e.indexOf('CreePar')], prof);
+  assert.ok(!e.includes('Pirate'));
+});
+
+test('un prof ne réserve que pour lui et ne supprime pas la réservation d’un autre', () => {
+  assert.equal(creerX(prof, 'Réservations', { Title: 'MARTIN (math)', Local: 'BF110' }).status, 403);
+  const r = creerX(educ, 'Réservations', { Title: 'MARTIN (math)', Local: 'BC105' });
+  assert.equal(r.status, 201);
+  assert.equal(appeler({ action: 'supprimer', cle: CLE, mail: prof, liste: 'Réservations', id: r.item.id }).status, 403);
+  assert.equal(appeler({ action: 'supprimer', cle: CLE, mail: educ, liste: 'Réservations', id: r.item.id }).status, 204);
+});
+
+test('déplacements : le prof propose pour lui, seul l’éducateur valide', () => {
+  const base = { Title: 'MARTIN (math)', DateDep: J(2), HeureVide: 4, Classe: '5TQB', HeureOrigine: 3, DateOrigine: J(3) };
+  assert.equal(creerX(prof, 'Deplacements', { ...base, Collegue: 'LAMBERT', Statut: 'Validé' }).status, 403);
+  assert.equal(creerX(prof, 'Deplacements', { ...base, Collegue: 'MARTIN (sport)', Statut: 'En attente' }).status, 403);
+  const p = creerX(prof, 'Deplacements', { ...base, Collegue: 'LAMBERT', Statut: 'En attente' });
+  assert.equal(p.status, 201);
+  assert.equal(appeler({ action: 'modifier', cle: CLE, mail: prof, liste: 'Deplacements', id: p.item.id, fields: { Statut: 'Validé' } }).status, 403);
+  assert.equal(appeler({ action: 'modifier', cle: CLE, mail: educ, liste: 'Deplacements', id: p.item.id, fields: { Statut: 'Validé' }, etag: p.item.eTag }).status, 200);
+  // Validé : le prof ne peut plus le retirer lui-même.
+  assert.equal(appeler({ action: 'supprimer', cle: CLE, mail: prof, liste: 'Deplacements', id: p.item.id }).status, 403);
+  // Une version dépassée est refusée.
+  assert.equal(appeler({ action: 'supprimer', cle: CLE, mail: educ, liste: 'Deplacements', id: p.item.id, etag: p.item.eTag }).status, 412);
+});
+
+test('absences : réservées à la gestion (éducateurs, secrétariat, direction)', () => {
+  assert.equal(creerX(prof, 'Absences', { Title: 'MARTIN (math)', DateAbs: J(4), DeH: 1, AH: 9 }).status, 403);
+  assert.equal(creerX('direction@ecole.example', 'Absences', { Title: 'MARTIN (math)', DateAbs: J(4), DeH: 1, AH: 9 }).status, 201);
+});
+
+test('le cache suit les écritures et les modifications à la main', () => {
+  const avant = lire(prof).listes.Absences.lignes.length;
+  creerX(educ, 'Absences', { Title: 'LAMBERT', DateAbs: J(5), DeH: 2, AH: 3 });
+  assert.equal(lire(prof).listes.Absences.lignes.length, avant + 1);
+  // Ajout à la main dans le Sheet, puis le déclencheur onEdit : visible tout de suite, avec un ID.
+  classeur.Absences.push(['', '', 'LAMBERT', J(6), 1, 2, '']);
+  assert.equal(lire(prof).listes.Absences.lignes.length, avant + 1, 'sans onEdit : la copie en cache');
+  (contexte.onEdit as () => void)();
+  const apres = lire(prof).listes.Absences;
+  assert.equal(apres.lignes.length, avant + 2);
+  assert.ok(apres.lignes.every((l: unknown[]) => String(l[apres.cols.indexOf('ID')]).length > 5));
+});
+
+test('un script collé sans sa clé ne répond à personne', () => {
+  const c2 = vm.createContext({ ...contexte });
+  vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8'), c2);
+  assert.equal(JSON.parse((c2.doPost as (e: unknown) => string)({ postData: { contents: JSON.stringify({ action: 'lire', cle: '__CLE__', mail: prof }) } })).status, 503);
+});
+
+test('deux réservations du même local à la même heure : la seconde est refusée', () => {
+  const r = { Title: 'LAMBERT', DateRes: `${J(9)}T12:00:00Z`, Heure: 3, Local: 'BF220' };
+  assert.equal(creerX(prof, 'Réservations', r).status, 201);
+  const deux = creerX(educ, 'Réservations', { ...r, Title: 'MARTIN (math)' });
+  assert.equal(deux.status, 409);
+  assert.match(deux.erreur, /vient d’être réservé/);
+  assert.equal(creerX(prof, 'Réservations', { ...r, Heure: 4 }).status, 201);
 });

@@ -45,10 +45,12 @@ export const config = {
     resultats: 'Resultats',
     /** FACULTATIVE : les classes en stage (une ligne par classe et par période). */
     stages: 'Stages',
+    /** FACULTATIVE : les dates importantes de l'école (réunions de parents, bulletins, conseils…). */
+    agenda: 'Agenda',
   },
 
   /** Listes dont l'absence n'est pas une erreur. */
-  listesFacultatives: ['decisions', 'capReussite', 'resultats', 'stages'] as string[],
+  listesFacultatives: ['decisions', 'capReussite', 'resultats', 'stages', 'agenda'] as string[],
   /** Colonnes dont l'absence n'est pas une erreur (liste → champs de config.champs). */
   colonnesFacultatives: { signalements: ['reponse', 'urgence'], absences: ['motif'], reservations: ['absent'] } as Record<string, string[]>,
 
@@ -107,6 +109,7 @@ export const config = {
     },
     resultats: { eleve: 'Title', eleveMail: 'EleveMail', classe: 'Classe', matiere: 'Matiere', periode: 'Periode', echec: 'EnEchec' },
     stages: { classe: 'Title', du: 'Du', au: 'Au', titre: 'Stage' },
+    agenda: { titre: 'Title', du: 'Du', au: 'Au', heure: 'Heure' },
   },
 };
 

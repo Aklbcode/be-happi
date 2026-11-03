@@ -112,15 +112,19 @@ Onglet **Réussite** (prof, élève, direction ; dans École pour les autres).
 
 ## Version Google Sheets (sans inscription Microsoft)
 
-En attendant l'inscription de l'app par l'IT, La Tour peut lire un **Google Sheet privé** au lieu de SharePoint.
+En attendant l'inscription de l'app par l'IT, IPES App peut lire un **Google Sheet privé** au lieu de SharePoint.
 
 - Un onglet par liste, mêmes noms et mêmes colonnes que les listes SharePoint (Horaires, Profs, Absences, Réservations…). Les colonnes ID, Version, Created, CreePar, Modified et ModifiePar sont gérées par le script.
 - Le script `google/Code.gs` est collé dans le Sheet (Extensions → Apps Script), avec une clé secrète à la place de `__CLE__`. Il est déployé en **application Web** : exécuter en tant que « moi », accès « tout le monde ».
 - Le paquet Teams porte l'adresse du script et la clé : `python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/ --google "https://script.google.com/macros/s/<ID>/exec~<clé>"`. **À ne partager qu'avec les profs.**
 - Dans Teams, l'app demande à Teams l'adresse du prof connecté. Le script la reconnaît (colonne Email, sinon prenom.nom@ comme Power Apps) ; sinon le prof choisit son nom une fois, et l'adresse est écrite dans l'onglet Profs. Hors de Teams, personne n'est reconnu.
-- Horaires, Profs, Roles, HorairesEleves et Resultats ne sont jamais modifiés par l'app. Les absences peuvent être tapées directement dans le Sheet : elles reçoivent leur ID au chargement suivant.
+- Horaires, Profs, Roles, HorairesEleves, Resultats, Stages et Agenda ne sont jamais modifiés par l'app. Les absences peuvent être tapées directement dans le Sheet : elles reçoivent leur ID au chargement suivant.
 - Onglet **Stages** (Title = classe, Du, Au, Stage) : une classe en stage n'a plus cours ; ses heures deviennent libres pour le prof (horaire, locaux, déplacements). Créé par le script s'il manque.
-- Limites : l'adresse donnée par Teams n'est pas vérifiée par Microsoft (la clé protège l'accès) ; Power Apps ne voit pas ces données.
+- Onglet **Agenda** (Du, Au, Title, Heure) : les dates importantes de l'école (réunions de parents, bulletins, conseils, épreuves externes). Affichées dans « À l'école aujourd'hui », avec les sorties (lignes Stages dont le nom n'est pas « Stage ») et les profs absents quand ils sont plusieurs. Jamais de motif.
+- **Rapidité** : une seule demande par ouverture ; les listes sont envoyées sous forme compacte (≈ 4 fois moins lourd) et gardées 5 minutes dans le cache Google. Toute écriture, tout import et toute modification à la main dans le Sheet (déclencheur `onEdit`) vident ce cache.
+- **Droits vérifiés par le script** (pas seulement par l'app) : absences, infos et changements réservés aux éducateurs, au secrétariat et à la direction ; un prof ne propose un déplacement que pour lui, « En attente », et ne le retire que tant qu'il attend ; seuls éducateurs et secrétariat valident ; chacun ne réserve que pour soi. Deux réservations du même local à la même heure : la seconde est refusée (409), l'app relit.
+- **Garde-fous** : colonnes permises liste par liste (les colonnes système ne s'écrivent jamais depuis l'app) ; aucune formule ne peut entrer dans le Sheet (`=`, `+`, `@`… sont neutralisés) ; pas de motif d'absence envoyé ; chacun ne reçoit que ses propres rôles ; une adresse inconnue ne reçoit aucune liste et cherche son nom (3 lettres, 8 réponses au plus) ; 90 demandes par minute au plus par adresse ; chaque nouvel appareil d'une adresse est noté dans l'onglet **Appareils** ; un script collé sans sa clé ne répond à personne.
+- Limites : l'adresse donnée par Teams n'est pas vérifiée par Microsoft. La clé protège l'accès ; quelqu'un qui l'obtient pourrait se faire passer pour un collègue (l'onglet Appareils permet de le repérer). La vraie parade est la connexion Microsoft (SSO), qui demande l'IT. Power Apps ne voit pas ces données.
 
 ## Décale : le meilleur plan de déplacements de ta semaine
 

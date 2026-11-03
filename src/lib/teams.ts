@@ -11,12 +11,15 @@ export function dansTeams(): Promise<boolean> {
       const indice = new URLSearchParams(window.location.search).has('inTeams');
       if (!indice) return false;
       try {
+        // Teams sur téléphone peut mettre quelques secondes à répondre au démarrage.
         await Promise.race([
           app.initialize(),
-          new Promise((_, refus) => setTimeout(() => refus(new Error('délai dépassé')), 2500)),
+          new Promise((_, refus) => setTimeout(() => refus(new Error('délai dépassé')), 6000)),
         ]);
         return true;
       } catch {
+        // Pas de réponse à temps : on réessaiera au prochain appel au lieu de rester « hors Teams ».
+        promesse = null;
         return false;
       }
     })();

@@ -335,6 +335,10 @@ export function datasetDemo(moment: Date): Dataset {
     resultats,
     // La 3GB en stage cette semaine (classes inventées) : ses heures deviennent libres.
     stages: [{ id: 'st-1', classe: '3GB', du: lundi, au: j(4), titre: 'Stage' }],
+    agenda: [
+      { du: j(3), au: j(3), titre: 'Réunion de parents', heure: '16h45 – 19h30' },
+      { du: j(8), au: j(8), titre: 'Bulletins' },
+    ],
     absentes: [],
   };
   // Publiée à 8h05 par le secrétariat, avant les propositions du matin.
