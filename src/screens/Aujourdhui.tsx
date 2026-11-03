@@ -338,11 +338,13 @@ export function Aujourdhui() {
             </div>
           </div>
         ))}
-        <div className="carte carte--grise">
-          <span className="petit fort">Blague du jour</span>
-          <p className="texte" style={{ color: 'var(--encre)' }}>{blagueDuJour(maintenant)}</p>
-        </div>
       </section>}
+
+      {/* La blague du jour, avec ou sans infos du jour. */}
+      <div className="carte carte--grise">
+        <span className="petit fort">Blague du jour</span>
+        <p className="texte" style={{ color: 'var(--encre)' }}>{blagueDuJour(maintenant)}</p>
+      </div>
 
       <Feuille ouverte={remedOuverte} onFermer={() => setRemedOuverte(false)} titre="Classes à l'étude">
         <h2 className="titre-l">Remédiation au lieu de l'étude</h2>

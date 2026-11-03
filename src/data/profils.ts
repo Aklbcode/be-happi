@@ -35,8 +35,8 @@ export const PROFILS: DescriptionProfil[] = [
     // Version de test : on ouvre sur la semaine.
     accueil: 'horaire',
     onglets: [
-      { ecran: 'horaire', libelle: 'Horaire', icone: 'calendrier' },
       { ecran: 'aujourdhui', libelle: "Aujourd'hui", icone: 'soleil' },
+      { ecran: 'horaire', libelle: 'Horaire', icone: 'calendrier' },
       HAPPI,
       CAP,
       ECOLE,
