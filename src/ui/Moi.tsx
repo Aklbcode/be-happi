@@ -13,6 +13,7 @@ import { indiceTeams } from '../lib/reglages';
 import { CeQuiCompte } from './CeQuiCompte';
 import { ecranActif } from '../options';
 import { googleActif } from '../data/google';
+import { exporterAgenda } from '../logic/agenda';
 
 const Ctx = createContext<{ ouvrir: () => void }>({ ouvrir: () => {} });
 
@@ -80,7 +81,7 @@ export function MoiProvider({ children }: { children: ReactNode }) {
 }
 
 function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void }) {
-  const { ds, demo, profil, profils, changerProfil, peutVoirValidations } = useStore();
+  const { ds, demo, profil, profils, changerProfil, peutVoirValidations, maintenant, montrerToast } = useStore();
   const [theme, setTheme] = useState<Theme>(themeEnregistre);
   if (!ds) return null;
   const nom = ds.moi.nom ? `${ds.moi.prenom} ${nomAffiche(ds.moi.nom)}` : ds.moi.prenom || 'Élève';
@@ -136,6 +137,26 @@ function FeuilleMoi({ ouverte, fermer }: { ouverte: boolean; fermer: () => void 
           </span>
           <Icon nom="droite" />
         </a>
+      )}
+
+      {profils.includes('prof') && (
+        <button
+          className="carte carte--lien"
+          onClick={() => {
+            exporterAgenda(ds, maintenant);
+            fermer();
+            montrerToast('Agenda téléchargé : ouvre le fichier pour l’ajouter à Outlook');
+          }}
+        >
+          <span className="vignette">
+            <Icon nom="agenda" />
+          </span>
+          <span className="pile grandit">
+            <span className="titre-s">Ajouter à mon agenda</span>
+            <span className="petit">Mes cours des 4 prochaines semaines, dans Outlook ou sur le téléphone</span>
+          </span>
+          <Icon nom="droite" />
+        </button>
       )}
 
       {profils.includes('prof') && <CeQuiCompte />}

@@ -5,7 +5,6 @@ import { useStore } from '../data/store';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { Entete } from '../ui/Entete';
-import { calendrierIcs, joursDeCours, telecharger, type Evenement } from '../lib/ics';
 import { absentA, coursDuProf, coursSansProf, nomAffiche, type CoursJour, enStage, sansStage } from '../logic/horaire';
 import { opportunitesSemaine, optionsPour } from '../logic/deplacements';
 import { JOURS, JOURS_COURTS, MIDI, PERIODES, conge, deIso, iso, jourSemaine, jourSemaineIso, lundiDe, periode, plusJours, plusJoursIso, situation } from '../lib/calendar';
@@ -36,6 +35,14 @@ interface Fleche {
 }
 
 const CLE_FLECHES = 'behappi-fleches';
+const CLE_AIDE = 'behappi-aide-horaire';
+const aideVue = (): boolean => {
+  try {
+    return localStorage.getItem(CLE_AIDE) === '1';
+  } catch {
+    return false;
+  }
+};
 const flechesVisibles = (): boolean => {
   try {
     // Par défaut, pas de flèches : la semaine reste lisible ; un toucher sur une case les montre.
@@ -55,6 +62,9 @@ export function Horaire() {
   });
   const [decalage, setDecalage] = useState(depart);
   const [toutesFleches, setToutesFleches] = useState(flechesVisibles);
+  // L'aide sous la grille disparaît dès qu'on a touché une heure libérée une première fois.
+  const [aide, setAide] = useState(() => !aideVue());
+  const [sens, setSens] = useState(0);
   // Version de test : toujours la semaine, toujours « Moi » (une classe ou un local : « Où est ? »).
   const mode = 'semaine' as 'semaine' | 'jour';
   const [jourIdx, setJourIdx] = useState<number | null>(null);
@@ -309,31 +319,45 @@ export function Horaire() {
     }
     if ((c.type === 'possible' || c.type === 'etoile' || (c.type === 'libre-maint' && c.nb)) && c.nb) {
       setSel(sel && sel.date === c.date && sel.h === c.h ? null : { date: c.date, h: c.h });
+      if (aide) {
+        setAide(false);
+        try {
+          localStorage.setItem(CLE_AIDE, '1');
+        } catch {
+          /* rien */
+        }
+      }
     } else setSel(null);
   }
 
   const changerSemaine = (n: number) => {
     setDecalage((d) => d + n);
+    setSens(n);
     setSel(null);
     setJourIdx(null);
   };
 
   const colStyle = (i: number) => ({ left: `calc(46px + ${i} * ((100% - 62px) / 5 + 4px))`, width: 'calc((100% - 62px) / 5)' });
 
-  function exporterAgenda() {
-    if (!ds) return;
-    const evenements: Evenement[] = [];
-    for (const d of joursDeCours(maintenant, 4)) {
-      for (const c of coursDuProf(ds, moi, d)) {
-        evenements.push({ uid: `${moi}-${d}-${c.h}`, date: d, hDebut: c.h, hFin: c.h, titre: `${c.classe}${c.matiere ? ` · ${c.matiere}` : ''}`, lieu: c.local, description: c.deplace ? 'Cours déplacé (validé)' : `H${c.h}` });
-      }
-    }
-    telecharger('mon-horaire.ics', calendrierIcs(`Horaire · ${ds.moi.prenom} ${nomAffiche(moi)}`, evenements));
-    montrerToast('Agenda téléchargé : ouvre le fichier pour l’ajouter à Outlook');
-  }
 
   return (
-    <section className="ecran ecran--large ecran--horaire" aria-label="Horaire">
+    <section
+      className="ecran ecran--large ecran--horaire"
+      aria-label="Horaire"
+      // Glisser du doigt vers la gauche ou la droite : semaine suivante ou précédente (partout sur l'écran).
+      onTouchStart={(e) => {
+        if (!e.currentTarget.contains(e.target as Node)) return; // une feuille ouverte (portail) : pas ici
+        doigt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }}
+      onTouchEnd={(e) => {
+        const d = doigt.current;
+        doigt.current = null;
+        if (!d || ignorerClic.current || glisse.current?.actif || !e.currentTarget.contains(e.target as Node)) return;
+        const dx = e.changedTouches[0].clientX - d.x;
+        const dy = e.changedTouches[0].clientY - d.y;
+        if (Math.abs(dx) >= 60 && Math.abs(dx) > 2 * Math.abs(dy)) changerSemaine(dx < 0 ? 1 : -1);
+      }}
+    >
       <Entete
         titre={libelleSemaine}
         sous={vue === 'moi' ? undefined : vue === 'classe' ? `Horaire de la ${classeVue}` : `Occupation de ${salleVue}`}
@@ -443,7 +467,7 @@ export function Horaire() {
       </div>
 
       <div
-        className={`grille${fantome ? ' grille--glisse' : ''}`}
+        className={`grille${fantome ? ' grille--glisse' : ''}${sens ? (sens > 0 ? ' grille--suivante' : ' grille--precedente') : ''}`}
         key={lundi}
         ref={grilleRef}
         onPointerLeave={() => !glisse.current?.actif && setSurvol(null)}
@@ -451,15 +475,6 @@ export function Horaire() {
         onPointerMove={bougeGlisse}
         onPointerUp={(e) => finGlisse(e)}
         onPointerCancel={(e) => finGlisse(e, true)}
-        onTouchStart={(e) => (doigt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
-        onTouchEnd={(e) => {
-          const d = doigt.current;
-          doigt.current = null;
-          if (!d || ignorerClic.current || glisse.current?.actif) return;
-          const dx = e.changedTouches[0].clientX - d.x;
-          const dy = e.changedTouches[0].clientY - d.y;
-          if (Math.abs(dx) >= 70 && Math.abs(dx) > 2 * Math.abs(dy)) changerSemaine(dx < 0 ? 1 : -1);
-        }}
       >
         {fantome && (
           <div className="fantome" style={{ transform: `translate(${fantome.x}px, ${fantome.y}px)` }}>
@@ -540,22 +555,7 @@ export function Horaire() {
       </>
       )}
 
-      <button className="bouton bouton--sec" onClick={exporterAgenda}>
-        <Icon nom="agenda" taille={18} /> Ajouter à mon agenda
-      </button>
-      <div className="legende">
-        {vue === 'moi' ? (
-          <>
-            <span><i className="carre" style={{ background: 'var(--surface)', border: '1px solid var(--trait)' }} />Cours</span>
-            <span><i className="carre" style={{ background: 'var(--orange-pale-2)', border: '2px dashed var(--orange)' }} />Heure libérée</span>
-            <span><i className="carre" style={{ background: 'var(--orange-pale)', border: '2px solid var(--orange)' }} />Proposé</span>
-            <span><i className="carre" style={{ background: 'var(--indigo)' }} />Déplacé</span>
-          </>
-        ) : (
-          <span>{vue === 'classe' ? 'Touche « Moi » pour revenir à ton horaire.' : 'Les réservations apparaissent en orange.'}</span>
-        )}
-      </div>
-      {vue === 'moi' && !sel && mode === 'semaine' && (
+      {vue === 'moi' && !sel && mode === 'semaine' && (aide || toutesFleches) && (
         <div className="rangee rangee--entre enrouler">
           <p className="petit grandit" style={{ margin: 0 }}>
             {meilleures.length
@@ -725,8 +725,8 @@ function CaseHoraire({ c, cible, origine, mobile, onClick, cliquable, onSurvol }
     case 'stage':
       // Classe en stage : l'heure est libre, on le rappelle sans attirer l'œil.
       return (
-        <div className={`case case--stage${extra}`} {...commun} title={`${c.haut} en stage : heure libre`}>
-          <span>{c.haut}</span>
+        <div className={`case case--stage${extra}`} {...commun} title={`${c.haut} en stage : heure libre`} aria-label={`${c.haut} en stage`}>
+          <span>stage</span>
         </div>
       );
     case 'libre-maint':

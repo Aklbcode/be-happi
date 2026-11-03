@@ -926,3 +926,20 @@ a.puce--demo { text-decoration: none; }
 
 /* Coupure réseau alors que l'horaire est déjà là : un rappel discret en bas, pas une alerte. */
 .toast--haut.toast--doux { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); background: var(--surface-2); color: var(--texte-2); border: 1px solid var(--trait); box-shadow: none; font-size: 13px; font-weight: 500; padding: 8px 12px; }
+
+/* Horaire : changement de semaine au doigt, avec un court glissé. */
+@keyframes depuis-droite { from { transform: translateX(28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes depuis-gauche { from { transform: translateX(-28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.grille--suivante { animation: depuis-droite 0.22s ease-out; }
+.grille--precedente { animation: depuis-gauche 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) { .grille--suivante, .grille--precedente { animation: none; } }
+.case--stage span { font-family: var(--police); font-size: 11px; font-style: italic; color: var(--discret); }
+.case--stage { text-decoration: none; }
+
+/* À remarquer : une ligne par constat, le détail au toucher. */
+.remarque--compacte { flex-direction: column; gap: 0; padding: 0; }
+.remarque-tete { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; min-height: 52px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.remarque-tete .vignette { width: 32px; height: 32px; }
+.remarque-fleche { color: var(--discret); transition: transform 0.15s ease; display: flex; }
+.remarque--ouverte .remarque-fleche { transform: rotate(90deg); }
+.remarque-corps { gap: 6px; padding: 0 14px 14px 58px; }
