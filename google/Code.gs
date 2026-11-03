@@ -1019,7 +1019,8 @@ function occasionsDe(nouvelles, maintenant) {
   fuseau = fuseau || SpreadsheetApp.getActive().getSpreadsheetTimeZone();
   const aujourdhui = isoDate(maintenant);
   const minutes = Number(Utilities.formatDate(maintenant, fuseau, 'H')) * 60 + Number(Utilities.formatDate(maintenant, fuseau, 'm'));
-  const horaires = lignes('Horaires').map((c) => ({ prof: String(c.Title), jour: Number(c.JourNum), h: Number(c.Heure), classes: classesDe(c.Classes), local: String(c.Local || '') })).filter((c) => c.prof && c.h && c.classes);
+  // Les remédiations ne sont pas des cours de la classe : ni heure libérée, ni cours à avancer.
+  const horaires = lignes('Horaires').filter((c) => !/^\s*(rem\b|rem[eé]diation)/i.test(String(c.Matiere || ''))).map((c) => ({ prof: String(c.Title), jour: Number(c.JourNum), h: Number(c.Heure), classes: classesDe(c.Classes), local: String(c.Local || '') })).filter((c) => c.prof && c.h && c.classes);
   const absences = lignes('Absences').map((a) => ({ prof: String(a.Title), date: String(a.DateAbs || '').slice(0, 10), de: Number(a.DeH) || 1, a: Number(a.AH) || 9 }));
   const stages = lignes('Stages').flatMap((x) => String(x.Title || '').split(/[,;]/).map((c) => ({ classe: c.trim().toUpperCase(), du: String(x.Du || '').slice(0, 10), au: String(x.Au || x.Du || '').slice(0, 10) })));
   const deplacements = lignes('Deplacements').map((x) => ({ prof: String(x.Collegue || ''), date: String(x.DateDep || '').slice(0, 10), h: Number(x.HeureVide), dO: String(x.DateOrigine || '').slice(0, 10), hO: Number(x.HeureOrigine), classe: classesDe(x.Classe) }));
