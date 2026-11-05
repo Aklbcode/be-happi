@@ -12,8 +12,8 @@
 // cours de départ toujours là, local disponible (sinon un autre local libre est choisi).
 
 import type { Dataset, Deplacement } from '../data/types';
-import { JOURS, MIDI, deIso, dureeTxt, jourSemaineIso, periode, plusJoursIso } from '../lib/calendar';
-import { absentA, classeOccupee, classesDe, classesDuProf, coursDuProf, estRemediation, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, seCroisent, type CoursJour } from './horaire';
+import { JOURS, MIDI, conge, deIso, dureeTxt, jourSemaineIso, periode, plusJoursIso } from '../lib/calendar';
+import { absentA, classeOccupee, classesDe, classesDuProf, coursDuProf, estRemediation, coursSansProf, heuresDeLaClasse, memesClasses, nomAffiche, type CoursJour } from './horaire';
 import { etatLocal } from './occupation';
 import { PRIORITES_DEFAUT, type Priorites } from './priorites';
 
@@ -115,17 +115,21 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
   const absent = nomAffiche(d.absent);
   const controles: Controle[] = [];
 
-  const passee = d.date < aujourdhui || (d.date === aujourdhui && d.hVide <= heureFinie);
-  controles.push({ cle: 'heure', ok: !passee, libelle: 'Heure à venir', detail: passee ? 'L’heure libérée est déjà passée.' : undefined });
+  const expire = (date: string, h: number) =>
+    !Number.isInteger(h) || h < 1 || h > 9 || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    !!conge(deIso(date)) || date < aujourdhui || (date === aujourdhui && h <= heureFinie);
+  const passee = expire(d.date, d.hVide) || expire(d.dateOrigine, d.hOrigine);
+  controles.push({ cle: 'heure', ok: !passee, libelle: 'Heure à venir', detail: passee ? 'Le cours de départ ou l’heure d’arrivée ne peut plus être déplacé.' : undefined });
 
   const midi = d.hVide === MIDI;
   controles.push({ cle: 'midi', ok: !midi, libelle: 'Hors temps de midi', detail: midi ? 'H5 est le temps de midi : jamais une cible.' : undefined });
 
   const libere = ds.cours.find((c) => c.prof === d.absent && c.jour === jour && c.h === d.hVide && memesClasses(classes, c.classes));
   const toujoursAbsent = absentA(ds, d.absent, d.date, d.hVide);
+  const accueilDejaDeplace = ds.deplacements.some((x) => x.statut === 'Validé' && x.prof === d.absent && x.dateOrigine === d.date && x.hOrigine === d.hVide);
   controles.push({
     cle: 'absent',
-    ok: !!libere && toujoursAbsent,
+    ok: !!libere && !estRemediation(libere) && toujoursAbsent && !accueilDejaDeplace,
     libelle: `${absent} absent·e`,
     detail: !toujoursAbsent
       ? `${absent} n’est plus noté·e absent·e en H${d.hVide}.`
@@ -136,7 +140,9 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
 
   const profOccupe =
     absentA(ds, d.prof, d.date, d.hVide) ||
-    coursDuProf(ds, d.prof, d.date, true).some((c) => c.h === d.hVide && !(c.deplace && c.deplace.date === d.dateOrigine && c.deplace.h === d.hOrigine)) ||
+    coursDuProf(ds, d.prof, d.date).some((c) => c.h === d.hVide) ||
+    ds.deplacements.some((x) => x.statut === 'En attente' && x.prof === d.prof && x.date === d.date && x.hVide === d.hVide &&
+      !(x.id && x.id === d.id) && !(x.dateOrigine === d.dateOrigine && x.hOrigine === d.hOrigine)) ||
     ds.reservations.some((r) => r.prof === d.prof && r.date === d.date && r.h === d.hVide);
   controles.push({ cle: 'prof', ok: !profOccupe, libelle: 'Prof libre', detail: profOccupe ? `${nomAffiche(d.prof)} n’est plus libre en H${d.hVide}.` : undefined });
 
@@ -148,7 +154,7 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
     detail: prises.length ? `${liste(prises)} ${prises.length > 1 ? 'ont' : 'a'} déjà cours ou une réservation en H${d.hVide}.` : undefined,
   });
 
-  const origine = coursDuProf(ds, d.prof, d.dateOrigine).find((c) => !c.deplace && c.h === d.hOrigine && seCroisent(c.classes, classes));
+  const origine = coursDuProf(ds, d.prof, d.dateOrigine).find((c) => !c.deplace && !estRemediation(c) && c.h === d.hOrigine && memesClasses(c.classes, classes));
   controles.push({
     cle: 'origine',
     ok: !!origine,
@@ -158,7 +164,7 @@ export function verifierDeplacement(ds: Dataset, d: Deplacement, aujourdhui: str
 
   const localPrevu = libere?.local ?? '';
   const local = choisirLocal(ds, d.prof, d.date, d.hVide, [localPrevu, origine?.local ?? '']);
-  const localChange = !!local && !!localPrevu && local !== localPrevu;
+  const localChange = !!local && local !== localPrevu;
   controles.push({
     cle: 'local',
     ok: !!local,
@@ -326,7 +332,7 @@ export interface Analyse {
 export function analyserProposition(ds: Dataset, d: Deplacement, aujourdhui: string, heureFinie: number): Analyse {
   const verif = verifierDeplacement(ds, d, aujourdhui, heureFinie);
   const classes = classesDe(d.classe);
-  const origine = coursDuProf(ds, d.prof, d.dateOrigine).find((c) => !c.deplace && c.h === d.hOrigine && seCroisent(c.classes, classes));
+  const origine = coursDuProf(ds, d.prof, d.dateOrigine).find((c) => !c.deplace && !estRemediation(c) && c.h === d.hOrigine && memesClasses(c.classes, classes));
   if (!origine) return { verif, avantages: [], avantageProf: false, allonge: false, matiere: '' };
   const semaineSuivante = d.dateOrigine >= plusJoursIso(lundiIso(d.date), 7);
   const ev = evaluer(ds, d.prof, origine, d.dateOrigine, d.date, d.hVide, semaineSuivante);

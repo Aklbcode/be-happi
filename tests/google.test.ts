@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { iso, plusJours } from '../src/lib/calendar';
 import { lireParametre, utiliserReglagesGoogle, choixEnAttente, associer, chercherNom } from '../src/data/google';
-import { chargerSharePoint, enregistrerReservation, modifierSeance, profil } from '../src/data/sharepoint';
+import { chargerSharePoint, enregistrerPlage, enregistrerReservation, modifierSeance, profil } from '../src/data/sharepoint';
 
 const CLE = 'cle-de-test-1234567890';
 const J = (n: number) => iso(plusJours(new Date(), n));
@@ -34,6 +34,8 @@ const classeur: Record<string, Cellule[][]> = {
   CapReussite: [['ID', 'Version', 'Title', 'Eleve', 'DateCR', 'Heure', 'Matiere', 'Origine', 'Statut', 'Prof', 'Local']],
   Roles: [['Title', 'Role'], ['educ@ecole.example', 'Éducatrice'], ['direction@ecole.example', 'Direction']],
   Deplacements: [['ID', 'Version', 'Title', 'DateDep', 'HeureVide', 'Classe', 'Collegue', 'HeureOrigine', 'DateOrigine', 'Statut', 'Created', 'CreePar', 'Modified', 'ModifiePar']],
+  Materiel: [['ID', 'Version', 'Title', 'DateRes', 'Heure', 'Rack', 'Classe']],
+  Decisions: [['ID', 'Version', 'Title', 'Statut', 'Commentaire', 'Collegue', 'Absent', 'DateDep', 'HeureVide', 'DateOrigine', 'HeureOrigine', 'Local']],
 };
 
 function feuille(nom: string) {
@@ -47,6 +49,11 @@ function feuille(nom: string) {
         while (d.length < r) d.push([]);
         d[r - 1][c - 1] = v;
       },
+      setValues: (vs: Cellule[][]) =>
+        vs.forEach((l, i) => {
+          while (d.length < r + i) d.push([]);
+          l.forEach((v, j) => (d[r - 1 + i][c - 1 + j] = v));
+        }),
     }),
     appendRow: (l: Cellule[]) => d.push(l),
     deleteRow: (r: number) => d.splice(r - 1, 1),
@@ -69,7 +76,7 @@ const contexte = vm.createContext({
   ContentService: { createTextOutput: (s: string) => ({ setMimeType: () => s }), MimeType: { JSON: 'json' } },
   LockService: { getScriptLock: () => ({ waitLock: () => undefined, releaseLock: () => undefined }) },
   CacheService: { getScriptCache: () => cache },
-  MailApp: { sendEmail: (m: { to: string; subject: string; body: string; attachments?: { texte: string }[] }) => void mailsEnvoyes.push(m) },
+  MailApp: { getRemainingDailyQuota: () => 100, sendEmail: (m: { to: string; subject: string; body: string; attachments?: { texte: string }[] }) => void mailsEnvoyes.push(m) },
   Utilities: {
     newBlob: (texte: string) => ({ texte }),
     getUuid: () => `${Math.random().toString(16).slice(2, 10)}-${Math.random().toString(16).slice(2, 10)}`,
@@ -311,4 +318,104 @@ test('une suggestion arrive dans l’onglet Suggestions et chez l’admin, jamai
   assert.deepEqual(lire(educ).listes.Suggestions.lignes, []);
   // Personne ne les modifie ni ne les supprime depuis l'app.
   assert.equal(appeler({ action: 'supprimer', cle: CLE, mail: educ, liste: 'Suggestions', id: r.item.id }).status, 403);
+});
+
+// ---------- Reprises de la version 1.3.0 ----------
+
+const appel = (mail: string, action: string, autres: Record<string, unknown>) => appeler({ action, cle: CLE, mail, ...autres });
+
+test('une plage d’heures se réserve en une fois, ou pas du tout', () => {
+  const base = { Title: 'LAMBERT', DateRes: `${J(11)}T12:00:00Z`, Heure: 2, Local: 'BC201', Classe: '5TQB' };
+  const r = appel(prof, 'reserverPlage', { liste: 'Réservations', fields: base, fin: 4 });
+  assert.equal(r.status, 201);
+  assert.equal(r.ids.length, 3);
+  // H3 est prise : H1 → H3 est refusée entièrement (rien n'est écrit).
+  const avant = classeur.Réservations.length;
+  const r2 = appel(educ, 'reserverPlage', { liste: 'Réservations', fields: { ...base, Title: 'MARTIN (math)', Heure: 1 }, fin: 3 });
+  assert.equal(r2.status, 409);
+  assert.match(r2.erreur, /H2/);
+  assert.equal(classeur.Réservations.length, avant);
+});
+
+test('matériel : le dernier exemplaire ne part qu’une fois', () => {
+  const m = (h: number) => ({ Title: 'LAMBERT', DateRes: `${J(11)}T12:00:00Z`, Heure: h, Rack: 'Rack tablettes A', Classe: '5TQB' });
+  assert.equal(appel(prof, 'reserverPlage', { liste: 'Materiel', fields: m(5), fin: 5 }).status, 201);
+  assert.equal(appel(educ, 'reserverPlage', { liste: 'Materiel', fields: { ...m(5), Title: 'MARTIN (math)' }, fin: 5 }).status, 409);
+  // 3 vidéoprojecteurs : 3 réservations passent, la 4e non.
+  const v = { ...m(6), Rack: 'Vidéoprojecteur mobile' };
+  for (let i = 0; i < 3; i++) assert.equal(appel(educ, 'reserverPlage', { liste: 'Materiel', fields: { ...v, Title: 'MARTIN (math)' }, fin: 6 }).status, 201);
+  assert.equal(appel(educ, 'reserverPlage', { liste: 'Materiel', fields: { ...v, Title: 'MARTIN (math)' }, fin: 6 }).status, 409);
+});
+
+test('la décision de l’éducateur : en une fois, une seule fois, jamais par un prof', () => {
+  const p = creerX(prof, 'Deplacements', { Title: 'MARTIN (math)', DateDep: J(12), HeureVide: 4, Classe: '3GA', Collegue: 'LAMBERT', HeureOrigine: 6, DateOrigine: J(12), Statut: 'En attente' });
+  assert.equal(p.status, 201);
+  assert.equal(appel(prof, 'deciderCours', { id: p.item.id, statut: 'Validé' }).status, 403);
+  const decisions = classeur.Decisions.length;
+  const ok = appel(educ, 'deciderCours', { id: p.item.id, etag: p.item.eTag, statut: 'Validé', commentaire: '', reservation: { Title: 'LAMBERT', DateRes: `${J(12)}T12:00:00Z`, Heure: 4, Local: 'BT101', Classe: '3GA' } });
+  assert.equal(ok.status, 200);
+  const e = classeur.Deplacements[0];
+  const ligne = classeur.Deplacements.find((l) => l[e.indexOf('ID')] === p.item.id)!;
+  assert.equal(ligne[e.indexOf('Statut')], 'Validé');
+  assert.equal(classeur.Decisions.length, decisions + 1);
+  assert.ok(classeur.Réservations.some((l) => l.includes('BT101')));
+  // Déjà traitée : une seconde décision est refusée.
+  assert.equal(appel(educ, 'deciderCours', { id: p.item.id, statut: 'Refusé', commentaire: 'non' }).status, 409);
+});
+
+test('décision refusée : rien n’est écrit si le nouveau local vient d’être pris', () => {
+  const p = creerX(prof, 'Deplacements', { Title: 'MARTIN (math)', DateDep: J(13), HeureVide: 2, Classe: '3GA', Collegue: 'LAMBERT', HeureOrigine: 7, DateOrigine: J(13), Statut: 'En attente' });
+  creerX(educ, 'Réservations', { Title: 'MARTIN (math)', DateRes: `${J(13)}T12:00:00Z`, Heure: 2, Local: 'BT102', Classe: '4GB' });
+  const decisions = classeur.Decisions.length;
+  const r = appel(educ, 'deciderCours', { id: p.item.id, statut: 'Validé', reservation: { Title: 'LAMBERT', DateRes: `${J(13)}T12:00:00Z`, Heure: 2, Local: 'BT102', Classe: '3GA' } });
+  assert.equal(r.status, 409);
+  const e = classeur.Deplacements[0];
+  assert.equal(classeur.Deplacements.find((l) => l[e.indexOf('ID')] === p.item.id)![e.indexOf('Statut')], 'En attente');
+  assert.equal(classeur.Decisions.length, decisions);
+  // Refus : la ligne disparaît (comme Power Apps), le motif va dans Decisions.
+  assert.equal(appel(educ, 'deciderCours', { id: p.item.id, statut: 'Refusé', commentaire: 'Local pris' }).status, 200);
+  assert.ok(!classeur.Deplacements.some((l) => l[e.indexOf('ID')] === p.item.id));
+  assert.equal(classeur.Decisions.length, decisions + 1);
+});
+
+test('cache : chaque morceau tient dans la limite en octets, accents compris', () => {
+  const f = contexte as unknown as Record<string, (...a: unknown[]) => string[]>;
+  const texte = 'é'.repeat(70000) + 'a'.repeat(30000) + '🙂'.repeat(10);
+  const morceaux = f.morceauxUtf8(texte, 90000);
+  assert.equal(morceaux.join(''), texte);
+  assert.ok(morceaux.every((m) => Buffer.byteLength(m, 'utf8') <= 90000));
+});
+
+test('import : un nom corrigé une fois dans CorrespondancesImport est reconnu', () => {
+  const f = contexte as unknown as Record<string, (...a: unknown[]) => unknown>;
+  const profs = ['MARTIN (math)', 'MARTIN (sport)'];
+  assert.equal(f.resoudreProf('Mrtn Jacques', 2, {}, profs, [], {}), '');
+  assert.equal(f.resoudreProf('Mrtn Jacques', 2, {}, profs, [], { mrtnjacques: 'MARTIN (sport)' }), 'MARTIN (sport)');
+});
+
+test('notifications : quota du jour atteint, l’occasion reste en file', () => {
+  const quota = (contexte as unknown as { MailApp: { getRemainingDailyQuota: () => number } }).MailApp;
+  const avant = quota.getRemainingDailyQuota;
+  quota.getRemainingDailyQuota = () => 3;
+  const lundi = (() => { const d = new Date(); d.setDate(d.getDate() + 21 + ((8 - d.getDay()) % 7 || 7)); return iso(d); })();
+  mailsEnvoyes.length = 0;
+  creerX(educ, 'Absences', { Title: 'MARTIN (sport)', DateAbs: `${lundi}T12:00:00Z`, DeH: 1, AH: 9 });
+  assert.equal(mailsEnvoyes.length, 0);
+  const file = classeur.FileNotifications;
+  assert.equal(file[file.length - 1][5], 'En attente');
+  quota.getRemainingDailyQuota = avant;
+  (contexte.distribuerNotifications as () => number)();
+  assert.equal(mailsEnvoyes.length, 1);
+  assert.equal(classeur.FileNotifications[file.length - 1][5], 'Transmise');
+});
+
+test('l’app réserve une plage en un seul appel (version Google)', async () => {
+  let appels = 0;
+  utiliserReglagesGoogle({ script: 'AKfycbxTESTTESTTESTTEST', cle: CLE }, async (url, corps) => {
+    if (JSON.parse(corps).action === 'reserverPlage') appels++;
+    return envoi(url, corps);
+  }, prof);
+  const ids = await enregistrerPlage({ prof: 'LAMBERT', date: J(14), h: 6, local: 'BF220', classe: '5TQB' }, 8);
+  assert.equal(ids.length, 3);
+  assert.equal(appels, 1);
 });

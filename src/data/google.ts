@@ -148,6 +148,25 @@ export const choixEnAttente = (): { mail: string; libres: string[] } | null => c
 /** Ce que le script sait de la personne connectée (il fait foi : c'est lui qui a reconnu l'adresse). */
 export const moiDuScript = (): { nom: string; roles: string[] } | null => (etat ? { nom: etat.moi.nom || '', roles: etat.moi.roles ?? [] } : null);
 
+/** Réserver un local ou du matériel sur une plage d'heures, en une fois (tout ou rien). */
+export async function reserverPlageGoogle(liste: string, fields: Record<string, unknown>, fin: number): Promise<string[]> {
+  try {
+    const r = await script('reserverPlage', { liste, fields, fin });
+    return Array.isArray(r.ids) ? r.ids.map(String) : [];
+  } finally {
+    etat = null; // la prochaine lecture voit la réservation
+  }
+}
+
+/** La décision de l'éducateur en une seule opération (statut, nouveau local, journal). */
+export async function deciderCoursGoogle(demande: Record<string, unknown>): Promise<void> {
+  try {
+    await script('deciderCours', demande);
+  } finally {
+    etat = null;
+  }
+}
+
 /** Les noms encore libres qui contiennent ce texte (3 lettres au moins, 8 réponses au plus). */
 export async function chercherNom(texte: string): Promise<string[]> {
   const r = await script('chercher', { texte });

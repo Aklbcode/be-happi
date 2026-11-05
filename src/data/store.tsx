@@ -43,7 +43,8 @@ export interface Store {
   priorites: Priorites;
   changerPriorites: (p: Priorites) => void;
   changerClasseEleve: (c: string) => void;
-  reserver: (r: Omit<Reservation, 'prof'>) => Promise<void>;
+  /** Réserver un local de r.h à « fin » (une heure par défaut), en une fois. */
+  reserver: (r: Omit<Reservation, 'prof'>, fin?: number) => Promise<void>;
   annulerReservation: (r: Reservation) => Promise<void>;
   /** Enregistre la proposition (« En attente ») et la renvoie (pour pouvoir l'annuler aussitôt). */
   proposer: (d: Omit<Deplacement, 'prof' | 'statut'>) => Promise<Deplacement | undefined>;
@@ -60,7 +61,8 @@ export interface Store {
   supprimerInfo: (i: Info) => Promise<void>;
   signaler: (local: string, texte: string, urgent: boolean) => Promise<void>;
   traiterSignalement: (s: Signalement, statut: string, reponse?: string) => Promise<void>;
-  reserverMateriel: (m: Omit<ResaMateriel, 'prof' | 'id'>) => Promise<void>;
+  /** Réserver du matériel de m.h à « fin » (une heure par défaut), en une fois. */
+  reserverMateriel: (m: Omit<ResaMateriel, 'prof' | 'id'>, fin?: number) => Promise<void>;
   annulerMateriel: (m: ResaMateriel) => Promise<void>;
   /** « Publier pour les élèves » pour une journée : renvoie le nombre de lignes publiées. */
   publier: (date: string) => Promise<number>;
@@ -245,12 +247,13 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
   const moiAffiche = ds ? `${ds.moi.prenom} ${nomAffiche(ds.moi.nom)}`.trim() || ds.moi.email || '' : '';
 
   const reserver = useCallback(
-    async (r: Omit<Reservation, 'prof'>) => {
+    async (r: Omit<Reservation, 'prof'>, fin = r.h) => {
       if (!ds) return;
       const titulaire = titulaireDe(ds, r.local, r.date, r.h);
       const complete: Reservation = { ...r, prof: ds.moi.nom, ...(titulaire ? { absent: titulaire } : {}) };
-      complete.id = demo ? `demo-r-${Date.now()}-${r.h}` : await (await sp()).enregistrerReservation(complete).catch(relireSiConflit);
-      maj((x) => ({ ...x, reservations: [...x.reservations, complete] }));
+      const heures = Array.from({ length: Math.max(1, fin - r.h + 1) }, (_, i) => r.h + i);
+      const ids = demo ? heures.map((h) => `demo-r-${Date.now()}-${h}`) : await (await sp()).enregistrerPlage(complete, fin).catch(relireSiConflit);
+      maj((x) => ({ ...x, reservations: [...x.reservations, ...heures.map((h, i) => ({ ...complete, h, id: ids[i] }))] }));
     },
     [demo, ds, maj, sp, relireSiConflit],
   );
@@ -435,15 +438,17 @@ export function StoreProvider({ children, scenario }: { children: ReactNode; /**
   );
 
   const reserverMateriel = useCallback(
-    async (m: Omit<ResaMateriel, 'prof' | 'id'>) => {
+    async (m: Omit<ResaMateriel, 'prof' | 'id'>, fin = m.h) => {
       if (!ds) return;
       const stock = RACKS.find((r) => r.nom === m.rack)?.stock ?? 1;
-      if (ds.materiel.filter((x) => x.rack === m.rack && x.date === m.date && x.h === m.h).length >= stock) throw new Error(`${m.rack} est déjà pris en H${m.h}.`);
+      const heures = Array.from({ length: Math.max(1, fin - m.h + 1) }, (_, i) => m.h + i);
+      const pleine = heures.find((h) => ds.materiel.filter((x) => x.rack === m.rack && x.date === m.date && x.h === h).length >= stock);
+      if (pleine) throw new Error(`${m.rack} est déjà pris en H${pleine}.`);
       const complete: ResaMateriel = { ...m, prof: ds.moi.nom };
-      complete.id = demo ? `demo-m-${Date.now()}-${m.h}` : await (await sp()).enregistrerMateriel(complete);
-      maj((x) => ({ ...x, materiel: [...x.materiel, complete] }));
+      const ids = demo ? heures.map((h) => `demo-m-${Date.now()}-${h}`) : await (await sp()).enregistrerPlage(complete, fin).catch(relireSiConflit);
+      maj((x) => ({ ...x, materiel: [...x.materiel, ...heures.map((h, i) => ({ ...complete, h, id: ids[i] }))] }));
     },
-    [demo, ds, maj, sp],
+    [demo, ds, maj, sp, relireSiConflit],
   );
 
   const annulerMateriel = useCallback(

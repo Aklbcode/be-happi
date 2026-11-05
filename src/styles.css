@@ -1008,3 +1008,14 @@ html[data-teams] .barre-choix { bottom: calc(env(safe-area-inset-bottom, 0px) + 
 .materiel-ligne--pris { opacity: 0.6; }
 .materiel-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
 .materiel-actions .lien-action { font-size: 13px; }
+
+/* Feuilles : vraies boîtes de dialogue (Échap, focus, lecteurs d'écran). */
+dialog.feuille { border: 0; margin: 0; inset: auto 0 0 0; width: 100%; max-width: 100%; color: var(--encre); }
+dialog.feuille::backdrop { background: rgba(15, 22, 48, 0.45); animation: apparait 0.15s ease; }
+.feuille-interieur { position: relative; }
+.fermer-feuille { position: absolute; top: -2px; right: -6px; width: 36px; height: 36px; border-radius: 18px; border: 0; background: var(--surface-2); color: var(--texte-2); display: flex; align-items: center; justify-content: center; }
+@media (min-width: 1040px) { dialog.feuille { inset: 0; margin: auto; } }
+.lien-sur-vert { color: #fff; text-underline-offset: 3px; padding: 10px 3px; font-weight: 600; }
+button.jour-entete { border: 0; font: inherit; color: inherit; cursor: pointer; min-height: 44px; }
+button.jour-entete.jour-entete--auj { background: var(--indigo); color: var(--sur-indigo); }
+button.jour-entete:not(.jour-entete--auj) { background: transparent; }

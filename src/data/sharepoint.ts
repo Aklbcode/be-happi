@@ -7,7 +7,7 @@ import { jour, localDans, num, profilsAvec, reconnaitre, rolesDe, sansAccents, t
 import type { Absence, Changement, Cours, CoursEleve, Dataset, Decision, Deplacement, FicheProf, Info, Reservation, ResaMateriel, Resultat, SeanceCR, Signalement, Stage, DateEcole } from './types';
 import { iso, plusJoursIso } from '../lib/calendar';
 import { repondreSimulation, simulationActive } from './simulation';
-import { googleActif, moiDuScript, repondreGoogle } from './google';
+import { deciderCoursGoogle, googleActif, moiDuScript, repondreGoogle, reserverPlageGoogle } from './google';
 
 export { localDans, reconnaitre } from './champs';
 
@@ -467,6 +467,24 @@ export async function enregistrerReservation(r: Reservation): Promise<string> {
   );
 }
 
+/**
+ * Réserver de H à « fin » (local ou matériel). Version Google : en une fois, tout ou rien (le dernier
+ * exemplaire ne peut pas être pris deux fois). Ailleurs : heure par heure.
+ */
+export async function enregistrerPlage(r: Reservation | ResaMateriel, fin: number): Promise<string[]> {
+  const materiel = 'rack' in r;
+  if (googleActif() && !simulationActive()) {
+    const C = materiel ? config.champs.materiel : config.champs.reservations;
+    const fields: Record<string, unknown> = materiel
+      ? { [C.prof]: r.prof, [C.date]: versUtcMidi(r.date), [C.heure]: r.h, [config.champs.materiel.rack]: (r as ResaMateriel).rack, [C.classe]: r.classe }
+      : { [C.prof]: r.prof, [C.date]: versUtcMidi(r.date), [C.heure]: r.h, [config.champs.reservations.local]: (r as Reservation).local, [C.classe]: r.classe, ...((r as Reservation).absent ? { [config.champs.reservations.absent]: (r as Reservation).absent } : {}) };
+    return reserverPlageGoogle(materiel ? config.listes.materiel : config.listes.reservations, fields, fin);
+  }
+  const ids: string[] = [];
+  for (let h = r.h; h <= fin; h++) ids.push(materiel ? await enregistrerMateriel({ ...(r as ResaMateriel), h }) : await enregistrerReservation({ ...(r as Reservation), h }));
+  return ids;
+}
+
 export async function enregistrerDeplacement(d: Deplacement): Promise<string> {
   const C = config.champs.deplacements;
   return creer(config.listes.deplacements, {
@@ -498,6 +516,18 @@ async function relireProposition(idListe: string, idItem: string): Promise<Item>
  * Renvoie false si la décision est appliquée mais n'a pas pu être notée au journal.
  */
 export async function deciderDeplacement(d: Deplacement, decision: Decision, nouveauLocal?: Reservation): Promise<boolean> {
+  // Version Google : une seule opération, tout ou rien (statut, nouveau local, journal).
+  if (googleActif() && !simulationActive()) {
+    const R = config.champs.reservations;
+    await deciderCoursGoogle({
+      id: d.id,
+      etag: d.etag,
+      statut: decision.statut,
+      commentaire: decision.commentaire,
+      reservation: nouveauLocal ? { [R.prof]: nouveauLocal.prof, [R.date]: versUtcMidi(nouveauLocal.date), [R.heure]: nouveauLocal.h, [R.local]: nouveauLocal.local, [R.classe]: nouveauLocal.classe, ...(nouveauLocal.absent ? { [R.absent]: nouveauLocal.absent } : {}) } : undefined,
+    });
+    return true;
+  }
   const ids = await listes();
   const idListe = ids[config.listes.deplacements];
   if (!idListe) throw new Error(`Liste introuvable : ${config.listes.deplacements}`);

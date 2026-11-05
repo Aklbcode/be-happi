@@ -123,6 +123,8 @@ function doPost(e) {
     }
     if (q.action === 'lire') return json({ status: 200, moi, listes: listesPour(mail) });
     const liste = String(q.liste || '');
+    if (q.action === 'reserverPlage') return json(ecrire(() => reserverPlage(liste, nettoyer(liste, q.fields), q.fin, mail, moi)));
+    if (q.action === 'deciderCours') return json(ecrire(() => deciderCours(q, mail, moi)));
     if (q.action === 'creer') return json(ecrire(() => creer(liste, nettoyer(liste, q.fields), mail, moi)));
     if (q.action === 'modifier') return json(ecrire(() => modifier(liste, String(q.id || ''), nettoyer(liste, q.fields), q.etag, mail, moi)));
     if (q.action === 'supprimer') return json(ecrire(() => supprimer(liste, String(q.id || ''), q.etag, mail, moi)));
@@ -492,7 +494,7 @@ function lireCache() {
   const [n0, g0] = String(c.get('d|n') || '').split('|');
   const n = Number(n0 || 0);
   if (!n || g0 !== generation(c)) return null;
-  const cles = Array.from({ length: n }, (_, i) => `d|${i}`);
+  const cles = Array.from({ length: n }, (_, i) => `d|${g0}|${i}`);
   const morceaux = c.getAll(cles);
   if (cles.some((k) => typeof morceaux[k] !== 'string')) return null;
   try {
@@ -503,14 +505,37 @@ function lireCache() {
   }
 }
 
+/** Découpe un texte en morceaux d'au plus « limite » octets UTF-8 (sans couper une lettre). */
+function morceauxUtf8(texte, limite) {
+  const morceaux = [];
+  let debut = 0;
+  let position = 0;
+  let taille = 0;
+  for (const lettre of texte) {
+    const cp = lettre.codePointAt(0);
+    const octets = cp <= 127 ? 1 : cp <= 2047 ? 2 : cp <= 65535 ? 3 : 4;
+    if (taille + octets > limite) {
+      morceaux.push(texte.slice(debut, position));
+      debut = position;
+      taille = 0;
+    }
+    position += lettre.length;
+    taille += octets;
+  }
+  if (position > debut) morceaux.push(texte.slice(debut));
+  return morceaux;
+}
+
 function ecrireCache(d, g) {
   memoire = d;
   const c = cacheScript();
   if (!c || !g) return;
-  const texte = JSON.stringify(d);
+  // Morceaux comptés en octets (les accents en prennent 2) et marqués de leur génération : une copie
+  // n'en mélange jamais deux.
   const o = {};
-  let n = 0;
-  for (let i = 0; i < texte.length; i += MORCEAU) o[`d|${n++}`] = texte.slice(i, i + MORCEAU);
+  const morceaux = morceauxUtf8(JSON.stringify(d), MORCEAU);
+  const n = morceaux.length;
+  morceaux.forEach((partie, i) => (o[`d|${g}|${i}`] = partie));
   try {
     c.putAll(o, CACHE_DUREE);
     c.put('d|n', `${n}|${g}`, CACHE_DUREE);
@@ -643,6 +668,105 @@ function enConflit(nom, t, champs) {
   return conflit ? conflit[1] : '';
 }
 
+/** Le matériel et ses quantités (comme src/data/materiel.ts) : pour garantir le dernier exemplaire. */
+const RACKS = {
+  'Rack tablettes A': 1,
+  'Rack tablettes B': 1,
+  'Rack PC portables': 1,
+  'Vidéoprojecteur mobile': 3,
+  'Rallonge électrique': 3,
+  'Câble HDMI': 3,
+};
+
+/**
+ * Réserver un local ou du matériel de H à « fin » en une fois : toutes les heures, ou aucune.
+ * Le local ne doit être réservé par personne ; le matériel doit rester en stock à chaque heure.
+ */
+function reserverPlage(nom, champs, fin, mail, moi) {
+  if (nom !== 'Réservations' && nom !== 'Materiel') return { status: 400, erreur: 'Ressource inconnue.' };
+  const f = feuille(nom);
+  autoriser('creer', nom, moi, mail, champs, null);
+  const h = Number(champs.Heure);
+  const dernier = Number(fin || h);
+  const date = String(versCellule(champs.DateRes) || '').slice(0, 10);
+  if (!Number.isInteger(h) || !Number.isInteger(dernier) || h < 1 || dernier > 9 || dernier < h || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return { status: 400, erreur: 'Plage ou jour invalide.' };
+  const cle = nom === 'Materiel' ? 'Rack' : 'Local';
+  const stock = nom === 'Materiel' ? RACKS[String(champs.Rack)] : 1;
+  if (!stock || !champs[cle]) return { status: 400, erreur: 'Ressource inconnue.' };
+  const t = tableau(f);
+  const iD = t.entetes.indexOf('DateRes');
+  const iH = t.entetes.indexOf('Heure');
+  const iR = t.entetes.indexOf(cle);
+  const norm = (v) => String(v).trim().toUpperCase();
+  for (let hh = h; hh <= dernier; hh++) {
+    const prises = iD < 0 || iH < 0 || iR < 0 ? 0 : t.valeurs.filter((l) => String(valeur(l[iD])).slice(0, 10) === date && Number(l[iH]) === hh && norm(l[iR]) === norm(champs[cle])).length;
+    if (prises >= stock) return { status: 409, erreur: `${nom === 'Materiel' ? 'Ce matériel' : 'Ce local'} vient d’être réservé par quelqu’un d’autre en H${hh}.` };
+  }
+  colonnesAvec(f, t, champs);
+  const maintenant = new Date().toISOString();
+  const lignesNeuves = [];
+  for (let hh = h; hh <= dernier; hh++) {
+    lignesNeuves.push(Object.assign({}, champs, { DateRes: date, Heure: hh, ID: Utilities.getUuid().slice(0, 13), Version: 1, Created: maintenant, CreePar: mail, Modified: maintenant, ModifiePar: mail }));
+  }
+  f.getRange(f.getLastRow() + 1, 1, lignesNeuves.length, t.entetes.length).setValues(lignesNeuves.map((o) => t.entetes.map((k) => versCellule(o[k]))));
+  return { status: 201, ids: lignesNeuves.map((o) => o.ID) };
+}
+
+/**
+ * La décision de l'éducateur en une seule fois : tout est vérifié avant d'écrire quoi que ce soit
+ * (proposition toujours en attente et inchangée, nouveau local encore libre), puis le statut, la
+ * réservation du nouveau local et le journal (Decisions). Un refus supprime la ligne, comme Power Apps.
+ */
+function deciderCours(q, mail, moi) {
+  if (!valideur(moi)) return { status: 403, erreur: 'Validation réservée au secrétariat et aux éducateurs.' };
+  const statut = String(q.statut || '');
+  if (statut !== 'Validé' && statut !== 'Refusé') return { status: 400, erreur: 'Décision inconnue.' };
+  const f = feuille('Deplacements');
+  const id = String(q.id || '');
+  const { t, i } = trouver(f, id);
+  if (i < 0) return { status: 409, erreur: 'Cette proposition a été retirée entre-temps.' };
+  const d = objetLigne(t, i);
+  if (String(d.Statut || '') !== 'En attente') return { status: 409, erreur: 'Cette proposition a déjà été traitée.' };
+  const version = Number(d.Version) || 1;
+  if (q.etag && q.etag !== `"${id},${version}"`) return { status: 412, erreur: 'La proposition a changé : relis-la avant de décider.' };
+  const reservation = statut === 'Validé' && q.reservation ? nettoyer('Réservations', q.reservation) : null;
+  const fr = reservation ? feuille('Réservations') : null;
+  const tr = fr ? tableau(fr) : null;
+  if (reservation && tr) {
+    const conflit = enConflit('Réservations', tr, reservation);
+    if (conflit) return { status: 409, erreur: 'Le nouveau local vient d’être pris : actualise avant de valider.' };
+  }
+  // Tout est vérifié : on écrit.
+  const maintenant = new Date().toISOString();
+  if (statut === 'Validé') {
+    const ligne = i + 2;
+    f.getRange(ligne, t.entetes.indexOf('Statut') + 1).setValue('Validé');
+    f.getRange(ligne, t.entetes.indexOf('Version') + 1).setValue(version + 1);
+    if (t.entetes.indexOf('Modified') >= 0) f.getRange(ligne, t.entetes.indexOf('Modified') + 1).setValue(maintenant);
+    if (t.entetes.indexOf('ModifiePar') >= 0) f.getRange(ligne, t.entetes.indexOf('ModifiePar') + 1).setValue(mail);
+  } else {
+    f.deleteRow(i + 2);
+  }
+  if (reservation && fr && tr) {
+    colonnesAvec(fr, tr, reservation);
+    const o = Object.assign({}, reservation, { ID: Utilities.getUuid().slice(0, 13), Version: 1, Created: maintenant, CreePar: mail, Modified: maintenant, ModifiePar: mail });
+    fr.appendRow(tr.entetes.map((k) => versCellule(o[k])));
+  }
+  const fd = SpreadsheetApp.getActive().getSheetByName('Decisions');
+  if (fd) {
+    const td = tableau(fd);
+    const dec = nettoyer('Decisions', {
+      Title: d.Classe, Statut: statut, Commentaire: String(q.commentaire || ''), Collegue: d.Collegue, Absent: d.Title,
+      DateDep: d.DateDep, HeureVide: d.HeureVide, DateOrigine: d.DateOrigine, HeureOrigine: d.HeureOrigine, Local: reservation ? reservation.Local : '',
+    });
+    colonnesAvec(fd, td, dec);
+    const o = Object.assign({}, dec, { ID: Utilities.getUuid().slice(0, 13), Version: 1, Created: maintenant, CreePar: mail, Modified: maintenant, ModifiePar: mail });
+    fd.appendRow(td.entetes.map((k) => versCellule(o[k])));
+  }
+  return { status: 200 };
+}
+
 /** La ligne du Sheet sous forme d'objet (pour vérifier l'auteur, le statut…). */
 const objetLigne = (t, i) => Object.fromEntries(t.entetes.map((h, j) => [h, valeur(t.valeurs[i][j])]));
 
@@ -738,10 +862,26 @@ function installerImportAbsences() {
 
 function importerAbsencesMail() {
   if (CLE.indexOf('__') === 0) return;
-  const fils = GmailApp.search(`subject:"${OBJET_ABSENCES} ${CLE.slice(0, 8)}" is:unread has:attachment newer_than:2d`, 0, 5);
+  try {
+    lireMailAbsences();
+  } finally {
+    // À chaque passage : les notifications en attente (quota du jour atteint, nouvel envoi…).
+    try {
+      distribuerNotifications();
+    } catch (e) {
+      /* la file sera reprise au prochain passage */
+    }
+  }
+}
+
+function lireMailAbsences() {
+  const objet = `${OBJET_ABSENCES} ${CLE.slice(0, 8)}`;
+  const fils = GmailApp.search(`subject:"${objet}" is:unread has:attachment newer_than:2d`, 0, 5);
   if (!fils.length) return;
-  // Le plus récent suffit : il contient tout.
-  const messages = fils.flatMap((f) => f.getMessages()).filter((m) => m.isUnread());
+  // Gmail range les réponses dans la même conversation : on ne garde que les messages qui portent
+  // bien l'objet et un .xlsx. Le plus récent suffit : il contient tout.
+  const nonLus = fils.flatMap((f) => f.getMessages()).filter((m) => m.isUnread());
+  const messages = nonLus.filter((m) => String(m.getSubject()).indexOf(objet) >= 0 && m.getAttachments().some((p) => /\.xlsx$/i.test(p.getName())));
   if (!messages.length) return;
   messages.sort((a, b) => b.getDate() - a.getDate());
   try {
@@ -863,9 +1003,26 @@ function distance(a, b) {
 }
 
 /** Le nom de l'Excel → le nom de l'horaire (fautes de frappe, initiales, homonymes). */
-function resoudreProf(nomExcel, jourNum, heures, profs, horaires) {
+/**
+ * Corrections de noms faites une fois pour toutes : onglet « CorrespondancesImport », colonnes Excel
+ * (le nom tel qu'écrit dans l'Excel) et Prof (le nom exact de l'onglet Profs). Elles passent avant
+ * toute devinette.
+ */
+function correspondancesImport() {
+  const f = SpreadsheetApp.getActive().getSheetByName('CorrespondancesImport');
+  if (!f) return {};
+  const o = {};
+  lignes('CorrespondancesImport').forEach((l) => {
+    const e = simple(l.Excel);
+    if (e && l.Prof) o[e] = String(l.Prof).trim();
+  });
+  return o;
+}
+
+function resoudreProf(nomExcel, jourNum, heures, profs, horaires, alias) {
   const n = simple(nomExcel);
   if (!n) return '';
+  if (alias && alias[n] && profs.indexOf(alias[n]) >= 0) return alias[n];
   const base = (p) => simple(nomSeul(p));
   const exact = profs.filter((p) => simple(p) === n || base(p) === n);
   if (exact.length === 1) return exact[0];
@@ -887,6 +1044,7 @@ function appliquerAbsencesExcel(classeur, maintenant) {
   const fin = isoDate(new Date(maintenant.getTime() + 14 * 86400000));
   const profs = lignes('Profs').map((p) => String(p.Title));
   const horaires = lignes('Horaires').map((c) => ({ prof: String(c.Title), jour: Number(c.JourNum), h: Number(c.Heure), classes: String(c.Classes || '') }));
+  const alias = correspondancesImport();
   const voulues = {};
   const inconnus = [];
   classeur.noms.forEach((nom) => {
@@ -915,7 +1073,7 @@ function appliquerAbsencesExcel(classeur, maintenant) {
             } else if (heuresDeNote(marque)) note = heuresDeNote(marque);
           }
         }
-        const prof = resoudreProf(nomExcel, jourNum, heures, profs, horaires);
+        const prof = resoudreProf(nomExcel, jourNum, heures, profs, horaires, alias);
         if (!prof) {
           inconnus.push([date, nomExcel]);
           return;
@@ -969,9 +1127,9 @@ function appliquerAbsencesExcel(classeur, maintenant) {
     f.getRange(f.getLastRow() + 1, 1, nouvelles.length, t.entetes.length).setValues(nouvelles.map((o) => t.entetes.map((h) => (o[h] === undefined ? '' : o[h]))));
   }
 
-  // Journal : ce qui a été fait, et les noms à vérifier.
-  const prevenus = nouvelles.length ? notifierDeplacements(nouvelles, maintenant) : 0;
-  journaliser(nouvelles.length, inconnus, prevenus ? `${prevenus} prof(s) prévenu(s) par mail` : '');
+  // Journal : ce qui a été fait, et les noms à vérifier (à corriger une fois dans CorrespondancesImport).
+  const enFile = nouvelles.length ? notifierDeplacements(nouvelles, maintenant) : 0;
+  journaliser(nouvelles.length, inconnus, enFile ? `${enFile} notification(s) Teams en file` : '');
   return { ajoutees: nouvelles.length, inconnus };
 }
 
@@ -997,7 +1155,7 @@ const DESTINATAIRE_NOTIF = '';
 const APP_TEAMS = '';
 const OBJET_NOTIF = 'IPES-APP-NOTIF';
 const FINS_MIN = [0, 555, 610, 675, 725, 775, 825, 875, 935, 985];
-const MAX_MAILS = 60;
+const MAX_MAILS = 40;
 const JOURS_NOMS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
 const classesDe = (t) => String(t || '').split(/[,;]/).map((x) => x.trim().toUpperCase()).filter(Boolean).sort().join(', ');
@@ -1111,51 +1269,105 @@ function carteTeams(occasions) {
   };
 }
 
+/** L'onglet FileNotifications : une ligne par occasion (prof, jour, heure) et son état. */
+function fileNotifications() {
+  const classeur = SpreadsheetApp.getActive();
+  const f = classeur.getSheetByName('FileNotifications') || classeur.insertSheet('FileNotifications');
+  if (!f.getLastRow()) f.appendRow(['Clé', 'Prof', 'Date', 'Heure', 'Absent', 'État', 'Envoyée le']);
+  return f;
+}
+
 /**
- * Prévient les profs concernés dans Teams (une fois par heure libérée et par prof) : un mail technique
- * par prof vers DESTINATAIRE_NOTIF, avec la carte en pièce jointe (carte.json) ; le flow la poste.
- * Renvoie le nombre de profs prévenus.
+ * Met en file les occasions nées de ces absences (une seule fois par prof, jour et heure), puis
+ * tente l'envoi tout de suite. Renvoie le nombre d'occasions ajoutées à la file.
  */
 function notifierDeplacements(nouvelles, maintenant) {
-  if (!NOTIFIER || !DESTINATAIRE_NOTIF || !APP_TEAMS || typeof MailApp === 'undefined') return 0;
+  if (!NOTIFIER || !DESTINATAIRE_NOTIF || !APP_TEAMS) return 0;
   const parProf = occasionsDe(nouvelles, maintenant);
-  const noms = Object.keys(parProf);
-  if (!noms.length) return 0;
+  if (!Object.keys(parProf).length) return 0;
+  const f = fileNotifications();
+  const deja = new Set(tableau(f).valeurs.map((l) => String(l[0])));
+  // Les envois de l'ancienne version (onglet Notifications) ne sont pas refaits.
+  const ancien = SpreadsheetApp.getActive().getSheetByName('Notifications');
+  if (ancien) tableau(ancien).valeurs.forEach((l) => deja.add(String(l[0])));
+  let ajoutees = 0;
+  Object.keys(parProf).forEach((prof) => {
+    parProf[prof].forEach((o) => {
+      const cle = `${prof}|${o.date}|${o.h}`;
+      if (deja.has(cle)) return;
+      f.appendRow([cle, prof, o.date, o.h, o.absent, 'En attente', '']);
+      deja.add(cle);
+      ajoutees++;
+    });
+  });
+  if (ajoutees) {
+    try {
+      distribuerNotifications();
+    } catch (e) {
+      /* reprise au prochain passage du déclencheur */
+    }
+  }
+  return ajoutees;
+}
+
+/**
+ * Envoie les notifications en attente, prof par prof (3 occasions au plus par carte), en gardant
+ * 5 mails du quota du jour pour le reste. Chaque occasion est revérifiée (absence toujours là,
+ * prof toujours libre) ; sinon « Expirée ». Quota atteint : la ligne reste « En attente » et part
+ * au prochain passage (toutes les 10 min).
+ */
+function distribuerNotifications() {
+  if (!NOTIFIER || !DESTINATAIRE_NOTIF || !APP_TEAMS || typeof MailApp === 'undefined') return 0;
+  const f = SpreadsheetApp.getActive().getSheetByName('FileNotifications');
+  if (!f || f.getLastRow() < 2) return 0;
+  let budget = Math.min(MAX_MAILS, Math.max(0, MailApp.getRemainingDailyQuota() - 5));
+  if (!budget) return 0;
+  const t = tableau(f);
+  const attente = t.valeurs
+    .map((l, i) => ({ ligne: i + 2, prof: String(l[1]), date: String(valeur(l[2])).slice(0, 10), h: Number(l[3]), absent: String(l[4]), etat: String(l[5]) }))
+    .filter((x) => x.etat === 'En attente');
+  if (!attente.length) return 0;
   const mails = {};
   lignes('Profs').forEach((p) => { const m = avecMail(p); if (m) mails[String(p.Title)] = m; });
-  const classeur = SpreadsheetApp.getActive();
-  const journal = classeur.getSheetByName('Notifications') || classeur.insertSheet('Notifications');
-  if (journal.getLastRow() === 0) journal.appendRow(['Clé', 'Prof', 'Envoyé le']);
-  const deja = new Set(journal.getLastRow() > 1 ? journal.getRange(2, 1, journal.getLastRow() - 1, 1).getValues().map((l) => String(l[0])) : []);
+  const absences = lignes('Absences');
   let envoyes = 0;
-  noms.forEach((prof) => {
-    if (envoyes >= MAX_MAILS || !mails[prof]) return;
-    // Une seule proposition par heure libérée : la première (le plus tôt dans la semaine).
-    const vues = new Set();
-    const neuves = parProf[prof].filter((o) => {
-      const k = `${prof}|${o.date}|${o.h}`;
-      if (deja.has(k) || vues.has(k)) return false;
-      vues.add(k);
-      return true;
-    }).slice(0, 3);
-    if (!neuves.length) return;
-    const texte = `Une heure libérée pour ta ${neuves[0].classes} : ${neuves[0].gain.charAt(0).toLowerCase()}${neuves[0].gain.slice(1)}.`.replace(/\|/g, '/');
+  const profs = [...new Set(attente.map((x) => x.prof))];
+  for (const prof of profs) {
+    if (!budget) break;
+    const pourLui = attente.filter((x) => x.prof === prof);
+    // Revérifier : les absences concernées sont-elles toujours là, l'occasion toujours bonne ?
+    const concernees = absences.filter((a) => pourLui.some((x) => String(a.Title) === x.absent && String(valeur(a.DateAbs)).slice(0, 10) === x.date));
+    const occasions = (occasionsDe(concernees, new Date())[prof] || []);
+    const paquet = [];
+    pourLui.forEach((x) => {
+      const o = occasions.find((c) => c.absent === x.absent && c.date === x.date && c.h === x.h);
+      if (!o) return f.getRange(x.ligne, 6).setValue('Expirée');
+      if (!mails[prof]) return f.getRange(x.ligne, 6).setValue('Adresse à vérifier');
+      if (paquet.length < 3) paquet.push({ x, o });
+    });
+    if (!paquet.length) continue;
+    const premiere = paquet[0].o;
+    const texte = `Une heure libérée pour ta ${premiere.classes} : ${premiere.gain.charAt(0).toLowerCase()}${premiere.gain.slice(1)}.`.replace(/\|/g, '/');
     try {
       MailApp.sendEmail({
         to: DESTINATAIRE_NOTIF,
         subject: `${OBJET_NOTIF} ${CLE.slice(0, 8)} | ${mails[prof]} | ${texte}`.slice(0, 250),
         body: texte,
         name: 'IPES App',
-        attachments: [Utilities.newBlob(JSON.stringify(carteTeams(neuves)), 'application/json', 'carte.json')],
+        attachments: [Utilities.newBlob(JSON.stringify(carteTeams(paquet.map((p) => p.o))), 'application/json', 'carte.json')],
       });
-      neuves.forEach((o) => {
-        journal.appendRow([`${prof}|${o.date}|${o.h}`, prof, new Date().toISOString()]);
-        deja.add(`${prof}|${o.date}|${o.h}`);
+      const quand = new Date().toISOString();
+      paquet.forEach((p) => {
+        f.getRange(p.x.ligne, 6).setValue('Transmise');
+        f.getRange(p.x.ligne, 7).setValue(quand);
       });
       envoyes++;
+      budget--;
     } catch (e) {
-      /* quota de mails atteint : on réessaiera au prochain import */
+      // Quota atteint : on réessaiera ; autre erreur : à vérifier à la main.
+      if (!/quota|too many|limit/i.test(String(e))) paquet.forEach((p) => f.getRange(p.x.ligne, 6).setValue('À vérifier'));
+      break;
     }
-  });
+  }
   return envoyes;
 }

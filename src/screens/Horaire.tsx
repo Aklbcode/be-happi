@@ -52,13 +52,22 @@ export function Horaire() {
     for (let n = 0; n < 3; n++) if ([0, 1, 2, 3, 4].some((k) => !conge(plusJours(b, n * 7 + k)))) return n;
     return 0;
   });
-  const [decalage, setDecalage] = useState(depart);
+  // « Voir ma journée » (#/horaire?jour=AAAA-MM-JJ) : cette semaine-là, en vue jour.
+  const jourDemande = (() => {
+    const j = lireRoute().params.get('jour') ?? '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(j) && iso(deIso(j)) === j && jourSemaineIso(j) <= 5 ? j : '';
+  })();
+  const [decalage, setDecalage] = useState(() => {
+    if (!jourDemande) return depart;
+    const b = jourSemaine(maintenant) >= 6 ? plusJours(maintenant, 8 - jourSemaine(maintenant)) : lundiDe(maintenant);
+    return Math.round((lundiDe(deIso(jourDemande)).getTime() - b.getTime()) / (7 * 86400000));
+  });
   // L'aide sous la grille disparaît dès qu'on a touché une heure libérée une première fois.
   const [aide, setAide] = useState(() => !aideVue());
   const [sens, setSens] = useState(0);
-  // Version de test : toujours la semaine, toujours « Moi » (une classe ou un local : « Où est ? »).
-  const mode = 'semaine' as 'semaine' | 'jour';
-  const [jourIdx, setJourIdx] = useState<number | null>(null);
+  // La semaine d'office ; toucher un jour en haut ouvre cette journée (toujours « Moi »).
+  const [mode, setMode] = useState<'semaine' | 'jour'>(jourDemande ? 'jour' : 'semaine');
+  const [jourIdx, setJourIdx] = useState<number | null>(jourDemande ? jourSemaineIso(jourDemande) - 1 : null);
   const vue = 'moi' as Vue;
   const classe = '';
   const salle = '';
@@ -552,6 +561,9 @@ export function Horaire() {
               else setJourIdx(n);
             }}
           >
+            <button className="lien-action" style={{ alignSelf: 'flex-start', marginBottom: 8 }} onClick={() => setMode('semaine')}>
+              ← Toute la semaine
+            </button>
             <div className="seg seg--jours" role="group" aria-label="Jour">
               {dates.map((d, i) => (
                 <button key={d} aria-pressed={i === idx} onClick={() => setJourIdx(i)} className={i === colonneAuj ? 'auj' : undefined}>
@@ -588,7 +600,7 @@ export function Horaire() {
                   return (
                     <button key={c.cle} className={`jour-ligne jour-ligne--${c.type}${p.h === MIDI ? ' jour-ligne--midi' : ''}`} onClick={() => toucher(c)} disabled={c.type === 'vide' || vue !== 'moi'}>
                       <span className="jour-heure">
-                        <b>H{p.h}</b>
+                        <b>{p.h === MIDI ? 'Midi' : `H${p.h}`}</b>
                         <span>{p.debut}</span>
                       </span>
                       <span className="pile grandit">
@@ -610,10 +622,21 @@ export function Horaire() {
       <div className="semaine-entete">
         <span />
         {dates.map((d, i) => (
-          <div key={d} className={`jour-entete${i === colonneAuj ? ' jour-entete--auj' : ''}`}>
+          <button
+            key={d}
+            type="button"
+            className={`jour-entete${i === colonneAuj ? ' jour-entete--auj' : ''}`}
+            aria-label={`Voir la journée du ${JOURS[i + 1]} ${deIso(d).getDate()}`}
+            onClick={() => {
+              setJourIdx(i);
+              setMode('jour');
+              setApercu(null);
+              setChoix(null);
+            }}
+          >
             <span>{JOURS_COURTS[i + 1]}</span>
             <b>{deIso(d).getDate()}</b>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -648,7 +671,7 @@ export function Horaire() {
           return (
             <div key={p.h} className={`semaine-ligne${p.h === MIDI ? ' semaine-ligne--midi' : ''}`}>
               <div className="heure-col">
-                <b>H{p.h}</b>
+                <b>{p.h === MIDI ? 'Midi' : `H${p.h}`}</b>
                 <span>{p.debut}</span>
               </div>
               {ligne.map((c) => (
@@ -836,9 +859,15 @@ export function Horaire() {
               );
             })()}
             {detail.date > aujourdhui || (detail.date === aujourdhui && detail.h > heureFinie) ? (
-              <button className="bouton bouton--prim" onClick={() => { setDetail(null); aller('locaux', { date: detail.date, h: detail.h }); }}>
-                <Icon nom="porte" /> Changer de local
-              </button>
+              <div className="rangee enrouler" style={{ gap: 8 }}>
+                <button className="bouton bouton--prim" onClick={() => { setDetail(null); aller('locaux', { date: detail.date, h: detail.h }); }}>
+                  <Icon nom="porte" /> Changer de local
+                </button>
+                {/* Le jour, l'heure et la classe du cours sont repris dans Matériel. */}
+                <button className="bouton bouton--sec" onClick={() => { setDetail(null); aller('materiel', { date: detail.date, h: detail.h, classe: detail.classe }); }}>
+                  <Icon nom="tablette" /> Réserver du matériel
+                </button>
+              </div>
             ) : (
               <p className="petit">Cours passé.</p>
             )}

@@ -240,3 +240,12 @@ test('ce qui compte pour toi : « finir plus tôt » décoché, le cours qui fai
   assert.match(matin[0].avantages[0], /tu commences à/);
   assert.ok(matin.every((o) => o.controles.every((x) => x.ok)), 'les mêmes contrôles, seul le classement change');
 });
+
+test('une origine passée ou dont les groupes ont changé bloque la décision', () => {
+  const d = { absent:'X', prof:'MOI', classe:'3A', date:LUNDI, hVide:6, dateOrigine:LUNDI, hOrigine:1, statut:'En attente' };
+  const ds = donnees({ cours:[c('X',1,6,'3A','BC105'),c('MOI',1,1,'3A','BF201')], absences:[{prof:'X',date:LUNDI,deH:6,aH:6}] });
+  assert.equal(verifierDeplacement(ds,d,LUNDI,0).ok,true);
+  assert.equal(verifierDeplacement(ds,d,LUNDI,3).ok,false);
+  ds.cours[1] = c('MOI',1,1,'3A, 3B','BF201');
+  assert.equal(verifierDeplacement(ds,d,LUNDI,0).ok,false);
+});

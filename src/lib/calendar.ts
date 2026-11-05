@@ -149,3 +149,20 @@ export function dateLongue(d: Date): string {
   return `${JOURS[jourSemaine(d)]} ${d.getDate()} ${MOIS[d.getMonth()]}`;
 }
 
+
+/** Créneau à consulter à l’ouverture d’un service ou depuis la fiche d’un cours. */
+export function creneauInitial(maintenant: Date, params = new URLSearchParams()) {
+  const aujourdhui = iso(maintenant);
+  const courant = situation(minutesDe(maintenant)).h;
+  const parDefaut = estJourDeCours(maintenant) && courant < 10 ? aujourdhui : iso(prochainJourDeCours(maintenant, false));
+  const fournie = params.get('date') ?? '';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(fournie) && iso(deIso(fournie)) === fournie ? fournie : parDefaut;
+  const heure = Number(params.get('h'));
+  const h = Number.isInteger(heure) && heure >= 1 && heure <= 9 ? heure : date === aujourdhui ? Math.min(9, Math.max(1, courant)) : 1;
+  return { date, h };
+}
+
+export function reservationPossible(maintenant: Date, date: string, h: number): boolean {
+  return estJourDeCours(deIso(date)) && h >= 1 && h <= 9 &&
+    (date > iso(maintenant) || (date === iso(maintenant) && minutesDe(maintenant) < periode(h).fm));
+}

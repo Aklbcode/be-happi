@@ -11,7 +11,7 @@ import { ChoixJour, HeuresNeuf, prochainsJours } from '../ui/Choix';
 import { FeuilleAide } from '../ui/FeuilleAide';
 import { journeeClasse, journeeLocal, journeeProf, profsLibres, rechercher, toutesLesClasses, triClasse, type Trouve } from '../logic/ouest';
 import { nomAffiche } from '../logic/horaire';
-import { MIDI, PERIODES, estJourDeCours, periode, situation } from '../lib/calendar';
+import { MIDI, PERIODES, creneauInitial, periode, situation } from '../lib/calendar';
 import { lien } from '../lib/route';
 
 const CLE_RECENTS = 'behappi-ouest-recents';
@@ -36,7 +36,8 @@ function retenir(t: Trouve) {
 export function OuEst({ params }: { params: URLSearchParams }) {
   const { ds, maintenant, aujourdhui, minutes, profil } = useStore();
   const jours = useMemo(() => prochainsJours(maintenant, 5), [maintenant]);
-  const [date, setDate] = useState(params.get('date') ?? (estJourDeCours(maintenant) ? aujourdhui : jours[0]));
+  // Après H9 (ou un jour sans cours) : le prochain jour de cours.
+  const [date, setDate] = useState(() => creneauInitial(maintenant, params).date);
   const [texte, setTexte] = useState('');
   const [tousLibres, setTousLibres] = useState(false);
   const [hChoisie, setHChoisie] = useState<number | null>(null);

@@ -5,10 +5,10 @@ import { useStore } from '../data/store';
 import { ecranActif } from '../options';
 import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
-import { coursDuProf, coursSansProf, nomAffiche, peutPrendre, type CoursJour } from '../logic/horaire';
+import { absentA, coursDuProf, coursSansProf, nomAffiche, peutPrendre, type CoursJour } from '../logic/horaire';
 import { heureLibre, optionsPour, probable, type OptionDeplacement } from '../logic/deplacements';
 import { etatLocal } from '../logic/occupation';
-import { JOURS, MIDI, RECRES, conge, dateLongue, estJourDeCours, jourSemaineIso, periode, prochainJourDeCours, situation, iso } from '../lib/calendar';
+import { JOURS, MIDI, RECRES, conge, dateLongue, estJourDeCours, jourSemaineIso, periode, prochainJourDeCours, situation, plusJoursIso, iso } from '../lib/calendar';
 import { blagueDuJour } from '../data/blagues';
 import { lien } from '../lib/route';
 import { couleurMatiere } from '../logic/couleurs';
@@ -88,8 +88,14 @@ export function Aujourdhui() {
       }
     }
 
-    const prochainJour = prochainJourDeCours(maintenant, false);
-    const premierDemain = coursDuProf(ds, moi, iso(prochainJour))[0];
+    let prochainJour = prochainJourDeCours(maintenant, false);
+    let premierDemain: CoursJour | undefined;
+    // Couvrir aussi les longues vacances et les jours où le prof ne donne pas cours.
+    for (let i = 0; i < 60 && !premierDemain; i++) {
+      const date = iso(prochainJour);
+      premierDemain = coursDuProf(ds, moi, date).find((c) => !absentA(ds, moi, date, c.h));
+      if (!premierDemain) prochainJour = prochainJourDeCours(prochainJour, false);
+    }
     const suivi = suiviDuProf(ds, moi, aujourdhui);
     const aValider = ds.deplacements.filter((d) => d.statut === 'En attente').length;
     const infos = ds.infos.filter((i) => i.date === aujourdhui);
@@ -116,13 +122,17 @@ export function Aujourdhui() {
   }
 
   let carte: ReactNode;
-  if (!jourCours) {
-    const c = conge(maintenant);
-    carte = (
-      <CarteNuit surtitre="Aujourd'hui" titre={c ? c.nom : "Pas cours aujourd'hui"} texte={`Reprise ${dateLongue(prochainJour)}`}>
-        {premierDemain && <Encart icone="porte" haut={`Premier cours · H${premierDemain.h} · ${periode(premierDemain.h).debut}`} bas={`${premierDemain.classe} · ${premierDemain.local}`} />}
+  if (!jourCours || sit.h >= 10 || (mesCours.length > 0 && !prochain && !coursMaintenant)) {
+    const date = iso(prochainJour);
+    const quand = date === plusJoursIso(aujourdhui, 1) ? 'Demain' : dateLongue(prochainJour);
+    carte = premierDemain ? (
+      <CarteNuit surtitre={!jourCours && conge(maintenant) ? `${conge(maintenant)!.nom} · ton prochain cours` : 'Ton prochain cours'} titre={`${quand} à ${periode(premierDemain.h).debut}`} texte={`${premierDemain.classe} · ${premierDemain.local} · H${premierDemain.h}`}>
+        <div className="rangee enrouler">
+          <a className="bouton bouton--blanc" href={lien('horaire', { jour: date })}>Voir ma journée</a>
+          <a className="lien-sur-vert" href={lien('materiel', { date, h: premierDemain.h, classe: premierDemain.classe })}>Réserver du matériel</a>
+        </div>
       </CarteNuit>
-    );
+    ) : <CarteNuit surtitre="Ton horaire" titre="Aucun prochain cours trouvé" texte="Consulte ton horaire pour parcourir les prochaines semaines." />;
   } else if (sit.h === 0) {
     carte = (
       <CarteNuit surtitre="Avant les cours" titre="Les cours commencent à 8h25" texte={mesCours.length ? `${mesCours.length} cours aujourd'hui` : "Pas de cours pour toi aujourd'hui"}>
@@ -153,12 +163,6 @@ export function Aujourdhui() {
         )}
       </CarteNuit>
     );
-  } else if (sit.h >= 10 || (mesCours.length && sit.h > Math.max(...mesCours.map((c) => c.h)))) {
-    carte = (
-      <CarteNuit surtitre="Fin de journée" titre="Ta journée est finie" texte={`Prochain jour de cours : ${dateLongue(prochainJour)}`}>
-        {premierDemain && <Encart icone="porte" haut={`Premier cours · H${premierDemain.h} · ${periode(premierDemain.h).debut}`} bas={`${premierDemain.classe} · ${premierDemain.local}`} />}
-      </CarteNuit>
-    );
   } else {
     carte = (
       <CarteNuit surtitre="Pause" titre={RECRES.includes(sit.h - 1) ? 'Récréation' : 'Entre deux heures'} texte={`Reprise à ${periode(sit.h).debut}`}>
@@ -177,7 +181,7 @@ export function Aujourdhui() {
             </span>
             {dateLongue(maintenant).replace(/^./, (x) => x.toUpperCase())}
           </p>
-          <h1 className="salut">Bonjour {ds.moi.prenom || 'à toi'}</h1>
+          <h1 className="salut">{minutes >= 1080 ? 'Bonsoir' : 'Bonjour'} {ds.moi.prenom || 'à toi'}</h1>
         </div>
         <div className="rangee">
           {demo && (

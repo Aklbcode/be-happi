@@ -7,19 +7,20 @@ import { Icon } from '../ui/Icon';
 import { ChoixJour, HeuresNeuf, prochainsJours } from '../ui/Choix';
 import { dispoMateriel, libreSurPlage } from '../logic/materiel';
 import { coursDuProf, nomAffiche } from '../logic/horaire';
-import { JOURS_COURTS, deIso, estJourDeCours, jourSemaine, situation } from '../lib/calendar';
+import { JOURS_COURTS, creneauInitial, deIso, jourSemaine, reservationPossible } from '../lib/calendar';
 
 export function Materiel({ params }: { params: URLSearchParams }) {
-  const { ds, maintenant, aujourdhui, minutes, profil, reserverMateriel, annulerMateriel, montrerToast } = useStore();
+  const { ds, maintenant, aujourdhui, profil, reserverMateriel, annulerMateriel, montrerToast } = useStore();
   const jours = useMemo(() => prochainsJours(maintenant, 6), [maintenant]);
-  const [date, setDate] = useState(params.get('date') ?? (estJourDeCours(maintenant) ? aujourdhui : jours[0]));
-  const sit = situation(minutes);
-  const [h, setH] = useState(Number(params.get('h')) || (date === aujourdhui ? Math.min(Math.max(sit.h, 1), 9) : 1));
-  const [classeChoisie, setClasseChoisie] = useState('');
+  // Après H9 : le prochain jour de cours. Depuis la fiche d'un cours : son jour, son heure, sa classe.
+  const initial = creneauInitial(maintenant, params);
+  const [date, setDate] = useState(initial.date);
+  const [h, setH] = useState(initial.h);
+  const [classeChoisie, setClasseChoisie] = useState(params.get('classe') ?? '');
   const [envoi, setEnvoi] = useState<string | null>(null);
   if (!ds) return <section className="ecran"><p className="texte">Chargement…</p></section>;
   const moi = ds.moi.nom;
-  const peutReserver = profil === 'prof' && !!moi;
+  const peutReserver = profil === 'prof' && !!moi && reservationPossible(maintenant, date, h);
   const dispo = dispoMateriel(ds, date, h);
   const mesClasses = [...new Set(ds.cours.filter((c) => c.prof === moi).flatMap((c) => c.classes))].sort();
   const classe = classeChoisie || coursDuProf(ds, moi, date).find((c) => c.h === h)?.classe || mesClasses[0] || '';
@@ -34,7 +35,7 @@ export function Materiel({ params }: { params: URLSearchParams }) {
   async function reserver(rack: string, fin: number) {
     setEnvoi(rack);
     try {
-      for (let x = h; x <= fin; x++) await reserverMateriel({ date, h: x, rack, classe });
+      await reserverMateriel({ date, h, rack, classe }, fin);
       montrerToast(`${rack} réservé ${fin > h ? `de H${h} à H${fin}` : `en H${h}`}`);
     } catch (e) {
       montrerToast(`Impossible : ${e instanceof Error ? e.message : e}`);
@@ -92,7 +93,7 @@ export function Materiel({ params }: { params: URLSearchParams }) {
         })}
       </section>
 
-      {peutReserver && (
+      {profil === 'prof' && !!moi && (
         <section className="pile pile--8" aria-label="Mes réservations">
           <h2 className="titre-m">Mes réservations</h2>
           {!miennes.length && <p className="petit">Aucune réservation à venir.</p>}
@@ -106,7 +107,7 @@ export function Materiel({ params }: { params: URLSearchParams }) {
                     {m.date === aujourdhui ? "Aujourd'hui" : `${JOURS_COURTS[jourSemaine(d)]} ${d.getDate()}/${d.getMonth() + 1}`} · H{m.h} · {m.classe}
                   </span>
                 </span>
-                <button className="bouton bouton--sec bouton--petit" onClick={() => void annulerMateriel(m).then(() => montrerToast('Réservation annulée'))}>
+                <button className="bouton bouton--sec bouton--petit" onClick={() => void annulerMateriel(m).then(() => montrerToast('Réservation annulée')).catch((e) => montrerToast(`Annulation impossible : ${e instanceof Error ? e.message : e}`))}>
                   Annuler
                 </button>
               </div>

@@ -9,7 +9,7 @@ import { Icon } from '../ui/Icon';
 import { Feuille } from '../ui/Feuille';
 import { etatLocal, libreJusque } from '../logic/occupation';
 import { coursDuProf } from '../logic/horaire';
-import { JOURS_COURTS, PERIODES, deIso, estJourDeCours, iso, jourSemaineIso, prochainJourDeCours, situation } from '../lib/calendar';
+import { JOURS_COURTS, PERIODES, creneauInitial, deIso, jourSemaineIso } from '../lib/calendar';
 import type { Local } from '../data/types';
 import { batiment, nomEtage, type CodeBatiment } from '../data/batiments';
 import { MiniPlan } from '../ui/MiniPlan';
@@ -28,12 +28,11 @@ const garde = (f: Filtres) => (l: Local) =>
 const court = (l: Local) => (l.batiment === 'Autres' ? l.code : l.code.replace(/^B[TFC]/, '').replace(/^PR/, ''));
 
 export function Locaux({ params }: { params: URLSearchParams }) {
-  const { ds, maintenant, aujourdhui, minutes, reserver, montrerToast, profil } = useStore();
-  const dateDefaut = estJourDeCours(maintenant) ? aujourdhui : iso(prochainJourDeCours(maintenant, false));
-  const date = params.get('date') ?? dateDefaut;
-  const sit = situation(minutes);
-  const hDefaut = Number(params.get('h')) || (date === aujourdhui ? Math.min(Math.max(sit.h, 1), 9) : 1);
-  const [h, setH] = useState(hDefaut);
+  const { ds, maintenant, reserver, montrerToast, profil } = useStore();
+  // Après H9 (ou un jour sans cours) : le prochain jour de cours ; un lien garde sa date et son heure.
+  const initial = creneauInitial(maintenant, params);
+  const date = initial.date;
+  const [h, setH] = useState(initial.h);
   const [filtres, setFiltres] = useState<Filtres>({ vp: false, tbi: false, tv: false, pratique: false });
   const [choisi, setChoisi] = useState<string | null>(null);
   const [classeChoisie, setClasseChoisie] = useState('');
@@ -64,7 +63,7 @@ export function Locaux({ params }: { params: URLSearchParams }) {
     if (!local) return;
     setEnCours(true);
     try {
-      for (let x = h; x <= jusque; x++) await reserver({ date, h: x, local: local.code, classe: classeRes });
+      await reserver({ date, h, local: local.code, classe: classeRes }, jusque);
       montrerToast(`${local.code} réservé ${jusque > h ? `de H${h} à H${jusque}` : `en H${h}`} pour la ${classeRes}`);
       setChoisi(null);
     } catch (e) {
