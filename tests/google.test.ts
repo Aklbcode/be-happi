@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { iso, plusJours } from '../src/lib/calendar';
-import { lireParametre, utiliserReglagesGoogle, choixEnAttente, associer, chercherNom } from '../src/data/google';
+import { lireParametre, utiliserReglagesGoogle, choixEnAttente, associer, chercherNom, appareilEnAttente } from '../src/data/google';
 import { chargerSharePoint, enregistrerPlage, enregistrerReservation, modifierSeance, profil } from '../src/data/sharepoint';
 
 const CLE = 'cle-de-test-1234567890';
@@ -72,9 +72,11 @@ const cache = {
   remove: (k: string) => void memoireCache.delete(k),
 };
 const contexte = vm.createContext({
+  // L'horloge du test (voir scripts/horloge-test.mjs), pas celle de la machine.
+  Date,
   SpreadsheetApp: { getActive: () => ({ getSheetByName: (n: string) => (classeur[n] ? feuille(n) : null), insertSheet: (n: string) => ((classeur[n] = []), feuille(n)), getSpreadsheetTimeZone: () => 'Europe/Brussels' }) },
   ContentService: { createTextOutput: (s: string) => ({ setMimeType: () => s }), MimeType: { JSON: 'json' } },
-  LockService: { getScriptLock: () => ({ waitLock: () => undefined, releaseLock: () => undefined }) },
+  LockService: { getScriptLock: () => ({ waitLock: () => undefined, tryLock: () => true, releaseLock: () => undefined }) },
   CacheService: { getScriptCache: () => cache },
   MailApp: { getRemainingDailyQuota: () => 100, sendEmail: (m: { to: string; subject: string; body: string; attachments?: { texte: string }[] }) => void mailsEnvoyes.push(m) },
   Utilities: {
@@ -88,7 +90,7 @@ const contexte = vm.createContext({
     },
   },
 });
-vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8').replace('__CLE__', CLE).replace("const DESTINATAIRE_NOTIF = '';", "const DESTINATAIRE_NOTIF = 'flow@ecole.example';").replace("const APP_TEAMS = '';", "const APP_TEAMS = '00000000-0000-0000-0000-000000000000';").replace("const ADMIN_SUGGESTIONS = '';", "const ADMIN_SUGGESTIONS = 'admin@ecole.example';"), contexte);
+vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8').replace('__CLE__', CLE).replace("const DESTINATAIRE_NOTIF = '';", "const DESTINATAIRE_NOTIF = 'flow@ecole.example';").replace("const APP_TEAMS = '';", "const APP_TEAMS = '00000000-0000-0000-0000-000000000000';").replace("const ADMIN_SUGGESTIONS = '';", "const ADMIN_SUGGESTIONS = 'admin@ecole.example';").replace('const APPAREILS_ROLES = true;', 'const APPAREILS_ROLES = false;'), contexte);
 const doPost = contexte.doPost as (e: unknown) => string;
 const envoi = async (_url: string, corps: string) => JSON.parse(doPost({ postData: { contents: corps } }));
 
@@ -418,4 +420,150 @@ test('l’app réserve une plage en un seul appel (version Google)', async () =>
   const ids = await enregistrerPlage({ prof: 'LAMBERT', date: J(14), h: 6, local: 'BF220', classe: '5TQB' }, 8);
   assert.equal(ids.length, 3);
   assert.equal(appels, 1);
+});
+
+// ---------- Charge : lignes récentes, « rien n'a changé » ----------
+
+test('un prof ne reçoit que les lignes récentes ; la gestion reçoit tout', () => {
+  // Une absence d'il y a un mois, une d'il y a 3 jours, tapées à la main.
+  classeur.Absences.push(['', '', 'LAMBERT', J(-30), 1, 9, ''], ['', '', 'LAMBERT', J(-3), 1, 9, '']);
+  (contexte.onEdit as () => void)();
+  const dates = (r: any) => r.listes.Absences.lignes.map((l: unknown[]) => String(l[r.listes.Absences.cols.indexOf('DateAbs')]));
+  const pourProf = dates(lire(prof));
+  assert.ok(!pourProf.includes(J(-30)), 'pas l’absence du mois dernier');
+  assert.ok(pourProf.includes(J(-3)));
+  assert.ok(pourProf.includes(J(5)), 'l’avenir est là');
+  assert.ok(dates(lire(educ)).includes(J(-30)), 'l’éducatrice garde l’historique');
+  // L'horaire et les profs ne sont jamais coupés.
+  assert.equal(lire(prof).listes.Horaires.lignes.length, classeur.Horaires.length - 1);
+  // Un déplacement ancien dont le cours d'origine est encore à venir reste visible.
+  const e = classeur.Deplacements[0];
+  const vieux = e.map((h) => (h === 'Title' ? 'MARTIN (math)' : h === 'DateDep' ? J(-20) : h === 'DateOrigine' ? J(2) : h === 'Collegue' ? 'LAMBERT' : h === 'Statut' ? 'Validé' : h === 'ID' ? 'vieux-1' : h === 'Version' ? 1 : ''));
+  const perdu = e.map((h) => (h === 'Title' ? 'MARTIN (math)' : h === 'DateDep' ? J(-20) : h === 'DateOrigine' ? J(-19) : h === 'Collegue' ? 'LAMBERT' : h === 'Statut' ? 'Validé' : h === 'ID' ? 'vieux-2' : h === 'Version' ? 1 : ''));
+  classeur.Deplacements.push(vieux, perdu);
+  (contexte.onEdit as () => void)();
+  const r = lire(prof);
+  const ids = r.listes.Deplacements.lignes.map((l: unknown[]) => String(l[r.listes.Deplacements.cols.indexOf('ID')]));
+  assert.ok(ids.includes('vieux-1'));
+  assert.ok(!ids.includes('vieux-2'));
+});
+
+test('« rien n’a changé » : l’app qui a déjà la bonne copie ne la reçoit plus', async () => {
+  const premier = lire(prof);
+  assert.ok(premier.jeton && premier.listes);
+  const pareil = appeler({ action: 'lire', cle: CLE, mail: prof, connu: premier.jeton });
+  assert.equal(pareil.inchange, true);
+  assert.equal(pareil.listes, undefined);
+  assert.equal(pareil.moi.nom, 'LAMBERT');
+  // Le jeton d'un autre (l'éducatrice reçoit tout) ne vaut pas pour le prof.
+  assert.notEqual(lire(educ).jeton, premier.jeton);
+  assert.ok(appeler({ action: 'lire', cle: CLE, mail: prof, connu: lire(educ).jeton }).listes);
+  // Le cache expire et le Sheet est relu sans que rien n'ait changé : toujours « rien n'a changé ».
+  memoireCache.delete('d|n');
+  assert.equal(appeler({ action: 'lire', cle: CLE, mail: prof, connu: premier.jeton }).inchange, true);
+  // Une écriture : la copie complète revient, avec un nouveau jeton.
+  const cree = creerX(prof, 'Réservations', { Title: 'LAMBERT', DateRes: J(3), Heure: 2, Local: 'BF110', Classe: '5TQB' });
+  assert.equal(cree.status, 201);
+  const apres = appeler({ action: 'lire', cle: CLE, mail: prof, connu: premier.jeton });
+  assert.ok(apres.listes && apres.jeton !== premier.jeton);
+
+  // Dans l'app : deux lectures de suite, la deuxième ne transporte plus les listes.
+  let recues = 0;
+  const compter = async (url: string, corps: string) => {
+    const r = await envoi(url, corps);
+    if (JSON.parse(corps).action === 'lire' && r.listes) recues++;
+    return r;
+  };
+  utiliserReglagesGoogle({ script: 'AKfycbxTESTTESTTESTTEST', cle: CLE }, compter, prof);
+  const moi = await profil();
+  const un = await chargerSharePoint(moi.email, moi.prenom);
+  await new Promise((ok) => setTimeout(ok, 4100)); // la copie de l'app a plus de quelques secondes
+  const deux = await chargerSharePoint(moi.email, moi.prenom);
+  assert.equal(recues, 1, 'les listes n’ont voyagé qu’une fois');
+  assert.deepEqual(deux.reservations, un.reservations);
+  assert.equal(deux.cours.length, un.cours.length);
+});
+
+// ---------- Rôles : seulement depuis un appareil approuvé ----------
+
+test('un rôle ne vaut que depuis un appareil approuvé (onglet Appareils)', async () => {
+  // Le même script, avec la règle allumée (comme en vrai), sur le même classeur.
+  const strict = vm.createContext({ ...contexte });
+  vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8').replace('__CLE__', CLE).replace("const ADMIN_SUGGESTIONS = '';", "const ADMIN_SUGGESTIONS = 'admin@ecole.example';"), strict);
+  const poster = strict.doPost as (e: unknown) => string;
+  const dire = (o: Record<string, unknown>) => JSON.parse(poster({ postData: { contents: JSON.stringify({ cle: CLE, ...o }) } }));
+  const direction = 'direction@ecole.example';
+  // Avant la règle, le journal existait déjà (3 colonnes) avec l'appareil habituel de la direction.
+  classeur.Appareils = [['Mail', 'Appareil', 'Vu la première fois'], [direction, 'ancien-appareil', '2026-11-03T08:00:00Z']];
+  mailsEnvoyes.length = 0;
+
+  // L'appareil déjà connu est approuvé d'office : rien ne change pour elle.
+  const connu = dire({ action: 'lire', mail: direction, appareil: 'ancien-appareil' });
+  assert.deepEqual(connu.moi.roles, ['Direction']);
+  assert.deepEqual(classeur.Appareils[0], ['Mail', 'Appareil', 'Vu la première fois', 'Approuvé']);
+  assert.equal(classeur.Appareils[1][3], 'Oui');
+  assert.equal(dire({ action: 'creer', mail: direction, appareil: 'ancien-appareil', liste: 'Absences', fields: { Title: 'LAMBERT', DateAbs: J(7), DeH: 1, AH: 2 } }).status, 201);
+
+  // Quelqu'un qui a la clé et connaît son adresse, depuis un autre appareil : pas de rôle, aucune liste, aucune écriture.
+  const intrus = dire({ action: 'lire', mail: direction, appareil: 'appareil-inconnu' });
+  assert.deepEqual(intrus.moi.roles, []);
+  assert.equal(intrus.moi.appareilEnAttente, true);
+  assert.equal(intrus.listes, undefined);
+  assert.equal(dire({ action: 'creer', mail: direction, appareil: 'appareil-inconnu', liste: 'Absences', fields: { Title: 'LAMBERT', DateAbs: J(8), DeH: 1, AH: 2 } }).status, 403);
+  assert.equal(dire({ action: 'creer', mail: direction, liste: 'Absences', fields: { Title: 'LAMBERT', DateAbs: J(8), DeH: 1, AH: 2 } }).status, 403, 'sans appareil : pas de rôle non plus');
+  // L'appareil est noté, pas approuvé ; la personne qui gère l'app est prévenue une seule fois.
+  const ligne = classeur.Appareils.find((l) => l[1] === 'appareil-inconnu')!;
+  assert.equal(ligne[0], direction);
+  assert.equal(ligne[3], '');
+  dire({ action: 'lire', mail: direction, appareil: 'appareil-inconnu' });
+  const alertes = mailsEnvoyes.filter((m) => m.subject === 'IPES App · appareil à approuver');
+  assert.equal(alertes.length, 1);
+  assert.equal(alertes[0].to, 'admin@ecole.example');
+  assert.match(alertes[0].body, /direction@ecole\.example/);
+
+  // Un prof qui a aussi un rôle garde son horaire ; seul le rôle attend.
+  classeur.Roles.push([prof, 'Secrétariat']);
+  (strict.onEdit as () => void)();
+  const profRole = dire({ action: 'lire', mail: prof, appareil: 'tel-du-prof' });
+  assert.equal(profRole.moi.nom, 'LAMBERT');
+  assert.deepEqual(profRole.moi.roles, []);
+  assert.equal(profRole.moi.appareilEnAttente, true);
+  assert.ok(profRole.listes.Horaires.lignes.length > 0);
+  assert.equal(profRole.listes.Roles.lignes.length, 0);
+  assert.equal(dire({ action: 'creer', mail: prof, appareil: 'tel-du-prof', liste: 'Absences', fields: { Title: 'MARTIN (math)', DateAbs: J(9), DeH: 1, AH: 2 } }).status, 403);
+
+  // « Oui » dans la colonne Approuvé : le rôle vaut tout de suite sur cet appareil, et seulement celui-là.
+  classeur.Appareils.find((l) => l[1] === 'tel-du-prof')![3] = 'Oui';
+  (strict.onEdit as () => void)();
+  assert.deepEqual(dire({ action: 'lire', mail: prof, appareil: 'tel-du-prof' }).moi.roles, ['Secrétariat']);
+  assert.equal(dire({ action: 'creer', mail: prof, appareil: 'tel-du-prof', liste: 'Absences', fields: { Title: 'MARTIN (math)', DateAbs: J(9), DeH: 1, AH: 2 } }).status, 201);
+  assert.deepEqual(dire({ action: 'lire', mail: prof, appareil: 'autre-tel' }).moi.roles, []);
+  // Approbation retirée : le rôle tombe.
+  classeur.Appareils.find((l) => l[1] === 'tel-du-prof')![3] = '';
+  (strict.onEdit as () => void)();
+  assert.deepEqual(dire({ action: 'lire', mail: prof, appareil: 'tel-du-prof' }).moi.roles, []);
+
+  // Dans l'app : la direction sur un appareil pas approuvé voit l'écran d'attente, pas « Qui es-tu ? ».
+  classeur.Roles.pop();
+  (strict.onEdit as () => void)();
+  utiliserReglagesGoogle({ script: 'AKfycbxTESTTESTTESTTEST', cle: CLE }, async (_u: string, corps: string) => JSON.parse(poster({ postData: { contents: corps } })), direction);
+  const moi = await profil();
+  await assert.rejects(() => chargerSharePoint(moi.email, moi.prenom), /approuvé/);
+  assert.equal(appareilEnAttente(), 'bloque');
+  assert.equal(choixEnAttente(), null);
+});
+
+test('réglages privés dans un second fichier (PRIVE) : ils passent avant ceux du modèle', () => {
+  const autre = vm.createContext({ ...contexte, PRIVE: { CLE: 'une-autre-cle-privee-123456', ADMIN_SUGGESTIONS: 'chef@ecole.example' } });
+  vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8'), autre);
+  const poster = autre.doPost as (e: unknown) => string;
+  const dire = (o: Record<string, unknown>) => JSON.parse(poster({ postData: { contents: JSON.stringify(o) } }));
+  // Le modèle public tel quel, sans clé écrite dedans : c'est celle de PRIVE qui vaut.
+  assert.equal(dire({ action: 'lire', cle: 'une-autre-cle-privee-123456', mail: prof, appareil: 'x' }).status, 200);
+  assert.equal(dire({ action: 'lire', cle: CLE, mail: prof }).status, 401);
+  // Sans PRIVE ni clé : le script ne répond à personne.
+  const nu = vm.createContext({ ...contexte });
+  vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8'), nu);
+  assert.equal(JSON.parse((nu.doPost as (e: unknown) => string)({ postData: { contents: JSON.stringify({ action: 'lire', cle: '__CLE__', mail: prof }) } })).status, 503);
+  assert.match(JSON.parse((nu.doGet as () => string)()).version, /^\d{4}-\d{2}-\d{2}$/);
 });

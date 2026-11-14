@@ -53,6 +53,8 @@ export function utiliserReglagesGoogle(r: ReglagesGoogle | null, envoi?: Envoi, 
   etat = null;
   promesse = null;
   identite = null;
+  dernier = null;
+  attente = 'non';
 }
 
 // ---------- Appels au script ----------
@@ -145,6 +147,14 @@ async function adresse(): Promise<string> {
 let choix: { mail: string; libres: string[] } | null = null;
 export const choixEnAttente = (): { mail: string; libres: string[] } | null => choix;
 
+/**
+ * Un rôle (secrétariat, éducateurs, direction) n'est accepté par le script que depuis un appareil
+ * approuvé. « role » : la personne est reconnue comme prof, son rôle attend ; « bloque » : elle n'a
+ * que ce rôle, donc rien à afficher tant que l'appareil n'est pas approuvé.
+ */
+let attente: 'non' | 'role' | 'bloque' = 'non';
+export const appareilEnAttente = (): 'non' | 'role' | 'bloque' => attente;
+
 /** Ce que le script sait de la personne connectée (il fait foi : c'est lui qui a reconnu l'adresse). */
 export const moiDuScript = (): { nom: string; roles: string[] } | null => (etat ? { nom: etat.moi.nom || '', roles: etat.moi.roles ?? [] } : null);
 
@@ -180,6 +190,7 @@ export async function associer(nom: string): Promise<void> {
   choix = null;
   etat = null;
   promesse = null;
+  dernier = null;
 }
 
 // ---------- Copie des listes ----------
@@ -233,6 +244,8 @@ export function deplier(l: ListeCompacte): { colonnes: string[]; items: ItemG[] 
 
 let etat: Etat | null = null;
 let promesse: Promise<Etat> | null = null;
+/** La dernière copie complète reçue et son jeton : si le script répond « rien n'a changé », elle resservira. */
+let dernier: { jeton: string; etat: Etat } | null = null;
 
 /** Relit le Sheet si la copie a plus de quelques secondes (un chargement de l'app = une lecture). */
 function fraiche(): Promise<Etat> {
@@ -242,7 +255,7 @@ function fraiche(): Promise<Etat> {
       // Un seul aller-retour : le script renvoie les listes, ou de quoi choisir son nom.
       let r: any;
       try {
-        r = await script('lire');
+        r = await script('lire', dernier ? { connu: dernier.jeton } : {});
       } catch (e) {
         // Ancien script (avant la version rapide) : il répond 403 à une adresse pas encore reliée.
         if (!(e instanceof ErreurScript && e.status === 403)) throw e;
@@ -250,13 +263,27 @@ function fraiche(): Promise<Etat> {
       }
       const moi = r.moi ?? {};
       if (!moi.nom && !(moi.roles ?? []).length) {
+        if (moi.appareilEnAttente) {
+          attente = 'bloque';
+          choix = null;
+          throw new ErreurScript(403, 'Cet appareil doit encore être approuvé pour ton rôle.');
+        }
+        attente = 'non';
         choix = { mail: await adresse(), libres: moi.libres ?? [] };
         throw new ErreurScript(403, 'CHOIX_PROF');
       }
       choix = null;
+      attente = moi.appareilEnAttente ? 'role' : 'non';
+      const qui = { nom: moi.nom, roles: moi.roles ?? [] };
+      // Rien n'a changé depuis la dernière lecture : le script n'a pas renvoyé les listes.
+      if (r.inchange && dernier) {
+        etat = { moi: qui, listes: dernier.etat.listes, lu: Date.now() };
+        return etat;
+      }
       const listes: Etat['listes'] = {};
       for (const [nom, l] of Object.entries<any>(r.listes ?? {})) listes[nom] = Array.isArray(l?.lignes) ? deplier(l) : l;
-      etat = { moi: { nom: moi.nom, roles: moi.roles ?? [] }, listes, lu: Date.now() };
+      etat = { moi: qui, listes, lu: Date.now() };
+      dernier = typeof r.jeton === 'string' && r.jeton ? { jeton: r.jeton, etat } : null;
       return etat;
     } finally {
       promesse = null;

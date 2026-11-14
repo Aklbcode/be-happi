@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { StoreProvider, useStore } from './data/store';
 import { useRoute, type Ecran } from './lib/route';
 import { suivreThemeTeams } from './lib/teams';
@@ -12,8 +12,9 @@ import { ApercuTeams } from './ui/ApercuTeams';
 import { Bienvenue } from './ui/Bienvenue';
 import { ConfirmerEcole } from './ui/ConfirmerEcole';
 import { ChoisirProf } from './ui/ChoisirProf';
+import { AppareilAApprouver } from './ui/AppareilAApprouver';
 import { OPTIONS } from './options';
-import { choixEnAttente, googleActif } from './data/google';
+import { appareilEnAttente, choixEnAttente, googleActif } from './data/google';
 import { Aujourdhui } from './screens/Aujourdhui';
 import { Horaire } from './screens/Horaire';
 import { Deplacer } from './screens/Deplacer';
@@ -41,6 +42,7 @@ import { CapReussite } from './screens/CapReussite';
 function Coquille() {
   const route = useRoute();
   const { toast, erreur, chargement, ds, profil, profils, peutValider } = useStore();
+  const [noteVue, setNoteVue] = useState(false);
 
   useEffect(() => {
     void suivreThemeTeams((t) => {
@@ -53,8 +55,12 @@ function Coquille() {
   // Connexion reste ouverte tant que rien n'est chargé ou en cas d'erreur : c'est là qu'on voit pourquoi.
   const autorise = peutOuvrir(ecran, profils) || (ecran === 'connexion' && (!ds || !!erreur));
 
+  // Version Google : pas encore reconnu (choisir son nom), ou rôle demandé depuis un appareil pas encore approuvé.
+  const bloque = googleActif() && appareilEnAttente() === 'bloque';
+  const ecranSeul = bloque || (googleActif() && !!choixEnAttente());
   let vue: ReactNode;
-  if (googleActif() && choixEnAttente()) vue = <ChoisirProf />;
+  if (bloque) vue = <AppareilAApprouver />;
+  else if (googleActif() && choixEnAttente()) vue = <ChoisirProf />;
   else if (!autorise) vue = <NonAutorise />;
   else
     switch (ecran) {
@@ -86,11 +92,11 @@ function Coquille() {
 
   const aValider = ds ? ds.deplacements.filter((d) => d.statut === 'En attente').length : 0;
   const nouveaux = ds ? ds.signalements.filter((s) => !s.resolu && s.statut === 'Nouveau').length : 0;
-  const sansBarre = ecran === 'deplacer' || ecran === 'ecran' || (googleActif() && !!choixEnAttente());
+  const sansBarre = ecran === 'deplacer' || ecran === 'ecran' || ecranSeul;
 
   return (
     <>
-      {erreur && ecran !== 'connexion' && !(googleActif() && choixEnAttente()) && (
+      {erreur && ecran !== 'connexion' && !ecranSeul && (
         <div role="alert" className={`toast toast--haut${ds && /connexion au Google Sheet/.test(erreur) ? ' toast--doux' : ''}`}>
           <Icon nom="attention" />{' '}
           {googleActif() ? erreur : <>Connexion SharePoint impossible : <a href="#/connexion">détails</a></>}
@@ -107,9 +113,17 @@ function Coquille() {
         vue
       )}
       {!sansBarre && <Onglets actif={ecran} profil={profil} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
-      {ecran !== 'ecran' && !(googleActif() && choixEnAttente()) && <MenuLateral actif={ecran} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
+      {ecran !== 'ecran' && !ecranSeul && <MenuLateral actif={ecran} pastilles={{ validations: peutValider ? aValider : 0, technique: nouveaux }} />}
       <ApercuTeams />
       {ecran !== 'ecran' && OPTIONS.bienvenue && <Bienvenue />}
+      {googleActif() && appareilEnAttente() === 'role' && !noteVue && (
+        <div role="status" className="toast toast--haut toast--doux">
+          <Icon nom="attention" /> Ton rôle attend l’approbation de cet appareil : pour l’instant, tu vois l’app comme un prof.{' '}
+          <button className="lien-action" onClick={() => setNoteVue(true)}>
+            Compris
+          </button>
+        </div>
+      )}
       {toast && (
         <div role="status" className="toast">
           <Icon nom="coche" epaisseur={2.4} /> {toast}

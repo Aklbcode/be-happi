@@ -17,12 +17,36 @@
  *
  * Rapide pour beaucoup d'utilisateurs : les listes sont gardées en mémoire (cache Google) quelques
  * minutes ; toute écriture de l'app, tout import et toute modification à la main dans le Sheet
- * vident ce cache.
+ * vident ce cache. Une seule demande à la fois le reconstruit. Les profs ne reçoivent que les lignes
+ * récentes, et une app qui a déjà la bonne copie reçoit seulement « rien n'a changé ».
  *
- * Ce modèle est public : la vraie clé n'y est jamais. Elle est écrite dans la copie collée dans le Sheet.
+ * Les rôles (onglet Roles) ne sont acceptés que depuis un appareil approuvé : onglet « Appareils »,
+ * colonne « Approuvé » (écrire « Oui »). Les appareils déjà connus sont approuvés d'office.
+ *
+ * Ce modèle est public : la vraie clé n'y est jamais.
+ *
+ * Les réglages privés (clé, adresses, dates de l'école) se donnent de deux façons :
+ *   - conseillé : un second fichier du projet Apps Script, « Prive.gs », qui contient
+ *       const PRIVE = { CLE: '…', ADMIN_SUGGESTIONS: '…', DESTINATAIRE_NOTIF: '…', APP_TEAMS: '…',
+ *                       STAGES_DEPART: […], AGENDA_DEPART: […], LOTS: […] };
+ *     Ce fichier-ci se remplace alors tel quel à chaque mise à jour, sans rien y réécrire ;
+ *   - ou, comme avant, les valeurs écrites directement dans ce fichier (CLE, ADMIN_SUGGESTIONS…).
+ * Ce qui est dans PRIVE passe avant ce qui est écrit ici.
  */
 
+/** La version de ce script : visible en ouvrant l'adresse …/exec dans un navigateur. */
+const VERSION_SCRIPT = '2026-11-14';
+
 const CLE = '__CLE__';
+
+const prive = (nom, defaut) => (typeof PRIVE !== 'undefined' && PRIVE && PRIVE[nom] !== undefined ? PRIVE[nom] : defaut);
+const cleSecrete = () => String(prive('CLE', CLE));
+const adminSuggestions = () => String(prive('ADMIN_SUGGESTIONS', ADMIN_SUGGESTIONS) || '');
+const stagesDepart = () => prive('STAGES_DEPART', STAGES_DEPART) || [];
+const agendaDepart = () => prive('AGENDA_DEPART', AGENDA_DEPART) || [];
+const lots = () => prive('LOTS', LOTS) || [];
+const destinataireNotif = () => String(prive('DESTINATAIRE_NOTIF', DESTINATAIRE_NOTIF) || '');
+const appTeams = () => String(prive('APP_TEAMS', APP_TEAMS) || '');
 
 /** Les onglets lisibles par l'app (mêmes noms que les listes SharePoint). */
 const LISTES = [
@@ -89,20 +113,21 @@ const LOTS = [];
 // ---------- Entrée ----------
 
 function doGet() {
-  return json({ ok: true, app: 'IPES App', message: 'Le script répond. Ouvre IPES App dans Teams.' });
+  return json({ ok: true, app: 'IPES App', version: VERSION_SCRIPT, message: 'Le script répond. Ouvre IPES App dans Teams.' });
 }
 
 function doPost(e) {
   memoire = null;
   // Un modèle collé sans sa clé ne répond à personne.
-  if (CLE.indexOf('__') === 0 || CLE.length < 20) return json({ status: 503, erreur: 'Script pas encore configuré (clé manquante).' });
+  const cle = cleSecrete();
+  if (cle.indexOf('__') === 0 || cle.length < 20) return json({ status: 503, erreur: 'Script pas encore configuré (clé manquante).' });
   let q;
   try {
     q = JSON.parse((e && e.postData && e.postData.contents) || '{}');
   } catch (err) {
     return json({ status: 400, erreur: 'Requête illisible.' });
   }
-  if (!q || q.cle !== CLE) return json({ status: 401, erreur: 'Clé refusée.' });
+  if (!q || q.cle !== cle) return json({ status: 401, erreur: 'Clé refusée.' });
   try {
     const mail = String(q.mail || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail) || mail.length > 120) return json({ status: 401, erreur: 'Adresse manquante : ouvre IPES App dans Teams.' });
@@ -112,16 +137,23 @@ function doPost(e) {
     } catch (err) {
       /* le journal ne bloque jamais l'app */
     }
-    if (q.action === 'qui') return json(qui(mail));
     if (q.action === 'associer') return json(associer(mail, String(q.nom || '').slice(0, 120)));
     if (q.action === 'chercher') return json(chercher(mail, String(q.texte || '')));
-    const moi = qui(mail);
+    let moi = qui(mail);
+    // Un rôle ne vaut que depuis un appareil approuvé : sinon, la personne n'est qu'un prof (ou personne).
+    if (APPAREILS_ROLES && moi.roles.length && !appareilApprouve(mail, q.appareil)) moi = Object.assign({}, moi, { roles: [], appareilEnAttente: true });
+    if (q.action === 'qui') return json(moi);
     if (!moi.nom && !moi.roles.length) {
       // Pas encore reconnu : on renvoie de quoi choisir son nom (un seul aller-retour).
-      if (q.action === 'lire') return json({ status: 200, moi });
-      return json({ status: 403, erreur: 'Adresse inconnue.' });
+      if (q.action === 'lire') return json({ status: 200, moi, script: VERSION_SCRIPT });
+      return json({ status: 403, erreur: moi.appareilEnAttente ? 'Cet appareil doit encore être approuvé pour ton rôle.' : 'Adresse inconnue.' });
     }
-    if (q.action === 'lire') return json({ status: 200, moi, listes: listesPour(mail) });
+    if (q.action === 'lire') {
+      // L'app a déjà cette copie : on ne la renvoie pas.
+      const jeton = jetonPour(moi);
+      if (jeton && q.connu === jeton) return json({ status: 200, moi, inchange: true, jeton, script: VERSION_SCRIPT });
+      return json({ status: 200, moi, listes: listesPour(mail, moi), jeton, script: VERSION_SCRIPT });
+    }
     const liste = String(q.liste || '');
     if (q.action === 'reserverPlage') return json(ecrire(() => reserverPlage(liste, nettoyer(liste, q.fields), q.fin, mail, moi)));
     if (q.action === 'deciderCours') return json(ecrire(() => deciderCours(q, mail, moi)));
@@ -156,22 +188,90 @@ function tropDeDemandes(mail) {
 }
 
 /**
+ * Les rôles (secrétariat, éducateurs, direction, technique) ne sont acceptés que depuis un appareil
+ * approuvé. Pour couper : mettre false (tout appareil est alors accepté, comme avant).
+ */
+const APPAREILS_ROLES = true;
+
+const idAppareil = (a) => String(a || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 40);
+const estOui = (v) => v === true || /^(oui|o|x|ok|vrai|true|1)$/i.test(String(v === null || v === undefined ? '' : v).trim());
+
+/**
+ * L'onglet « Appareils » : Mail, Appareil, Vu la première fois, Approuvé. La colonne « Approuvé »
+ * est ajoutée la première fois ; les appareils déjà notés à ce moment-là sont approuvés d'office
+ * (ils servaient déjà avant cette règle).
+ */
+function feuilleAppareils() {
+  const classeur = SpreadsheetApp.getActive();
+  const f = classeur.getSheetByName('Appareils') || (classeur.insertSheet ? classeur.insertSheet('Appareils') : null);
+  if (!f) return null;
+  if (f.getLastRow() === 0) {
+    f.appendRow(['Mail', 'Appareil', 'Vu la première fois', 'Approuvé']);
+    return f;
+  }
+  const entetes = f.getRange(1, 1, 1, Math.max(4, f.getLastColumn())).getValues()[0].map((h) => String(h).trim());
+  if (entetes.indexOf('Approuvé') < 0) {
+    const n = f.getLastRow() - 1;
+    f.getRange(1, 4).setValue('Approuvé');
+    if (n > 0) f.getRange(2, 4, n, 1).setValues(Array.from({ length: n }, () => ['Oui']));
+  }
+  return f;
+}
+
+/**
  * Journal des appareils (onglet « Appareils ») : chaque nouvel appareil d'une adresse y est noté
  * une fois. Une adresse utilisée sur un appareil inattendu se voit ici.
  */
 function noterAppareil(mail, appareil) {
-  const a = String(appareil || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 40);
+  const a = idAppareil(appareil);
   const c = cacheScript();
   if (!a || !c) return;
   const cle = `a|${mail}|${a}`;
   if (c.get(cle)) return;
   c.put(cle, '1', 21600);
-  const classeur = SpreadsheetApp.getActive();
-  const f = classeur.getSheetByName('Appareils') || (classeur.insertSheet ? classeur.insertSheet('Appareils') : null);
+  const f = feuilleAppareils();
   if (!f) return;
-  if (f.getLastRow() === 0) f.appendRow(['Mail', 'Appareil', 'Vu la première fois']);
   const deja = f.getLastRow() > 1 ? f.getRange(2, 1, f.getLastRow() - 1, 2).getValues() : [];
-  if (!deja.some((l) => String(l[0]) === mail && String(l[1]) === a)) f.appendRow([mail, a, new Date().toISOString()]);
+  if (!deja.some((l) => String(l[0]) === mail && String(l[1]) === a)) f.appendRow([mail, a, new Date().toISOString(), '']);
+}
+
+/** Cet appareil est-il approuvé pour cette adresse ? (colonne « Approuvé » : Oui) */
+function appareilApprouve(mail, appareil) {
+  const a = idAppareil(appareil);
+  if (!a) return false;
+  const c = cacheScript();
+  // Gardé dix minutes ; une modification à la main dans le Sheet change « ap|g » : effet immédiat.
+  const cle = `ap|${(c && c.get('ap|g')) || ''}|${mail}|${a}`;
+  if (c && c.get(cle) === '1') return true;
+  const f = feuilleAppareils();
+  if (!f) return false;
+  const lignesF = f.getLastRow() > 1 ? f.getRange(2, 1, f.getLastRow() - 1, 4).getValues() : [];
+  const ligne = lignesF.find((l) => String(l[0]) === mail && String(l[1]) === a);
+  if (!ligne) f.appendRow([mail, a, new Date().toISOString(), '']);
+  const ok = !!ligne && estOui(ligne[3]);
+  if (ok && c) c.put(cle, '1', 600);
+  if (!ok) prevenirAppareil(mail, a);
+  return ok;
+}
+
+/** Un rôle demandé depuis un appareil pas encore approuvé : la personne qui gère l'app est prévenue (une fois). */
+function prevenirAppareil(mail, a) {
+  const admin = adminSuggestions();
+  const c = cacheScript();
+  if (!admin || !c || typeof MailApp === 'undefined') return;
+  const cle = `apn|${mail}|${a}`;
+  if (c.get(cle)) return;
+  c.put(cle, '1', 21600);
+  try {
+    MailApp.sendEmail({
+      to: admin,
+      subject: 'IPES App · appareil à approuver',
+      body: `${mail} a un rôle dans IPES App (onglet Roles) et l'ouvre depuis un nouvel appareil.\n\nSi c'est bien cette personne : onglet « Appareils » du Sheet, ligne ${mail} / ${a}, écrire « Oui » dans la colonne « Approuvé ».\nSinon : ne rien faire, et la prévenir.`,
+      name: 'IPES App',
+    });
+  } catch (e) {
+    /* le mail ne bloque jamais l'app */
+  }
 }
 
 /** Une valeur écrite par l'app : texte court ou nombre ; jamais une formule. */
@@ -419,15 +519,37 @@ function preparerOnglet(nom, entetes, depart) {
 function donnees() {
   const enCache = lireCache();
   if (enCache) return enCache;
+  // Déjà dans une écriture : le verrou est à nous.
+  if (verrouille) return construire();
+  // Un seul à la fois reconstruit la copie ; les autres attendent, puis lisent la sienne.
+  const verrou = LockService.getScriptLock();
+  let tenu = false;
+  try {
+    tenu = verrou.tryLock(12000);
+  } catch (e) {
+    tenu = false;
+  }
+  // Trop d'attente : chacun relit le Sheet, comme avant.
+  if (!tenu) return construire();
+  verrouille = true;
+  try {
+    return lireCache() || construire();
+  } finally {
+    verrouille = false;
+    verrou.releaseLock();
+  }
+}
+
+function construire() {
   const c = cacheScript();
   const g = c ? generation(c) : '';
   // Rangement (onglets à créer, lots, IDs manquants) : seulement quand il y a quelque chose à faire.
   const classeur = SpreadsheetApp.getActive();
-  const aFaire = () => (classeur.insertSheet && ((!classeur.getSheetByName('Stages') && STAGES_DEPART.length) || (!classeur.getSheetByName('Agenda') && AGENDA_DEPART.length))) || lotsEnAttente();
+  const aFaire = () => (classeur.insertSheet && ((!classeur.getSheetByName('Stages') && stagesDepart().length) || (!classeur.getSheetByName('Agenda') && agendaDepart().length))) || lotsEnAttente();
   if (aFaire()) {
     ecrire(() => {
-      preparerOnglet('Stages', ['Title', 'Du', 'Au', 'Stage'], STAGES_DEPART);
-      preparerOnglet('Agenda', ['Du', 'Au', 'Title', 'Heure'], AGENDA_DEPART);
+      preparerOnglet('Stages', ['Title', 'Du', 'Au', 'Stage'], stagesDepart());
+      preparerOnglet('Agenda', ['Du', 'Au', 'Title', 'Heure'], agendaDepart());
       importerLots();
     });
   }
@@ -456,19 +578,81 @@ function donnees() {
   });
   // Les suggestions restent privées : l'app sait seulement que la liste existe (pour écrire).
   listes.Suggestions = { cols: ['Title', 'Type'], lignes: [] };
-  const d = { listes, profs, roles };
+  // L'empreinte du contenu : tant qu'elle ne change pas, une app qui a déjà cette copie ne la reçoit plus.
+  const d = { listes, profs, roles, empreinte: empreinte(JSON.stringify([listes, profs, roles])) };
   // Une écriture pendant la construction a changé la génération : cette copie n'est pas gardée.
   ecrireCache(d, c && generation(c) === g ? g : '');
   return d;
 }
 
-/** Les listes pour cette personne : tout, sauf les lignes Roles des autres. */
-function listesPour(mail) {
+/** Une empreinte courte d'un texte (deux fois 32 bits) : même texte, même empreinte. */
+function empreinte(texte) {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < texte.length; i++) {
+    const ch = texte.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+}
+
+/**
+ * Les listes qui grossissent toute l'année, et leurs colonnes de date. Les profs ne reçoivent que les
+ * lignes des JOURS_GARDES derniers jours et de l'avenir (une ligne sans date est gardée). Le
+ * secrétariat, les éducateurs et la direction reçoivent tout.
+ */
+const JOURS_GARDES = 14;
+const DATES = {
+  Absences: ['DateAbs'],
+  'Réservations': ['DateRes'],
+  Deplacements: ['DateDep', 'DateOrigine'],
+  Infos: ['DateInfo'],
+  Materiel: ['DateRes'],
+  Changements: ['DateChg'],
+  Decisions: ['DateDep'],
+  CapReussite: ['DateCR'],
+  Stages: ['Au'],
+  Agenda: ['Au', 'Du'],
+};
+
+const limiteRecente = () => isoDate(new Date(Date.now() - JOURS_GARDES * 86400000));
+
+function recentes(nom, liste, limite) {
+  const cols = (DATES[nom] || []).map((col) => liste.cols.indexOf(col)).filter((i) => i >= 0);
+  if (!cols.length) return liste;
+  const jour = (v) => {
+    const t = String(v === null || v === undefined ? '' : v).slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : '';
+  };
+  return {
+    cols: liste.cols,
+    lignes: liste.lignes.filter((l) => {
+      const jours = cols.map((i) => jour(l[i])).filter(Boolean);
+      return !jours.length || jours.some((j) => j >= limite);
+    }),
+  };
+}
+
+/** Les listes pour cette personne : les lignes récentes (tout pour la gestion), et seulement ses propres rôles. */
+function listesPour(mail, moi) {
   const d = donnees();
   const listes = Object.assign({}, d.listes);
-  const mesRoles = d.roles.filter((r) => r[0] === mail);
-  if (listes.Roles) listes.Roles = { cols: ['Title', 'Role'], lignes: mesRoles.map((r) => [r[0], r[1]]) };
+  if (!gestion(moi)) {
+    const limite = limiteRecente();
+    Object.keys(listes).forEach((nom) => (listes[nom] = recentes(nom, listes[nom], limite)));
+  }
+  if (listes.Roles) listes.Roles = { cols: ['Title', 'Role'], lignes: moi.roles.map((r) => [mail, r]) };
   return listes;
+}
+
+/** Ce que cette personne recevrait maintenant, en une ligne : même jeton = même copie. */
+function jetonPour(moi) {
+  const d = donnees();
+  if (!d.empreinte) return '';
+  return [d.empreinte, gestion(moi) ? 'tout' : limiteRecente(), moi.nom, moi.roles.join(','), VERSION_SCRIPT].join('|');
 }
 
 // ---------- Cache (morceaux de 90 Ko : le cache Google limite chaque valeur à 100 Ko) ----------
@@ -560,6 +744,9 @@ function invalider() {
 function onEdit() {
   try {
     invalider();
+    // Une approbation cochée ou retirée dans l'onglet Appareils vaut tout de suite.
+    const c = cacheScript();
+    if (c) c.put('ap|g', Utilities.getUuid().slice(0, 8), 21600);
   } catch (e) {
     /* le cache expirera de lui-même */
   }
@@ -581,9 +768,9 @@ function ajouterLignes(nom, lignesLot, cle) {
 }
 
 function lotsEnAttente() {
-  if (!LOTS.length || typeof PropertiesService === 'undefined') return false;
+  if (!lots().length || typeof PropertiesService === 'undefined') return false;
   const props = PropertiesService.getScriptProperties();
-  return LOTS.some((lot) => lot.id && !props.getProperty(`lot-${lot.id}`));
+  return lots().some((lot) => lot.id && !props.getProperty(`lot-${lot.id}`));
 }
 
 /**
@@ -591,10 +778,10 @@ function lotsEnAttente() {
  * Stages qui portent ce nom (ex. « Stage »), pour corriger des dates déjà importées.
  */
 function importerLots() {
-  if (!LOTS.length || typeof PropertiesService === 'undefined') return;
+  if (!lots().length || typeof PropertiesService === 'undefined') return;
   const props = PropertiesService.getScriptProperties();
   const jour = (v) => String(valeur(v) || '').slice(0, 10);
-  LOTS.forEach((lot) => {
+  lots().forEach((lot) => {
     const marque = `lot-${lot.id}`;
     if (!lot.id || props.getProperty(marque)) return;
     if (lot.remplacerStages) retirerStages(lot.remplacerStages);
@@ -780,9 +967,9 @@ function creer(nom, champs, mail, moi) {
   const maintenant = new Date().toISOString();
   const o = Object.assign({}, champs, { ID: Utilities.getUuid().slice(0, 13), Version: 1, Created: maintenant, CreePar: mail, Modified: maintenant, ModifiePar: mail });
   f.appendRow(t.entetes.map((h) => versCellule(o[h])));
-  if (nom === 'Suggestions' && ADMIN_SUGGESTIONS && typeof MailApp !== 'undefined') {
+  if (nom === 'Suggestions' && adminSuggestions() && typeof MailApp !== 'undefined') {
     try {
-      MailApp.sendEmail({ to: ADMIN_SUGGESTIONS, subject: `IPES App · ${String(champs.Type || 'Suggestion').toLowerCase()} de ${moi.nom ? nomCourt(moi.nom) : mail}`, body: `${String(champs.Title || '').replace(/^'/, '')}\n\n— ${mail}`, name: 'IPES App' });
+      MailApp.sendEmail({ to: adminSuggestions(), subject: `IPES App · ${String(champs.Type || 'Suggestion').toLowerCase()} de ${moi.nom ? nomCourt(moi.nom) : mail}`, body: `${String(champs.Title || '').replace(/^'/, '')}\n\n— ${mail}`, name: 'IPES App' });
     } catch (e) {
       /* la suggestion est gardée dans l'onglet, même sans mail */
     }
@@ -861,7 +1048,7 @@ function installerImportAbsences() {
 }
 
 function importerAbsencesMail() {
-  if (CLE.indexOf('__') === 0) return;
+  if (cleSecrete().indexOf('__') === 0) return;
   try {
     lireMailAbsences();
   } finally {
@@ -875,7 +1062,7 @@ function importerAbsencesMail() {
 }
 
 function lireMailAbsences() {
-  const objet = `${OBJET_ABSENCES} ${CLE.slice(0, 8)}`;
+  const objet = `${OBJET_ABSENCES} ${cleSecrete().slice(0, 8)}`;
   const fils = GmailApp.search(`subject:"${objet}" is:unread has:attachment newer_than:2d`, 0, 5);
   if (!fils.length) return;
   // Gmail range les réponses dans la même conversation : on ne garde que les messages qui portent
@@ -1233,7 +1420,7 @@ function occasionsDe(nouvelles, maintenant) {
 /** Le lien qui ouvre IPES App dans Teams avec ce déplacement prêt à proposer. */
 function lienTeams(o) {
   const contexte = JSON.stringify({ subEntityId: `prop~${o.depuisDate}~${o.depuisH}~${o.date}~${o.h}` });
-  return `https://teams.microsoft.com/l/entity/${APP_TEAMS}/behappi-accueil?context=${encodeURIComponent(contexte)}`;
+  return `https://teams.microsoft.com/l/entity/${appTeams()}/behappi-accueil?context=${encodeURIComponent(contexte)}`;
 }
 
 /** La carte Teams : pour chaque occasion, le cours qui part → l'heure libérée, le gain, et « Proposer ». */
@@ -1282,7 +1469,7 @@ function fileNotifications() {
  * tente l'envoi tout de suite. Renvoie le nombre d'occasions ajoutées à la file.
  */
 function notifierDeplacements(nouvelles, maintenant) {
-  if (!NOTIFIER || !DESTINATAIRE_NOTIF || !APP_TEAMS) return 0;
+  if (!NOTIFIER || !destinataireNotif() || !appTeams()) return 0;
   const parProf = occasionsDe(nouvelles, maintenant);
   if (!Object.keys(parProf).length) return 0;
   const f = fileNotifications();
@@ -1317,7 +1504,7 @@ function notifierDeplacements(nouvelles, maintenant) {
  * au prochain passage (toutes les 10 min).
  */
 function distribuerNotifications() {
-  if (!NOTIFIER || !DESTINATAIRE_NOTIF || !APP_TEAMS || typeof MailApp === 'undefined') return 0;
+  if (!NOTIFIER || !destinataireNotif() || !appTeams() || typeof MailApp === 'undefined') return 0;
   const f = SpreadsheetApp.getActive().getSheetByName('FileNotifications');
   if (!f || f.getLastRow() < 2) return 0;
   let budget = Math.min(MAX_MAILS, Math.max(0, MailApp.getRemainingDailyQuota() - 5));
@@ -1350,8 +1537,8 @@ function distribuerNotifications() {
     const texte = `Une heure libérée pour ta ${premiere.classes} : ${premiere.gain.charAt(0).toLowerCase()}${premiere.gain.slice(1)}.`.replace(/\|/g, '/');
     try {
       MailApp.sendEmail({
-        to: DESTINATAIRE_NOTIF,
-        subject: `${OBJET_NOTIF} ${CLE.slice(0, 8)} | ${mails[prof]} | ${texte}`.slice(0, 250),
+        to: destinataireNotif(),
+        subject: `${OBJET_NOTIF} ${cleSecrete().slice(0, 8)} | ${mails[prof]} | ${texte}`.slice(0, 250),
         body: texte,
         name: 'IPES App',
         attachments: [Utilities.newBlob(JSON.stringify(carteTeams(paquet.map((p) => p.o))), 'application/json', 'carte.json')],
