@@ -171,6 +171,16 @@ export function Pilotage() {
         </section>
 
         <section className="pile pile--12">
+          <a className="carte carte--lien" href={lien('plan')}>
+            <span className="vignette">
+              <Icon nom="itineraire" />
+            </span>
+            <span className="pile grandit">
+              <span className="titre-s">Plan du jour</span>
+              <span className="petit">Les déplacements à proposer aux profs, pour toute l’école</span>
+            </span>
+            <Icon nom="droite" />
+          </a>
           {attente > 0 && (
             <a className="carte carte--lien" href={lien('validations')}>
               <span className="vignette" style={{ position: 'relative' }}>

@@ -13,6 +13,7 @@ const PARENT: Partial<Record<Ecran, Ecran>> = {
   materiel: 'ecole',
   signaler: 'ecole',
   qr: 'ecole',
+  plan: 'pilotage',
 };
 
 export function Onglets({ actif, profil, pastilles = {} }: { actif: Ecran; profil: Profil; pastilles?: Partial<Record<Ecran, number>> }) {

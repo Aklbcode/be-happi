@@ -40,6 +40,7 @@ export const GROUPES: { titre: string; services: Service[] }[] = [
     titre: 'Vie scolaire',
     services: [
       { ecran: 'pilotage', titre: 'Pilotage', sous: 'L’école en direct, heure par heure', icone: 'pouls' },
+      { ecran: 'plan', titre: 'Plan du jour', sous: 'Les déplacements à proposer aux profs', icone: 'itineraire' },
       { ecran: 'validations', titre: 'Validations', sous: 'Les déplacements proposés', icone: 'echange' },
       { ecran: 'absences', titre: 'Absences', sous: 'Encoder et voir l’impact', icone: 'gens' },
       { ecran: 'publier', titre: 'Publication élèves', sous: 'Ce que voient les classes', icone: 'haut_parleur' },

@@ -23,6 +23,7 @@ import { Happi } from './screens/Happi';
 import { Connexion } from './screens/Connexion';
 import { Validations } from './screens/Validations';
 import { Pilotage } from './screens/Pilotage';
+import { Plan } from './screens/Plan';
 import { OuEst } from './screens/OuEst';
 import { Collab } from './screens/Collab';
 import { Absences } from './screens/Absences';
@@ -65,6 +66,7 @@ function Coquille() {
       case 'connexion': vue = <Connexion />; break;
       case 'validations': vue = <Validations />; break;
       case 'pilotage': vue = <Pilotage />; break;
+      case 'plan': vue = <Plan />; break;
       case 'ouest': vue = <OuEst params={p} key={p.toString()} />; break;
       case 'collab': vue = <Collab params={p} key={p.get('p') ?? ''} />; break;
       case 'absences': vue = <Absences params={p} key={p.get('date') ?? ''} />; break;

@@ -26,6 +26,7 @@ Chacun voit d'abord ce qui le concerne. Les espaces viennent de la liste **Roles
 - **Où est ?** : un collègue, une classe ou un local, maintenant et sur la journée ; qui est libre maintenant.
 - **Collab** : les heures communes de plusieurs collègues sur deux semaines (groupes déduits de l'horaire : équipe d'une classe, profs d'une matière), puis la réunion Teams et le local en un geste.
 - **Déplacements de cours** : suggestions, proposition, validation revérifiée en direct, suivi pour le prof, message Teams après la décision. **Ce qui compte pour toi** (Horaire et Déplacer) : finir plus tôt, commencer plus tard, moins de fourches ; le cours « le plus avantageux », les flèches de l'horaire et les plans de Décale suivent ces choix (gardés sur l'appareil, les mêmes dans les deux apps).
+- **Plan du jour** (secrétariat, éducateurs, direction) : à partir des absences, le meilleur ensemble de déplacements pour **toute l'école** (`src/logic/planEcole.ts`). Une heure libérée n'accueille qu'un cours, aucun prof n'y perd (pas de jour en plus, pas de journée plus longue, pas de fourche en plus), et une étude qui ne ferait que changer de place ne compte pas. Un message Teams est prêt pour chaque prof ; il propose ensuite lui-même dans son horaire, et l'éducateur valide comme toujours.
 - **Absences** (secrétariat) : une ligne par jour comme Power Apps, sans motif (toujours « Non précisé »), avec l'impact calculé avant d'enregistrer.
 - **Publication élèves** : mêmes textes que le bouton « Publier pour les élèves » de Power Apps ; Be Happi dit quand elle n'est plus à jour, et annonce la remédiation au lieu de « étude ».
 - **Infos du jour**, **Signaler** (avec QR code sur chaque porte), **Matériel** (racks de tablettes, PC portables, projecteurs…), **Locaux libres** rangés comme sur le terrain.
@@ -213,6 +214,7 @@ Avec `Sites.ReadWrite.All`, l'app peut ouvrir tous les sites que la personne con
 npm install
 npm run dev          # en local
 npm test             # tests du moteur et du « cerveau » (sans dépendance, Node 22)
+npm run test:calendrier  # les mêmes tests rejoués à d'autres dates de l'année scolaire
 npm run build        # version en ligne (dist/)
 npm run build:demo   # démo autonome en un seul fichier (dist-demo/)
 python3 scripts/teams_zip.py https://aklbcode.github.io/be-happi/   # paquet Teams (démo ; --tenant --client --site : relié à l'école)

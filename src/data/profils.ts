@@ -61,6 +61,7 @@ export const PROFILS: DescriptionProfil[] = [
       { ecran: 'validations', libelle: 'Valider', icone: 'echange' },
       ECOLE,
     ],
+    secours: [{ ecran: 'plan', libelle: 'Plan', long: 'Plan du jour', icone: 'itineraire' }],
   },
   {
     id: 'secretariat',
@@ -78,6 +79,7 @@ export const PROFILS: DescriptionProfil[] = [
     ],
     secours: [
       { ecran: 'pilotage', libelle: 'Pilotage', icone: 'pouls' },
+      { ecran: 'plan', libelle: 'Plan', long: 'Plan du jour', icone: 'itineraire' },
       { ecran: 'ouest', libelle: 'Où est ?', icone: 'loupe' },
       { ecran: 'locaux', libelle: 'Locaux', icone: 'porte' },
     ],
@@ -155,6 +157,7 @@ const ACCES: Partial<Record<Ecran, Profil[]>> = {
   ouest: PERSONNEL,
   collab: PERSONNEL,
   pilotage: ['educateur', 'secretariat', 'direction'],
+  plan: ['educateur', 'secretariat', 'direction'],
   validations: ['educateur', 'secretariat', 'direction'],
   absences: ['secretariat', 'educateur', 'direction'],
   publier: ['secretariat', 'educateur'],

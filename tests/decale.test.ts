@@ -92,7 +92,10 @@ test('Plans : valides, sans doublon, jamais plus longs pour le prof', () => {
 });
 
 test('Plans : deux déplacements ensemble valent plus que la somme (les deux dernières heures du vendredi)', () => {
-  const plans = meilleursPlans(ds, moi, occ);
+  // Seulement les deux dernières heures du vendredi : selon la semaine (congé ou pas), d'autres
+  // plans peuvent passer devant celui-ci dans les trois meilleurs.
+  const duVendredi = occ.filter((o) => o.dateO === vendredi && (o.hO === 7 || o.hO === 8));
+  const plans = meilleursPlans(ds, moi, duVendredi);
   const paire = plans.find((p) => p.deplacements.some((o) => o.dateO === vendredi && o.hO === 7) && p.deplacements.some((o) => o.dateO === vendredi && o.hO === 8));
   assert.ok(paire, 'le plan qui avance H7 et H8 du vendredi est proposé');
   const ven = paire!.effets.find((e) => e.date === vendredi)!;
