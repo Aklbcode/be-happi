@@ -120,11 +120,11 @@ export function Plan() {
             </h2>
             {b.reprises > 0 ? (
               <p className="texte">
-                {b.sansEchange === b.reprises ? 'Toutes' : `${b.sansEchange} sur ${b.reprises}`} sans heure libre ailleurs en échange
+                {b.etudes > 0 ? `${pluriel(b.etudes, 'heure')} d’étude en moins` : 'Pas d’étude en plus'}
                 {b.minutesProfs > 0 ? ` · les profs y gagnent ${dureeTxt(b.minutesProfs)} en tout` : ''} · {pluriel(plan.profs.length, 'prof')} à prévenir
               </p>
             ) : (
-              <p className="texte">Aucun prof ne peut avancer un cours sans y perdre. Pour ces heures : une remédiation, depuis Pilotage.</p>
+              <p className="texte">Aucun déplacement à proposer : un prof y perdrait, ou une classe aurait plus d’étude qu’avant. Pour les heures d’étude : une remédiation, depuis Pilotage.</p>
             )}
           </>
         )}
@@ -133,8 +133,8 @@ export function Plan() {
       {plan && plan.profs.length > 0 && (
         <>
           <p className="texte">
-            Tu préviens le prof, il propose le déplacement dans son horaire, tu valides. Personne n’y perd : pas de jour de cours en plus, pas de journée plus
-            longue, pas de fourche en plus.
+            Tu préviens le prof, il propose le déplacement dans son horaire, tu valides. Aucun prof n’y perd (pas de jour de cours en plus, pas de journée
+            plus longue, pas de fourche en plus) et aucune classe n’a plus d’étude qu’avant.
           </p>
           <div className="grille-2">
             {plan.profs.map((p) => {
@@ -179,9 +179,9 @@ export function Plan() {
       )}
 
       {plan && plan.restent.length > 0 && (
-        <section className="carte" aria-label="Ce qui reste à l'étude">
+        <section className="carte" aria-label="Ce qui reste sans prof">
           <div className="rangee rangee--entre">
-            <h2 className="titre-m">Restent à l’étude · {plan.restent.length}</h2>
+            <h2 className="titre-m">Restent sans prof · {plan.restent.length}</h2>
             <a className="lien-action" href={lien('pilotage')}>
               Qui peut les prendre ?
             </a>
@@ -189,13 +189,20 @@ export function Plan() {
           {jours.map((d) => {
             const duJour = plan.restent.filter((x) => x.date === d);
             if (!duJour.length) return null;
-            const heures = [...new Set(duJour.map((x) => x.h))].sort((x, y) => x - y);
+            const parHeure = (etude: boolean) => {
+              const xs = duJour.filter((x) => x.etude === etude);
+              const heures = [...new Set(xs.map((x) => x.h))].sort((x, y) => x - y);
+              return heures.map((h) => `H${h} : ${xs.filter((x) => x.h === h).map((x) => x.classe).join(', ')}`).join(' · ');
+            };
+            const etudes = parHeure(true);
+            const licenciees = parHeure(false);
             return (
               <div key={d} className="ligne-statut">
-                <span className="point-ton point-ton--orange" aria-hidden="true" />
+                <span className={`point-ton point-ton--${etudes ? 'orange' : 'pale'}`} style={{ alignSelf: 'flex-start', marginTop: 6 }} aria-hidden="true" />
                 <span className="pile grandit">
                   <span className="fort">{jour(d).replace(/^./, (x) => x.toUpperCase())}</span>
-                  <span className="petit">{heures.map((h) => `H${h} : ${duJour.filter((x) => x.h === h).map((x) => x.classe).join(', ')}`).join(' · ')}</span>
+                  {etudes && <span className="petit">À l’étude · {etudes}</span>}
+                  {licenciees && <span className="petit">Licenciées (première ou dernière heure) · {licenciees}</span>}
                 </span>
               </div>
             );

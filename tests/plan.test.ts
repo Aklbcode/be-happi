@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import type { Cours, Dataset, Deplacement } from '../src/data/types';
 import { datasetDemo, momentDemo } from '../src/data/demo';
 import { dernierePeriodeFinie, iso, minutesDe, periode, plusJoursIso, situation } from '../src/lib/calendar';
-import { classesDe, coursDuProf } from '../src/logic/horaire';
+import { absentA, classesDe, coursDuProf, heuresDeLaClasse } from '../src/logic/horaire';
 import { optionsPour, probable, verifierDeplacement } from '../src/logic/deplacements';
 import { essaisPlan, messagePlan, planEcole, textePlan, trajetPlan, type PlanEcole } from '../src/logic/planEcole';
 import { absencesFictives, datasetVide, ecoleFictive, hasard } from './ecole-fictive';
@@ -37,6 +37,29 @@ const enDep = (m: { prof: string; option: { absent: string; date: string; h: num
   dateOrigine: m.option.dateO,
   statut: 'En attente',
 });
+
+/** Pour chaque classe touchée : les heures d'étude en plus (positif) ou en moins (négatif) avec ces déplacements. */
+function etudesAjoutees(ds: Dataset, deps: Deplacement[]): [string, number][] {
+  const etudes = (hs: number[]) => (hs.length ? Array.from({ length: 9 }, (_, i) => i + 1).filter((h) => h > Math.min(...hs) && h < Math.max(...hs) && h !== 5 && !hs.includes(h)).length : 0);
+  const jours = new Map<string, Set<number>>();
+  const de = (cl: string, date: string) => {
+    const k = `${cl}|${date}`;
+    let x = jours.get(k);
+    if (!x) jours.set(k, (x = new Set(heuresDeLaClasse(ds, cl, date))));
+    return x;
+  };
+  for (const d of deps)
+    for (const cl of classesDe(d.classe)) {
+      if (!absentA(ds, d.prof, d.dateOrigine, d.hOrigine)) de(cl, d.dateOrigine).delete(d.hOrigine);
+      de(cl, d.date).add(d.hVide);
+    }
+  const parClasse = new Map<string, number>();
+  for (const [k, apres] of jours) {
+    const [cl, date] = k.split('|');
+    parClasse.set(cl, (parClasse.get(cl) ?? 0) + etudes([...apres]) - etudes(heuresDeLaClasse(ds, cl, date)));
+  }
+  return [...parClasse];
+}
 
 /** Ce qui doit toujours être vrai d'un plan, quel qu'il soit. */
 function verifierPlan(ds: Dataset, plan: PlanEcole, aujourdhui: string, heurePassee: number) {
@@ -76,6 +99,9 @@ function verifierPlan(ds: Dataset, plan: PlanEcole, aujourdhui: string, heurePas
     }
     assert.ok(p.phrases.every((x) => x.signe !== 'perte'), `${p.prof} : aucune perte annoncée (${p.phrases.map((x) => x.texte).join(' / ')})`);
   }
+  // Aucune classe n'a plus d'heures d'étude qu'avant (les heures sans cours entre son premier et son dernier cours).
+  assert.deepEqual(etudesAjoutees(ds, plan.mouvements.map(enDep)).filter(([, n]) => n > 0), [], 'aucune classe avec plus d’étude');
+  assert.equal(plan.bilan.etudes, 0 - etudesAjoutees(ds, plan.mouvements.map(enDep)).reduce((t, [, n]) => t + n, 0), 'études évitées');
   assert.equal(plan.restent.length, plan.bilan.sansProf - plan.bilan.reprises, 'ce qui reste = sans prof − repris');
   assert.ok(plan.bilan.sansEchange <= plan.bilan.reprises);
 }
@@ -99,7 +125,7 @@ test('Plan : une heure libérée, deux profs intéressés → celui qui évite l
   assert.equal(trajetPlan(m), 'lun. 16 H8 → lun. 16 H3');
   assert.equal(m.local, 'BC105');
   assert.deepEqual(m.classes, [{ classe: '3A', texte: 'La 3A finit à 14h35 lundi au lieu de 15h35', signe: 'gain' }]);
-  assert.deepEqual(plan.bilan, { sansProf: 1, reprises: 1, sansEchange: 1, minutesProfs: 260, dominos: 0 });
+  assert.deepEqual(plan.bilan, { sansProf: 1, reprises: 1, sansEchange: 1, etudes: 1, minutesProfs: 260, dominos: 0 });
   assert.equal(plan.restent.length, 0);
   assert.match(plan.profs[0].phrases[0].texte, /Lundi, tu finis à 11h15 au lieu de 15h35/);
 
@@ -111,6 +137,7 @@ test('Plan : une heure libérée, deux profs intéressés → celui qui évite l
   assert.equal(plan2.mouvements[0].classes[0].signe, 'neutre');
   assert.match(plan2.mouvements[0].classes[0].texte, /aura une heure libre lundi en H6 à la place/);
   assert.equal(plan2.bilan.sansEchange, 0);
+  assert.equal(plan2.bilan.etudes, 0, 'l’étude a seulement changé de place');
 });
 
 test('Plan : chacun pour soi laisserait une heure à l’étude ; le plan place les deux profs', () => {
@@ -151,7 +178,7 @@ test('Plan : aucun prof n’y perd (journée plus longue, jour en plus, fourche 
     const plan = planEcole(ds, [LUNDI], LUNDI, 0);
     verifierPlan(ds, plan, LUNDI, 0);
     assert.equal(plan.mouvements.length, 0);
-    assert.deepEqual(plan.restent, [{ date: LUNDI, h: 3, classe: '3A', absent: 'X' }]);
+    assert.deepEqual(plan.restent, [{ date: LUNDI, h: 3, classe: '3A', absent: 'X', etude: true }]);
     assert.equal(plan.bilan.sansProf, 1);
   }
   // Finir un peu plus tard pour commencer beaucoup plus tard : la journée raccourcit nettement, c'est proposé.
@@ -172,6 +199,36 @@ test('Plan : aucun prof n’y perd (journée plus longue, jour en plus, fourche 
     absences: [{ prof: 'X', date: LUNDI, deH: 8, aH: 8 }],
   });
   assert.equal(planEcole(glissee, [LUNDI], LUNDI, 0).mouvements.length, 0);
+});
+
+test('Plan : première ou dernière heure de la classe sans prof = licenciement, pas une étude', () => {
+  // Lundi, la 3A a cours de H1 à H6 puis X en H7, sa dernière heure : X absent, elle est licenciée à 13h45.
+  const base = [...decor('3A', 1, [1, 2, 3, 4, 6]), c('X', 1, 7, '3A', 'BC105'), c('P', 1, 6, '4B'), c('P', 1, 8, '4B'), c('P', 4, 6, '4B')];
+  const abs = [{ prof: 'X', date: LUNDI, deH: 7, aH: 7 }];
+  // P y gagnerait (il commence plus tard jeudi), mais son cours part du milieu du jeudi de la 3A :
+  // elle resterait lundi au lieu de partir, et aurait une étude jeudi en plus. Pas proposé.
+  const milieu = datasetVide({ cours: [...base, ...decor('3A', 4, [1, 2, 3, 6]), c('P', 4, 4, '3A')], absences: abs });
+  const rien = planEcole(milieu, [LUNDI], LUNDI, 0);
+  verifierPlan(milieu, rien, LUNDI, 0);
+  assert.equal(rien.mouvements.length, 0);
+  assert.deepEqual(rien.restent, [{ date: LUNDI, h: 7, classe: '3A', absent: 'X', etude: false }]);
+  // Le même cours en dernière heure du jeudi de la 3A : elle reste lundi, elle part plus tôt jeudi. Aucune étude en plus, P y gagne.
+  const bord = datasetVide({ cours: [...base, ...decor('3A', 4, [1, 2, 3, 4, 6]), c('P', 4, 7, '3A')], absences: abs });
+  const plan = planEcole(bord, [LUNDI], LUNDI, 0);
+  verifierPlan(bord, plan, LUNDI, 0);
+  assert.equal(plan.mouvements.length, 1);
+  assert.deepEqual(plan.mouvements[0].classes, [
+    { classe: '3A', texte: 'La 3A finit à 13h45 jeudi au lieu de 14h35', signe: 'gain' },
+    { classe: '3A', texte: 'La 3A a cours lundi en H7 au lieu d’être licenciée', signe: 'neutre' },
+  ]);
+  assert.equal(plan.bilan.etudes, 0);
+  assert.equal(plan.bilan.reprises, 1);
+  // Une heure sans prof au milieu de la journée reste une étude : la reprendre compte.
+  const dedans = datasetVide({ cours: [...base, ...decor('3A', 1, [8]), ...decor('3A', 4, [1, 2, 3, 4, 6]), c('P', 4, 7, '3A')], absences: abs });
+  const plan2 = planEcole(dedans, [LUNDI], LUNDI, 0);
+  verifierPlan(dedans, plan2, LUNDI, 0);
+  assert.equal(plan2.bilan.etudes, 1);
+  assert.equal(plan2.mouvements[0].classes.length, 1);
 });
 
 test('Plan : un cours qui aurait été perdu est sauvé (son prof est absent ce jour-là)', () => {
@@ -284,7 +341,7 @@ test('Plan : à la taille de l’école (2 000 heures de cours, 12 absents par j
   const plan = planEcole(ds, [LUNDI, j(1)], LUNDI, 0);
   const duree = performance.now() - debut;
   verifierPlan(ds, plan, LUNDI, 0);
-  assert.ok(plan.bilan.reprises >= 30, `${plan.bilan.reprises} heures reprises`);
+  assert.ok(plan.bilan.reprises >= 20, `${plan.bilan.reprises} heures reprises`);
   assert.ok(duree < 5000, `${Math.round(duree)} ms`);
   // Mêmes données, même plan.
   assert.equal(textePlan(planEcole(ds, [LUNDI, j(1)], LUNDI, 0)), textePlan(plan));
@@ -300,7 +357,11 @@ test('Plan : à la taille de l’école (2 000 heures de cours, 12 absents par j
       const o = options[0];
       if (o) seuls = { ...seuls, deplacements: [...seuls.deplacements, { absent: o.absent, date: o.date, hVide: o.h, classe: o.classe, prof, hOrigine: o.hO, dateOrigine: o.dateO, statut: 'En attente' }] };
     }
-  assert.ok(plan.bilan.reprises >= seuls.deplacements.length, `plan ${plan.bilan.reprises} ≥ chacun pour soi ${seuls.deplacements.length}`);
+  // Chacun pour soi, des classes se retrouvent avec plus d'étude qu'avant ; avec le plan, aucune.
+  const pires = etudesAjoutees(ds, seuls.deplacements).filter(([, n]) => n > 0);
+  assert.ok(pires.length > 0, 'chacun pour soi ajoute de l’étude à des classes');
+  const evitees = 0 - etudesAjoutees(ds, seuls.deplacements).reduce((t, [, n]) => t + n, 0);
+  assert.ok(plan.bilan.etudes >= evitees, `études évitées : plan ${plan.bilan.etudes} ≥ chacun pour soi ${evitees}`);
 });
 
 test('Plan : des écoles et des absences tirées au sort → toujours valide, et jamais moins bien que chacun pour soi', () => {

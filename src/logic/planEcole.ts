@@ -10,10 +10,11 @@
 //   - aucun prof n'y perd : pas de jour de cours en plus, pas de journée plus longue, pas de fourche
 //     en plus ;
 //   - ce qui compte : le temps gagné par les profs, et les heures d'étude évitées pour de bon.
-//     Une heure sans prof est une heure d'étude, où qu'elle soit dans la journée (c'est ce qui est
-//     publié pour les élèves). Un cours qui part de la première ou de la dernière heure d'une classe
-//     raccourcit sa journée ; un cours qui part du milieu y laisse une heure libre : l'étude n'a fait
-//     que changer de place, et ça ne compte pas.
+//     La journée d'une classe va de son premier à son dernier cours réellement donné. Si le prof de
+//     sa première ou de sa dernière heure est absent, la classe est licenciée (elle arrive plus tard,
+//     elle part plus tôt) : ce n'est pas une étude. Une heure sans cours au milieu de la journée,
+//     elle, est une étude. Un cours qui part du milieu y laisse une heure libre : l'étude n'a fait
+//     que changer de place. Et le plan n'ajoute d'étude à aucune classe.
 //
 // Le moteur ne décide rien : il prépare ce que l'éducateur ou le secrétariat peut proposer aux profs.
 // Chaque prof propose ensuite lui-même dans son horaire, et l'éducateur valide, comme toujours.
@@ -87,6 +88,8 @@ export interface HeureSansSolution {
   h: number;
   classe: string;
   absent: string;
+  /** Au milieu de la journée de la classe : une étude. Sinon (première ou dernière heure) : la classe est licenciée. */
+  etude: boolean;
 }
 
 export interface PlanEcole {
@@ -95,12 +98,14 @@ export interface PlanEcole {
   /** Tous les déplacements, dans l'ordre des heures libérées. */
   mouvements: MouvementPlan[];
   bilan: {
-    /** Heures de classe sans prof sur ces jours (à venir, hors temps de midi, pas encore reprises). */
+    /** Heures de classe sans prof sur ces jours (à venir, hors temps de midi, pas encore reprises) : études et licenciements. */
     sansProf: number;
     /** Celles que le plan reprend. */
     reprises: number;
-    /** Parmi elles : sans étude ailleurs en échange (la classe finit plus tôt, commence plus tard…). */
+    /** Parmi elles : sans heure libre ailleurs en échange (la classe finit plus tôt, commence plus tard…). */
     sansEchange: number;
+    /** Heures d'étude en moins pour les classes, tout compté (jamais négatif, pour aucune classe). */
+    etudes: number;
     /** Minutes gagnées par les profs, au total. */
     minutesProfs: number;
     /** Heures que les dominos pourraient encore éviter. */
@@ -203,11 +208,9 @@ interface Outils {
   ds: Dataset;
   heuresProf: Map<string, (date: string) => number[]>;
   heuresClasse: Map<string, number[]>;
-  /** Les heures sans prof, jour par jour et classe par classe (à l'étude tant que personne ne les reprend). */
-  etudes: Map<string, Map<string, number[]>>;
   /** Résultats déjà calculés (les mêmes combinaisons reviennent des milliers de fois). */
   memoProf: Map<string, number | null>;
-  memoJour: Map<string, number>;
+  memoJour: Map<string, { points: number; etudes: number }>;
 }
 
 const heuresDuProf = (t: Outils, prof: string) => {
@@ -221,22 +224,6 @@ const heuresDeClasse = (t: Outils, classe: string, date: string): number[] => {
   let hs = t.heuresClasse.get(k);
   if (!hs) t.heuresClasse.set(k, (hs = heuresDeLaClasse(t.ds, classe, date)));
   return hs;
-};
-
-const etudesDeClasse = (t: Outils, classe: string, date: string): number[] => {
-  let jour = t.etudes.get(date);
-  if (!jour) {
-    jour = new Map();
-    for (let h = 1; h <= 9; h++)
-      for (const c of coursSansProf(t.ds, date, h))
-        for (const cl of c.classes) {
-          const hs = jour.get(cl);
-          if (hs) hs.push(h);
-          else jour.set(cl, [h]);
-        }
-    t.etudes.set(date, jour);
-  }
-  return jour.get(classe) ?? [];
 };
 
 /** Les journées d'un prof qui changent avec ces déplacements (les siens). */
@@ -295,12 +282,9 @@ const joursTouches = (c: Candidat): string[] => {
 };
 
 interface JourneeClasse {
-  /** Heures où la classe est à l'école, avec ou sans prof (cours et études). */
+  /** Les heures de cours réellement données (la classe est à l'école du premier au dernier). */
   avant: number[];
   apres: number[];
-  /** Heures sans cours pendant sa journée : études (prof absent) et heures libres au milieu. */
-  etudesAvant: number;
-  etudesApres: number;
 }
 
 /** La journée d'une classe une fois ces déplacements faits (ceux qui la touchent, tous profs confondus). */
@@ -308,35 +292,26 @@ function journeeClasse(t: Outils, k: string, touchant: Candidat[]): JourneeClass
   const i = k.indexOf('|');
   const classe = k.slice(0, i);
   const date = k.slice(i + 1);
-  const cours = heuresDeClasse(t, classe, date);
-  const etudes = etudesDeClasse(t, classe, date);
-  const coursApres = new Set(cours);
-  const etudesApres = new Set(etudes);
+  const avant = heuresDeClasse(t, classe, date);
+  const apres = new Set(avant);
   // Un cours « sauvé » n'était déjà plus dans la journée de la classe (son prof est absent) : rien ne part.
-  for (const c of touchant) if (c.o.dateO === date && !c.sauve) coursApres.delete(c.o.hO);
-  for (const c of touchant)
-    if (c.o.date === date) {
-      etudesApres.delete(c.o.h);
-      coursApres.add(c.o.h);
-    }
-  const avant = [...new Set([...cours, ...etudes])].sort((a, b) => a - b);
-  const apres = [...new Set([...coursApres, ...etudesApres])].sort((a, b) => a - b);
-  return {
-    avant,
-    apres,
-    etudesAvant: new Set(etudes).size + journee(avant).fourches.length,
-    etudesApres: etudesApres.size + journee(apres).fourches.length,
-  };
+  for (const c of touchant) if (c.o.dateO === date && !c.sauve) apres.delete(c.o.hO);
+  for (const c of touchant) if (c.o.date === date) apres.add(c.o.h);
+  return { avant, apres: [...apres].sort((a, b) => a - b) };
 }
 
-/** Ce que vaut la journée d'une classe : études évitées pour de bon, journée plus courte. */
-function pointsJourClasse(t: Outils, k: string, touchant: Candidat[]): number {
-  if (!touchant.length) return 0;
+/** Les heures d'étude d'une journée de classe : les heures sans cours entre son premier et son dernier cours. */
+const etudesDe = (heures: number[]): number => journee(heures).fourches.length;
+
+/** Ce que vaut la journée d'une classe (études évitées, journée plus courte), et les études évitées. */
+function bilanJourClasse(t: Outils, k: string, touchant: Candidat[]): { points: number; etudes: number } {
+  if (!touchant.length) return { points: 0, etudes: 0 };
   const cle = `${k}§${touchant.map((c) => c.cle).sort().join('§')}`;
   let v = t.memoJour.get(cle);
   if (v === undefined) {
     const j = journeeClasse(t, k, touchant);
-    v = POIDS_PLAN.etude * (j.etudesAvant - j.etudesApres) + POIDS_PLAN.presence * (etendue(j.avant) - etendue(j.apres));
+    const etudes = etudesDe(j.avant) - etudesDe(j.apres);
+    v = { points: POIDS_PLAN.etude * etudes + POIDS_PLAN.presence * (etendue(j.avant) - etendue(j.apres)), etudes };
     t.memoJour.set(cle, v);
   }
   return v;
@@ -346,28 +321,46 @@ function pointsJourClasse(t: Outils, k: string, touchant: Candidat[]): number {
 const constante = (c: Candidat): number =>
   (c.sauve ? POIDS_PLAN.sauve * c.o.classes.length : 0) - (c.o.semaineSuivante ? POIDS_PLAN.semaineSuivante : 0) - (c.o.localChange ? POIDS_PLAN.localChange : 0);
 
-/** Ce qu'un déplacement vaut pour les classes s'il est seul dans le plan. */
-const pointsClassesSeul = (t: Outils, c: Candidat): number => joursTouches(c).reduce((s, k) => s + pointsJourClasse(t, k, [c]), constante(c));
+const parProf = (sel: Candidat[]): Map<string, Candidat[]> => {
+  const m = new Map<string, Candidat[]>();
+  for (const c of sel) {
+    const l = m.get(c.prof);
+    if (l) l.push(c);
+    else m.set(c.prof, [c]);
+  }
+  return m;
+};
 
 /**
  * Un plan en cours de construction : on y ajoute et on en retire des déplacements, et on sait à
  * chaque fois ce que ça change à sa valeur sans tout recalculer (seuls le prof et les journées de
- * classe concernés sont réévalués).
+ * classe concernés sont réévalués). Deux garde-fous : aucun prof n'y perd, et aucune classe ne se
+ * retrouve avec plus d'heures d'étude qu'avant.
  */
 class Etat {
   private t: Outils;
   private profs = new Map<string, Candidat[]>();
   private jours = new Map<string, Candidat[]>();
   private verrous = new Map<string, Candidat>();
+  /** Heures d'étude évitées, classe par classe. */
+  private etudes = new Map<string, number>();
   total = 0;
 
+  /** Au départ : les déplacements d'un même prof entrent ensemble (ils peuvent ne valoir qu'à plusieurs). */
   constructor(t: Outils, depart: Candidat[] = []) {
     this.t = t;
-    for (const c of depart) this.changer([c], []);
+    for (const siens of parProf(depart).values()) if (this.delta(siens, []) !== null) this.changer(siens, []);
   }
 
   get mouvements(): Candidat[] {
     return [...this.profs.values()].flat();
+  }
+
+  /** Heures d'étude évitées par le plan, toutes classes confondues. */
+  get etudesEvitees(): number {
+    let n = 0;
+    for (const v of this.etudes.values()) n += v;
+    return n;
   }
 
   duProf(prof: string): Candidat[] {
@@ -393,8 +386,8 @@ class Etat {
     return this.jours.get(k) ?? [];
   }
 
-  /** Ce que vaudrait le changement (ajouts, retraits) ; null si un prof y perdait. */
-  delta(plus: Candidat[], moins: Candidat[]): number | null {
+  /** Ce que changerait le plan (ajouts, retraits), classe par classe et en points ; null si un prof ou une classe y perdait. */
+  private essai(plus: Candidat[], moins: Candidat[]): { points: number; etudes: Map<string, number> } | null {
     let d = 0;
     const profs = new Set([...plus, ...moins].map((c) => c.prof));
     for (const p of profs) {
@@ -404,19 +397,35 @@ class Etat {
       if (v === null) return null;
       d += v - (pointsProf(this.t, p, avant) ?? 0);
     }
+    const etudes = new Map<string, number>();
     const jours = new Set([...plus, ...moins].flatMap(joursTouches));
     for (const k of jours) {
       const avant = this.duJour(k);
       const apres = [...avant.filter((x) => !moins.includes(x)), ...plus.filter((x) => joursTouches(x).includes(k))];
-      d += pointsJourClasse(this.t, k, apres) - pointsJourClasse(this.t, k, avant);
+      const a = bilanJourClasse(this.t, k, avant);
+      const b = bilanJourClasse(this.t, k, apres);
+      d += b.points - a.points;
+      const classe = k.slice(0, k.indexOf('|'));
+      etudes.set(classe, (etudes.get(classe) ?? 0) + b.etudes - a.etudes);
     }
+    // Le plan n'ajoute d'étude à aucune classe.
+    for (const [classe, n] of etudes) if ((this.etudes.get(classe) ?? 0) + n < 0) return null;
     for (const c of plus) d += constante(c);
     for (const c of moins) d -= constante(c);
-    return d;
+    return { points: d, etudes };
   }
 
+  /** Ce que vaudrait le changement (ajouts, retraits) ; null si un prof ou une classe y perdait. */
+  delta(plus: Candidat[], moins: Candidat[]): number | null {
+    return this.essai(plus, moins)?.points ?? null;
+  }
+
+  /** À n'appeler que si delta() n'a pas répondu null. */
   changer(plus: Candidat[], moins: Candidat[]): void {
-    this.total += this.delta(plus, moins) ?? 0;
+    const e = this.essai(plus, moins);
+    if (!e) return;
+    this.total += e.points;
+    for (const [classe, n] of e.etudes) this.etudes.set(classe, (this.etudes.get(classe) ?? 0) + n);
     for (const c of moins) {
       this.profs.set(c.prof, this.duProf(c.prof).filter((x) => x !== c));
       for (const k of joursTouches(c)) this.jours.set(k, this.duJour(k).filter((x) => x !== c));
@@ -429,16 +438,6 @@ class Etat {
     }
   }
 }
-
-const parProf = (sel: Candidat[]): Map<string, Candidat[]> => {
-  const m = new Map<string, Candidat[]>();
-  for (const c of sel) {
-    const l = m.get(c.prof);
-    if (l) l.push(c);
-    else m.set(c.prof, [c]);
-  }
-  return m;
-};
 
 /** Deux déplacements ne vont pas ensemble : même classe à la même heure, ou même prof (même cours, même heure). */
 const enConflit = (a: Candidat, b: Candidat): boolean =>
@@ -455,24 +454,22 @@ interface Lot {
   ressources: string[];
 }
 
-/** Les lots d'un prof : chaque combinaison de ses déplacements qui lui convient et qui rapporte. */
+/** Les lots d'un prof : chaque combinaison de ses déplacements qui lui convient, ne coûte d'étude à aucune classe, et rapporte. */
 function lotsDuProf(t: Outils, prof: string, siens: Candidat[]): Lot[] {
-  const seul = new Map(siens.map((c) => [c.cle, pointsClassesSeul(t, c)]));
+  const vide = new Etat(t);
   // Trop de possibilités : on garde les meilleures, vues une à une.
   let liste = siens;
   if (liste.length > MAX_PAR_PROF) {
-    const note = (c: Candidat) => (pointsProf(t, prof, [c]) ?? -50) + (seul.get(c.cle) ?? 0);
-    liste = [...liste].sort((a, b) => note(b) - note(a) || a.cle.localeCompare(b.cle)).slice(0, MAX_PAR_PROF);
+    const note = new Map(liste.map((c) => [c.cle, vide.delta([c], []) ?? (pointsProf(t, prof, [c]) ?? -50) - 50]));
+    liste = [...liste].sort((a, b) => note.get(b.cle)! - note.get(a.cle)! || a.cle.localeCompare(b.cle)).slice(0, MAX_PAR_PROF);
   }
   const lots: Lot[] = [];
   const sel: Candidat[] = [];
   const parcourir = (i: number) => {
     if (i === liste.length) {
       if (!sel.length) return;
-      const pour = pointsProf(t, prof, sel);
-      if (pour === null) return;
-      const v = pour + sel.reduce((s, c) => s + (seul.get(c.cle) ?? 0), 0);
-      if (v > 0.5) lots.push({ prof, cands: [...sel], valeur: v, ressources: sel.flatMap((c) => c.ressources) });
+      const v = vide.delta(sel, []);
+      if (v !== null && v > 0.5) lots.push({ prof, cands: [...sel], valeur: v, ressources: sel.flatMap((c) => c.ressources) });
       return;
     }
     const c = liste[i];
@@ -620,7 +617,7 @@ const liste = (xs: string[]): string => (xs.length > 1 ? `${xs.slice(0, -1).join
  * combler peuvent partir de plus tard dans la semaine, comme dans l'horaire du prof).
  */
 export function planEcole(ds: Dataset, jours: string[], aujourdhui: string, heurePassee: number, reglages: { budget?: number } = {}): PlanEcole {
-  const t: Outils = { ds, heuresProf: new Map(), heuresClasse: new Map(), etudes: new Map(), memoProf: new Map(), memoJour: new Map() };
+  const t: Outils = { ds, heuresProf: new Map(), heuresClasse: new Map(), memoProf: new Map(), memoJour: new Map() };
   const libres = heuresAPrendre(ds, jours, aujourdhui, heurePassee);
   const sansProf = libres.reduce((s, l) => s + l.classes.length, 0);
 
@@ -703,6 +700,12 @@ export function planEcole(ds: Dataset, jours: string[], aujourdhui: string, heur
       trou = true;
       return { classe: cl, texte: `La ${cl} aura une heure libre ${jO} en H${o.hO} à la place`, signe: 'neutre' };
     });
+    // À l'arrivée : si l'heure libérée était la première ou la dernière de la classe, elle aurait été licenciée.
+    for (const cl of o.classes) {
+      const reel = heuresDeClasse(t, cl, o.date);
+      if (!reel.length || o.h < Math.min(...reel) || o.h > Math.max(...reel))
+        classes.push({ classe: cl, texte: `La ${cl} a cours ${JOURS[jourSemaineIso(o.date)]} en H${o.h} au lieu d’être licenciée`, signe: 'neutre' });
+    }
     // Une étude reste dans la journée de la classe : un collègue peut-il la combler (domino) ?
     let domino: Domino | undefined;
     if (trou) {
@@ -736,7 +739,12 @@ export function planEcole(ds: Dataset, jours: string[], aujourdhui: string, heur
   const prises = new Set(sel.flatMap((c) => c.ressources));
   const restent: HeureSansSolution[] = libres
     .flatMap((l) => l.classes.map((classe) => ({ date: l.date, h: l.h, classe, absent: l.absent })))
-    .filter((x) => !prises.has(`${x.date}|${x.h}|${x.classe}`));
+    .filter((x) => !prises.has(`${x.date}|${x.h}|${x.classe}`))
+    .map((x) => {
+      const k = `${x.classe}|${x.date}`;
+      const { apres } = journeeClasse(t, k, etat.duJour(k));
+      return { ...x, etude: apres.length > 0 && x.h > apres[0] && x.h < apres[apres.length - 1] };
+    });
 
   return {
     jours,
@@ -746,6 +754,7 @@ export function planEcole(ds: Dataset, jours: string[], aujourdhui: string, heur
       sansProf,
       reprises: sel.reduce((s, c) => s + c.o.classes.length, 0),
       sansEchange,
+      etudes: etat.etudesEvitees,
       minutesProfs: profs.reduce((s, p) => s + p.gain, 0),
       dominos: mouvements.filter((m) => m.domino).length,
     },
@@ -799,7 +808,7 @@ export const debutDe = (h: number): string => heureTxt(periode(h).dm);
 
 /** Pour les tests : les déplacements possibles et la valeur d'un ensemble donné (null si un prof y perd ou s'il y a conflit). */
 export function essaisPlan(ds: Dataset, jours: string[], aujourdhui: string, heurePassee: number) {
-  const t: Outils = { ds, heuresProf: new Map(), heuresClasse: new Map(), etudes: new Map(), memoProf: new Map(), memoJour: new Map() };
+  const t: Outils = { ds, heuresProf: new Map(), heuresClasse: new Map(), memoProf: new Map(), memoJour: new Map() };
   const tous = candidats(ds, jours, aujourdhui, heurePassee, new Set());
   const valeur = (cles: string[]): number | null => {
     const sel = tous.filter((c) => cles.includes(c.cle));
