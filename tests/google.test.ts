@@ -566,4 +566,8 @@ test('réglages privés dans un second fichier (PRIVE) : ils passent avant ceux 
   vm.runInContext(readFileSync(new URL('../google/Code.gs', import.meta.url), 'utf8'), nu);
   assert.equal(JSON.parse((nu.doPost as (e: unknown) => string)({ postData: { contents: JSON.stringify({ action: 'lire', cle: '__CLE__', mail: prof }) } })).status, 503);
   assert.match(JSON.parse((nu.doGet as () => string)()).version, /^\d{4}-\d{2}-\d{2}$/);
+  // L'adresse …/exec dit si la clé est en place, sans la montrer.
+  assert.equal(JSON.parse((nu.doGet as () => string)()).configure, false);
+  assert.equal(JSON.parse((autre.doGet as () => string)()).configure, true);
+  assert.ok(!(autre.doGet as () => string)().includes('une-autre-cle'));
 });

@@ -35,7 +35,7 @@
  */
 
 /** La version de ce script : visible en ouvrant l'adresse …/exec dans un navigateur. */
-const VERSION_SCRIPT = '2026-11-14';
+const VERSION_SCRIPT = '2026-11-15';
 
 const CLE = '__CLE__';
 
@@ -113,7 +113,10 @@ const LOTS = [];
 // ---------- Entrée ----------
 
 function doGet() {
-  return json({ ok: true, app: 'IPES App', version: VERSION_SCRIPT, message: 'Le script répond. Ouvre IPES App dans Teams.' });
+  // « configure » : la clé privée est bien là (Prive.gs, ou écrite dans ce fichier). Rien d'autre n'est dit.
+  const cle = cleSecrete();
+  const configure = cle.indexOf('__') !== 0 && cle.length >= 20;
+  return json({ ok: true, app: 'IPES App', version: VERSION_SCRIPT, configure, message: configure ? 'Le script répond. Ouvre IPES App dans Teams.' : 'Le script répond, mais la clé manque (fichier Prive.gs).' });
 }
 
 function doPost(e) {
